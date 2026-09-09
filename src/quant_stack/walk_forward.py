@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
+
+import yaml
 
 
 @dataclass(frozen=True)
@@ -35,3 +38,11 @@ def chronological_splits(
         )
         start += test_size
     return splits
+
+
+def load_preregistered_experiment(path: Path) -> dict[str, object]:
+    """Load a frozen experiment record and reject anything not explicitly preregistered."""
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("status") != "preregistered_not_executed":
+        raise ValueError("experiment must be a preregistered, not-yet-executed mapping")
+    return payload
