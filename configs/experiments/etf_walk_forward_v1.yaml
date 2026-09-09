@@ -1,5 +1,6 @@
 experiment_id: etf_walk_forward_v1
 status: preregistered_not_executed
+evaluation_contract_sha256: 11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230
 selection_period_end: 2023-12-29
 locked_test_start: 2024-01-02
 parameter_grid:
