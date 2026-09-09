@@ -20,7 +20,7 @@
 | 006 | `issue/006-vectorbt-t1` | base `fdb9267`; accepted `02380c5` | PASS | VectorBT T+1 order timestamp test; Ruff, mypy, pytest pass | Issue 007 may be created |
 | 007 | `issue/007-cost-model` | base `05c2a0d`; accepted `fde9caf` | PASS | Cost and doubled-cost tests pass | Issue 008 may be created |
 | 008 | `issue/008-no-lookahead` | base `59d4226`; accepted `a0b67c4` | PASS | T+1, ordering, and corporate-action PIT tests pass | Issue 009 may be created |
-| 009 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
+| 009 | `issue/009-walk-forward` | base `85561e7` | IN_PROGRESS | Chronological split tests pass | Pre-registered grid and robustness report remain; Issue 010 forbidden |
 | 010 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
 | 011 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
 | 012 | not created | — | Not started | — | Forbidden before 009 gate passes |
