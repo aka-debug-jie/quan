@@ -18,7 +18,7 @@
 | 004 | `issue/004-features` | base `eea1e16`; accepted `4b81116` | PASS | PIT-safe feature warm-up tests; Ruff, mypy, pytest pass | Issue 005 may be created |
 | 005 | `issue/005-portfolio-construction` | base `8812be2`; accepted `b2416dd` | PASS | Constraint and deterministic weighting tests pass | Issue 006 may be created |
 | 006 | `issue/006-vectorbt-t1` | base `fdb9267`; accepted `02380c5` | PASS | VectorBT T+1 order timestamp test; Ruff, mypy, pytest pass | Issue 007 may be created |
-| 007 | `issue/007-cost-model` | base `05c2a0d` | Implemented; acceptance review pending | Cost and doubled-cost tests pass | Do not enter Issue 008 before review |
+| 007 | `issue/007-cost-model` | base `05c2a0d`; accepted `fde9caf` | PASS | Cost and doubled-cost tests pass | Issue 008 may be created |
 | 008 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 009 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
 | 010 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
