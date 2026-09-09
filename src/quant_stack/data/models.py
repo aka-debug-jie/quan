@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from itertools import pairwise
 from typing import Annotated, Literal
@@ -155,6 +156,114 @@ class IngestionManifest(DomainModel):
         ):
             raise ValueError("complete coverage cannot contain expected-session gaps")
         return self
+
+
+class ProviderId(StrEnum):
+    """Provider identities kept separate until a canonicalization decision is audited."""
+
+    AKSHARE_EASTMONEY = "akshare_eastmoney"
+    SZSE_OFFICIAL = "szse_official"
+    TUSHARE = "tushare"
+
+
+class ProviderSeriesManifest(DomainModel):
+    """Provenance for one provider-native daily-bar series independent of canonical data."""
+
+    manifest_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    provider: ProviderId
+    instrument: Instrument
+    price_basis: PriceBasis
+    source_url: Annotated[str, Field(min_length=1)]
+    retrieved_at: datetime
+    request_parameters: dict[str, str]
+    http_metadata: dict[str, str]
+    parser_version: Annotated[str, Field(min_length=1)]
+    normalization_version: Annotated[str, Field(min_length=1)]
+    raw_file: ManifestFile
+    normalized_file: ManifestFile
+    row_count: Annotated[int, Field(gt=0)]
+    first_trading_date: date
+    last_trading_date: date
+
+    @field_validator("retrieved_at")
+    @classmethod
+    def require_retrieval_timezone(cls, value: datetime) -> datetime:
+        """Require an unambiguous provider retrieval timestamp."""
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("retrieved_at must be timezone-aware")
+        return value
+
+    @model_validator(mode="after")
+    def validate_provider_series_dates(self) -> ProviderSeriesManifest:
+        """Keep provider-native coverage bounds internally consistent."""
+        if self.first_trading_date > self.last_trading_date:
+            raise ValueError("first_trading_date must not follow last_trading_date")
+        return self
+
+
+class CorporateActionKind(StrEnum):
+    """Official events that change raw-price continuity without filling trade bars."""
+
+    CASH_DISTRIBUTION = "cash_distribution"
+    SHARE_SPLIT = "share_split"
+
+
+class CorporateActionEvent(DomainModel):
+    """One evidence-backed corporate action used by deterministic price adjustment."""
+
+    effective_date: date
+    kind: CorporateActionKind
+    cash_per_unit: Decimal | None = None
+    split_ratio: Decimal | None = None
+    evidence: OfficialEvidence
+
+    @model_validator(mode="after")
+    def validate_action_payload(self) -> CorporateActionEvent:
+        """Require exactly the action parameter relevant to the declared event kind."""
+        if self.kind is CorporateActionKind.CASH_DISTRIBUTION:
+            if (
+                self.cash_per_unit is None
+                or self.cash_per_unit <= 0
+                or self.split_ratio is not None
+            ):
+                raise ValueError("cash distribution requires positive cash_per_unit only")
+        if self.kind is CorporateActionKind.SHARE_SPLIT:
+            if self.split_ratio is None or self.split_ratio <= 0 or self.cash_per_unit is not None:
+                raise ValueError("share split requires positive split_ratio only")
+        return self
+
+
+class CorporateActionLedger(DomainModel):
+    """Versioned official action ledger; incomplete ledgers may not produce canonical qfq data."""
+
+    ledger_id: Annotated[str, Field(min_length=1)]
+    version: Annotated[int, Field(ge=1)]
+    instrument: Instrument
+    completeness: Literal["incomplete", "complete"]
+    events: tuple[CorporateActionEvent, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_event_order(self) -> CorporateActionLedger:
+        """Reject duplicate corporate-action effective dates in one ledger version."""
+        dates = tuple(event.effective_date for event in self.events)
+        if len(dates) != len(set(dates)):
+            raise ValueError("corporate-action ledger dates must be unique")
+        if dates != tuple(sorted(dates)):
+            raise ValueError("corporate-action ledger events must be sorted")
+        return self
+
+
+class CanonicalDatasetManifest(DomainModel):
+    """Provenance for a dataset selected or derived by the canonicalization layer."""
+
+    manifest_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    instrument: Instrument
+    price_basis: PriceBasis
+    source_provider: ProviderId
+    source_manifest_ids: tuple[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")], ...]
+    algorithm_version: Annotated[str, Field(min_length=1)]
+    corporate_action_ledger_id: Annotated[str, Field(min_length=1)] | None = None
+    output_file: ManifestFile
 
 
 class CalendarSource(OfficialEvidence):

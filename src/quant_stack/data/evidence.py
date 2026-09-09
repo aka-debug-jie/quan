@@ -7,7 +7,11 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from quant_stack.data.models import DocumentedNonTradingEvent, OfficialEvidence
+from quant_stack.data.models import (
+    CorporateActionEvent,
+    DocumentedNonTradingEvent,
+    OfficialEvidence,
+)
 from quant_stack.snapshot import write_immutable
 
 EvidenceFetcher = Callable[[str], bytes]
@@ -20,6 +24,11 @@ class EvidenceArchiveError(ValueError):
 def non_trading_evidence_archive_path(data_root: Path, evidence: OfficialEvidence) -> Path:
     """Return the immutable local location of one official non-trading evidence document."""
     return data_root / "raw" / "non_trading_evidence" / evidence.sha256 / "evidence.pdf"
+
+
+def corporate_action_evidence_archive_path(data_root: Path, evidence: OfficialEvidence) -> Path:
+    """Return the immutable local location of one corporate-action source body."""
+    return data_root / "raw" / "corporate_action_evidence" / evidence.sha256 / "evidence.bin"
 
 
 def require_non_trading_evidence(
@@ -61,12 +70,91 @@ def capture_non_trading_evidence(
     return tuple(archive_paths)
 
 
+def require_corporate_action_evidence(
+    events: Iterable[CorporateActionEvent],
+    data_root: Path,
+) -> None:
+    """Reject a corporate-action ledger whose evidence is absent or altered locally."""
+    _require_evidence(
+        _unique_corporate_action_evidence(events),
+        data_root,
+        "corporate_action_evidence",
+        "evidence.bin",
+    )
+
+
+def capture_corporate_action_evidence(
+    events: Iterable[CorporateActionEvent],
+    data_root: Path,
+    fetcher: EvidenceFetcher | None = None,
+) -> tuple[Path, ...]:
+    """Fetch, validate, and immutably archive official corporate-action evidence."""
+    return _capture_evidence(
+        _unique_corporate_action_evidence(events),
+        data_root,
+        "corporate_action_evidence",
+        fetcher,
+        "evidence.bin",
+    )
+
+
 def _unique_evidence(events: Iterable[DocumentedNonTradingEvent]) -> tuple[OfficialEvidence, ...]:
     """Return evidence once per content hash while preserving configuration order."""
     unique: dict[str, OfficialEvidence] = {}
     for event in events:
         unique.setdefault(event.evidence.sha256, event.evidence)
     return tuple(unique.values())
+
+
+def _unique_corporate_action_evidence(
+    events: Iterable[CorporateActionEvent],
+) -> tuple[OfficialEvidence, ...]:
+    """Return corporate-action evidence once per content hash in ledger order."""
+    unique: dict[str, OfficialEvidence] = {}
+    for event in events:
+        unique.setdefault(event.evidence.sha256, event.evidence)
+    return tuple(unique.values())
+
+
+def _require_evidence(
+    evidence_items: Iterable[OfficialEvidence],
+    data_root: Path,
+    category: str,
+    filename: str = "evidence.pdf",
+) -> None:
+    """Verify local evidence bodies for one evidence category."""
+    for evidence in evidence_items:
+        archive_path = data_root / "raw" / category / evidence.sha256 / filename
+        if not archive_path.is_file():
+            raise EvidenceArchiveError(f"missing local evidence archive: {archive_path}")
+        if _sha256(archive_path.read_bytes()) != evidence.sha256:
+            raise EvidenceArchiveError(f"evidence hash mismatch: {archive_path}")
+
+
+def _capture_evidence(
+    evidence_items: Iterable[OfficialEvidence],
+    data_root: Path,
+    category: str,
+    fetcher: EvidenceFetcher | None,
+    filename: str = "evidence.pdf",
+) -> tuple[Path, ...]:
+    """Capture one evidence category under its content-addressed raw root."""
+    fetch = fetcher or _fetch_evidence_bytes
+    archive_paths: list[Path] = []
+    for evidence in evidence_items:
+        archive_path = data_root / "raw" / category / evidence.sha256 / filename
+        if archive_path.is_file():
+            if _sha256(archive_path.read_bytes()) != evidence.sha256:
+                raise EvidenceArchiveError(f"evidence hash mismatch: {archive_path}")
+        else:
+            content = fetch(evidence.url)
+            if _sha256(content) != evidence.sha256:
+                raise EvidenceArchiveError(
+                    f"evidence content does not match configured hash: {evidence.url}"
+                )
+            write_immutable(archive_path, content)
+        archive_paths.append(archive_path)
+    return tuple(archive_paths)
 
 
 def _fetch_evidence_bytes(url: str) -> bytes:

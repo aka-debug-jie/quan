@@ -16,8 +16,13 @@ from quant_stack.data.calendar import (
     ExchangeCalendarStore,
     IncompleteSessionError,
 )
+from quant_stack.data.corporate_actions import (
+    CorporateActionLedgerError,
+    load_corporate_action_ledger,
+)
 from quant_stack.data.evidence import (
     EvidenceArchiveError,
+    capture_corporate_action_evidence,
     capture_non_trading_evidence,
     require_non_trading_evidence,
 )
@@ -29,7 +34,14 @@ from quant_stack.data.ingest import (
     normalized_dates,
     verify_normalized_parquet,
 )
-from quant_stack.models import PriceBasis
+from quant_stack.data.models import ETFHistoryRequest
+from quant_stack.data.szse_official import (
+    SZSEProviderError,
+    fetch_szse_daily_history,
+    load_szse_provider_bars,
+    persist_szse_daily_history,
+)
+from quant_stack.models import Exchange, PriceBasis
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
 
@@ -128,6 +140,87 @@ def capture_non_trading_evidence_command(
         typer.echo(f"non-trading evidence capture failed: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo(f"verified non-trading evidence archives: {len(paths)}")
+
+
+@data_app.command("capture-corporate-action-evidence")
+def capture_corporate_action_evidence_command(
+    ledger: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Explicitly capture and verify the official source bodies named by one action ledger."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required to capture corporate-action evidence")
+    try:
+        paths = capture_corporate_action_evidence(
+            load_corporate_action_ledger(ledger).events,
+            data_root,
+        )
+    except (CorporateActionLedgerError, EvidenceArchiveError) as error:
+        typer.echo(f"corporate-action evidence capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"verified corporate-action evidence archives: {len(paths)}")
+
+
+@data_app.command("ingest-szse-raw")
+def ingest_szse_raw(
+    universe: UniverseOption,
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    symbol: Annotated[str, typer.Option()] = "159919",
+    data_root: DataRootOption = Path("data"),
+    calendar_root: CalendarRootOption = Path("configs/calendars"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture a provider-native SZSE raw series; no adjusted values are requested or created."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for SZSE ingestion")
+    start_date = _parse_cli_date(start, "start")
+    as_of_date = _parse_cli_date(as_of, "as-of")
+    try:
+        instruments = load_etf_universe(universe).instruments
+        instrument = next(
+            item for item in instruments if item.symbol == symbol and item.exchange is Exchange.SZSE
+        )
+        calendar = ExchangeCalendarStore(calendar_root)
+        calendar.require_completed_as_of(instrument.exchange, as_of_date)
+        request = ETFHistoryRequest(
+            instrument=instrument,
+            start_date=max(start_date, instrument.effective_from),
+            as_of_date=as_of_date,
+            price_basis=PriceBasis.RAW,
+        )
+        manifest = persist_szse_daily_history(
+            request,
+            fetch_szse_daily_history(instrument.symbol),
+            data_root,
+        )
+        bars = load_szse_provider_bars(manifest, data_root)
+        coverage = calendar.coverage_report(
+            instrument,
+            PriceBasis.RAW,
+            {bar.trading_date for bar in bars},
+            request.start_date,
+            request.as_of_date,
+        )
+    except (
+        CalendarNotFoundError,
+        CalendarSourceError,
+        IncompleteSessionError,
+        SZSEProviderError,
+        StopIteration,
+        ValueError,
+    ) as error:
+        typer.echo(f"SZSE ingestion failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"provider manifest: {manifest.manifest_id}")
+    typer.echo(f"raw provider rows: {len(bars)}")
+    typer.echo(f"coverage complete: {coverage.is_complete}")
+    if not coverage.is_complete:
+        typer.echo(
+            "SZSE provider series is retained but cannot pass the Issue 003 coverage gate", err=True
+        )
+        raise typer.Exit(code=1)
 
 
 @data_app.command("coverage")

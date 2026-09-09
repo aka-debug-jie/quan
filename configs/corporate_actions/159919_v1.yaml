@@ -1,0 +1,11 @@
+# This ledger deliberately remains incomplete.  No price-derived or third-party event is
+# permitted to promote it; each eventual event must name and hash its primary source body.
+ledger_id: cn_etf_159919_official_actions
+version: 1
+instrument:
+  symbol: "159919"
+  exchange: SZSE
+  currency: CNY
+  asset_class: etf
+completeness: incomplete
+events: []

@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-calendar-coverage-gate` | baseline `53cf6d3`; gate review `0e9dd5b` | Implemented; real-data acceptance blocked | Calendar, evidence, and coverage tests pass | Held: `159919` raw/qfq coverage is incomplete |
+| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; gate reviews `0e9dd5b`, `c98a974` | Recovery architecture implemented; real-data acceptance blocked | Offline provider, ledger, adjustment, reconciliation, calendar, and coverage tests pass | Held: official SZSE capture is only 201 bars and the action ledger is incomplete |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
@@ -34,7 +34,9 @@ uv run mypy src
 uv run pytest --cov=quant_stack
 ```
 
-Current result: all checks pass; `50 passed`; coverage is 83%.
+Recovery result: Ruff, formatting, strict mypy, and `60 passed` all pass. The
+Issue 003 real-data acceptance gate remains blocked; see
+`ISSUE_003_159919_RECOVERY_REPORT.md`.
 
 ## Data-gate evidence
 
@@ -71,3 +73,17 @@ zero unexplained `expected_session_missing` dates.
   disconnect. This confirms the block is not caused by multi-year request size.
 - No fallback provider, manual CSV import, synthetic bar, or data waiver was
   used after this probe.
+
+## 159919 secondary-provider recovery
+
+- Branch: `issue/003-159919-szse-recovery`.
+- The SZSE official `getHistoryData` endpoint was captured as a separate raw-only
+  provider series with HTTP metadata, a raw JSON SHA-256, native Parquet, and a
+  provider manifest. It yielded 201 sessions (2025-11-14 through 2026-09-09),
+  leaving 2,640 expected sessions missing from the 2015-onward required range.
+- The authoritative corporate-action ledger configuration is intentionally
+  `incomplete`; the canonical qfq algorithm refuses it. No provider series was
+  merged, no OHLC was generated, and no original AKShare evidence was changed.
+- Tushare is not installed and no `TUSHARE_TOKEN` is configured, so it was not
+  used as a cross-check. The reconciliation outcome is `blocked`, not an empty
+  pass. See `ISSUE_003_159919_RECOVERY_REPORT.md` for A–J evidence.
