@@ -12,18 +12,18 @@
 
 | Issue | Branch | Commit | Status | Acceptance evidence | Promotion state |
 | --- | --- | --- | --- | --- | --- |
-| 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
-| 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; accepted head pending this update | PASS | Raw/qfq coverage, official evidence ledger, PIT view, factor reconciliation, Ruff, mypy, pytest pass | Issue 004 may be created only by explicit next action |
-| 004 | `issue/004-features` | base `eea1e16`; accepted `4b81116` | PASS | PIT-safe feature warm-up tests; Ruff, mypy, pytest pass | Issue 005 may be created |
-| 005 | `issue/005-portfolio-construction` | base `8812be2`; accepted `b2416dd` | PASS | Constraint and deterministic weighting tests pass | Issue 006 may be created |
-| 006 | `issue/006-vectorbt-t1` | base `fdb9267`; accepted `02380c5` | PASS | VectorBT T+1 order timestamp test; Ruff, mypy, pytest pass | Issue 007 may be created |
-| 007 | `issue/007-cost-model` | base `05c2a0d`; accepted `fde9caf` | PASS | Cost and doubled-cost tests pass | Issue 008 may be created |
-| 008 | `issue/008-no-lookahead` | base `59d4226`; accepted `a0b67c4` | PASS | T+1, ordering, and corporate-action PIT tests pass | Issue 009 may be created |
-| 009 | `issue/009-walk-forward` | base `85561e7` | IN_PROGRESS | Chronological split tests pass | Pre-registered grid and robustness report remain; Issue 010 forbidden |
-| 010 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
-| 011 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
-| 012 | not created | — | Not started | — | Forbidden before 009 gate passes |
+| 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | PASS | Offline adapter, immutable snapshot and calendar tests | Accepted through the shared 001--003 gate |
+| 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | PASS | Content-addressed raw/Parquet/manifest tests | Accepted through the shared 001--003 gate |
+| 003 | `issue/003-159919-szse-recovery` | accepted `eea1e16` | PASS | Canonical raw/qfq/causal evidence chain and reconciliation tests | Issue 004 accepted as descendant |
+| 004 | `issue/004-features` | accepted `8812be2` | PASS | PIT feature warm-up tests | Issue 005 accepted as descendant |
+| 005 | `issue/005-portfolio-construction` | accepted `fdb9267` | PASS | Constraint and deterministic weighting tests | Issue 006 accepted as descendant |
+| 006 | `issue/006-vectorbt-t1` | accepted `05c2a0d` | PASS | VectorBT T+1 order-timestamp test | Issue 007 accepted as descendant |
+| 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
+| 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
+| 009 | `issue/009-walk-forward` | base `85561e7`; current `0f5e09c` | IN_PROGRESS | Frozen evaluation contract/input hashes; deterministic target execution; fold runner; 89 offline tests pass | Locked test has not run; Issue 010 remains forbidden |
+| 010 | not created | — | NOT_STARTED | — | Forbidden before Issue 009 PASS |
+| 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
+| 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |
 
 ## Current acceptance commands
 
@@ -34,66 +34,21 @@ uv run mypy src
 uv run pytest --cov=quant_stack
 ```
 
-Recovery result: Ruff, formatting, strict mypy, and `60 passed` all pass. The
-Issue 003 real-data acceptance gate remains blocked; see
-`ISSUE_003_159919_RECOVERY_REPORT.md`.
+Current full validation in the repository-local Conda Python 3.11 environment:
+Ruff, formatting, strict mypy and `89 passed` with coverage. The environment is
+ignored; the dependency set is synchronized from the checked-in `uv.lock`.
 
-## Data-gate evidence
+## Current Issue 009 review
 
-- `510300` raw/qfq: complete, 2,841 bars each.
-- `510500` raw/qfq: complete, 2,839 bars each; 2015-04-13 and 2015-04-14
-  are documented non-trading events with an archived and hash-verified official
-  source.
-- `159919` raw/qfq: no bars acquired. The configured AKShare Eastmoney history
-  endpoint currently disconnects before returning data, including direct
-  requests. This is an external provider availability condition, not a data
-  exception and not permission to synthesize or waive bars.
-
-No strategy, feature, portfolio, backtest, Paper Broker, report, or systemd
-implementation may begin until `159919` obtains complete raw/qfq coverage with
-zero unexplained `expected_session_missing` dates.
-
-## Current branch review
-
-- Branch: `issue/003-calendar-coverage-gate`.
-- Reviewed scope: data adapter, immutable source capture, calendar source
-  archives, evidence-backed non-trading events, and coverage logic only.
-- Review outcome: no live-order, credential, strategy, T+1, cost, or future-data
-  behavior was added. `510500`'s two absences require a hash-verified official
-  PDF and never synthesize OHLC.
-- Remaining external blocker: AKShare's configured Eastmoney historical K-line
-  endpoint terminates TLS reads before returning `159919` data. Direct endpoint
-  probes exhibit the same failure. No alternate provider has been introduced.
-
-## Provider probe log
-
-- 2026-09-10 Asia/Shanghai: an explicit short-range
-  `ak.fund_etf_hist_em(symbol="159919", start_date="20150105",
-  end_date="20150130", adjust="")` probe again failed with a remote TLS read
-  disconnect. This confirms the block is not caused by multi-year request size.
-- No fallback provider, manual CSV import, synthetic bar, or data waiver was
-  used after this probe.
-
-## 159919 secondary-provider recovery
-
-- Branch: `issue/003-159919-szse-recovery`.
-- The SZSE official `getHistoryData` endpoint was captured as a separate raw-only
-  provider series with HTTP metadata, a raw JSON SHA-256, native Parquet, and a
-  provider manifest. It yielded 201 sessions (2025-11-14 through 2026-09-09),
-  leaving 2,640 expected sessions missing from the 2015-onward required range.
-- The authoritative corporate-action ledger configuration is intentionally
-  `incomplete`; the canonical qfq algorithm refuses it. No provider series was
-  merged, no OHLC was generated, and no original AKShare evidence was changed.
-- Tushare is not installed and no `TUSHARE_TOKEN` is configured, so it was not
-  used as a cross-check. The reconciliation outcome is `blocked`, not an empty
-  pass. See `ISSUE_003_159919_RECOVERY_REPORT.md` for A–J evidence.
-- Subsequent recovery: the independent Sina raw series now has complete calendar
-  coverage once the official 2019-01-11 conversion suspension is applied; it was
-  cross-checked against all 201 SZSE sessions and published as canonical raw only.
-  qfq remains blocked by the incomplete official corporate-action ledger.
-- Final Issue 003 recovery disposition: `BLOCKED_EXTERNAL`. SZSE is limited to
-  201 sessions under tested pagination and date parameters; Sina raw and factor
-  candidates are fully archived, but only the 2019 split and 2025 distribution
-  have first-party source bodies. The 2020, 2021, and 2024 candidate events lack
-  archivably verified first-party originals. Consequently qfq cannot be derived,
-  all A--J gates cannot pass, and Issues 004--012 must not begin.
+- Evaluation contract SHA-256: `11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230`.
+- Frozen inputs: universe, strategy, primary benchmark, execution and cost YAML
+  files are hash-verified by the preregistration manifest before any executable
+  experiment can proceed.
+- The runner retains every supplied OOS fold, applies net costs on T+1-or-later
+  open execution, and compares each fold against `SAME_UNIVERSE_EQUAL_WEIGHT`.
+- No locked-test manifest, result, outcome classification, or robustness report
+  exists yet. The runner has not read or evaluated the locked test interval.
+- Before a locked run, the complete frozen universe must have one verified causal
+  adjusted dataset and a valid coverage proof for the exact required interval.
+  There is currently no authorization to replace missing datasets, splice
+  providers, synthesize prices, or change the frozen universe.

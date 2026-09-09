@@ -1,18 +1,18 @@
 # quant-stack
 
-`quant-stack` is a reproducible, Linux-first quantitative research skeleton.
-M0 plus Issues 001–003 define typed data contracts, an AKShare ETF adapter,
-immutable local snapshots, source-attributed local calendars, offline fixtures,
-and command-line entry points. It does not implement a profitable strategy and
-does not claim that backtest results predict future returns.
+`quant-stack` is a reproducible, Linux-first ETF research and local
+paper-trading platform. Issues 001--008 provide typed data contracts, immutable
+snapshots, point-in-time features, constrained long-only portfolio construction,
+T+1 execution and explicit costs. Issue 009 is in progress; it has not produced
+a locked-test result and makes no profitability claim.
 
 ## Safety boundary
 
-This version contains no strategy, backtest, broker adapter, credentials,
-leverage, short selling, or real-order submission. AKShare ingestion is an
-explicit, operator-invoked data operation; it is not used by tests or automatic
-tasks. A signal using trading day T close data cannot be filled before a later
-exchange-local trading date.
+This version contains no broker adapter, credentials, leverage, short selling,
+or real-order submission. Research execution is a local deterministic simulator;
+a signal using trading day T close data cannot be filled before a later
+exchange-local trading date. AKShare ingestion is explicit and not used by
+tests or automatic tasks.
 
 ## Install
 
@@ -74,7 +74,8 @@ normalized file locally with:
 uv run quant data verify data/normalized/.../snapshot.parquet
 ```
 
-Backtest, signal, and reconciliation commands remain explicit M0 placeholders.
+Formal Issue 009 runs remain gated by frozen configuration hashes, an immutable
+data snapshot and a recorded locked-test precommit manifest.
 
 ## Layout
 
