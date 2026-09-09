@@ -5,6 +5,7 @@ import pytest
 
 from quant_stack.data.canonical import (
     CanonicalizationError,
+    derive_causal_adjusted_bars,
     derive_qfq_bars,
     persist_canonical_dataset,
     persist_canonical_raw_dataset,
@@ -92,6 +93,34 @@ def test_incomplete_ledger_cannot_generate_qfq() -> None:
 
     with pytest.raises(CanonicalizationError, match="ledger must be complete"):
         derive_qfq_bars(raw_bars(), ledger)
+
+
+def test_future_action_does_not_rewrite_prior_causal_adjusted_input() -> None:
+    bars = raw_bars()
+    baseline = CorporateActionLedger(
+        ledger_id="baseline", version=1, instrument=instrument(), completeness="complete"
+    )
+    future = CorporateActionLedger(
+        ledger_id="future",
+        version=1,
+        instrument=instrument(),
+        completeness="complete",
+        events=(
+            CorporateActionEvent(
+                effective_date=date(2024, 1, 3),
+                kind=CorporateActionKind.CASH_DISTRIBUTION,
+                cash_per_unit=Decimal("1"),
+                evidence=evidence(),
+            ),
+        ),
+    )
+
+    before = derive_causal_adjusted_bars(bars, baseline)
+    after = derive_causal_adjusted_bars(bars, future)
+
+    assert before[0].close == after[0].close == bars[0].close
+    assert after[0].price_basis is PriceBasis.CAUSAL_ADJUSTED
+    assert bars[0].price_basis is PriceBasis.RAW
 
 
 def test_raw_canonical_publication_does_not_require_qfq_ledger(tmp_path) -> None:

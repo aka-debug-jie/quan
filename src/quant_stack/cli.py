@@ -443,7 +443,7 @@ def show_coverage(
             bounded_end = min(as_of_date, instrument.effective_to or as_of_date)
             calendar.require_completed_as_of(instrument.exchange, bounded_end)
             require_non_trading_evidence(instrument.documented_non_trading_events, data_root)
-            for price_basis in PriceBasis:
+            for price_basis in (PriceBasis.RAW, PriceBasis.QFQ):
                 reports.append(
                     calendar.coverage_report(
                         instrument,

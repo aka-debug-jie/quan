@@ -136,6 +136,70 @@ def derive_qfq_bars(
     )
 
 
+def derive_causal_adjusted_bars(
+    raw_bars: list[DailyBar], ledger: CorporateActionLedger
+) -> list[DailyBar]:
+    """Apply verified actions forward only; future actions cannot rewrite prior research inputs."""
+    if ledger.completeness != "complete":
+        raise CanonicalizationError(
+            "corporate-action ledger must be complete before causal adjustment"
+        )
+    _validate_raw_bars(raw_bars, ledger)
+    bars = sorted(raw_bars, key=lambda bar: bar.trading_date)
+    events = _events_by_application_date(bars, ledger)
+    factor = Decimal("1")
+    result: list[DailyBar] = []
+    for index, bar in enumerate(bars):
+        event = events.get(bar.trading_date)
+        if event is not None:
+            if index == 0:
+                raise CanonicalizationError("corporate action has no preceding raw close")
+            previous_close = bars[index - 1].close
+            if event.kind is CorporateActionKind.SHARE_SPLIT:
+                assert event.split_ratio is not None
+                factor *= event.split_ratio
+            else:
+                assert event.cash_per_unit is not None
+                if previous_close <= event.cash_per_unit:
+                    raise CanonicalizationError(
+                        "cash distribution is not smaller than preceding raw close"
+                    )
+                factor *= previous_close / (previous_close - event.cash_per_unit)
+        result.append(
+            DailyBar(
+                symbol=bar.symbol,
+                exchange=bar.exchange,
+                price_basis=PriceBasis.CAUSAL_ADJUSTED,
+                trading_date=bar.trading_date,
+                open=bar.open * factor,
+                high=bar.high * factor,
+                low=bar.low * factor,
+                close=bar.close * factor,
+                volume=bar.volume,
+            )
+        )
+    return result
+
+
+def persist_causal_adjusted_dataset(
+    provider_manifest: ProviderSeriesManifest,
+    raw_bars: list[DailyBar],
+    ledger: CorporateActionLedger,
+    data_root: Path,
+) -> CanonicalDatasetManifest:
+    """Persist a PIT-safe forward-adjusted view separately from raw and traditional qfq data."""
+    validate_canonical_source(provider_manifest, raw_bars, ledger)
+    require_corporate_action_evidence(ledger.events, data_root)
+    return _persist_one_canonical_basis(
+        provider_manifest,
+        derive_causal_adjusted_bars(raw_bars, ledger),
+        PriceBasis.CAUSAL_ADJUSTED,
+        data_root,
+        corporate_action_ledger_id=ledger.ledger_id,
+        adjustment_factors=(),
+    )
+
+
 def validate_canonical_source(
     manifest: ProviderSeriesManifest,
     raw_bars: list[DailyBar],
@@ -290,11 +354,11 @@ def _canonical_parquet_bytes(bars: list[DailyBar], context_sha256: str) -> bytes
             pa.field("exchange", pa.string(), nullable=False),
             pa.field("price_basis", pa.string(), nullable=False),
             pa.field("trading_date", pa.date32(), nullable=False),
-            pa.field("open", pa.decimal128(28, 10), nullable=False),
-            pa.field("high", pa.decimal128(28, 10), nullable=False),
-            pa.field("low", pa.decimal128(28, 10), nullable=False),
-            pa.field("close", pa.decimal128(28, 10), nullable=False),
-            pa.field("volume", pa.decimal128(28, 6), nullable=False),
+            pa.field("open", pa.decimal128(38, 28), nullable=False),
+            pa.field("high", pa.decimal128(38, 28), nullable=False),
+            pa.field("low", pa.decimal128(38, 28), nullable=False),
+            pa.field("close", pa.decimal128(38, 28), nullable=False),
+            pa.field("volume", pa.decimal128(38, 6), nullable=False),
         ],
         metadata={
             b"quant_stack.canonical_algorithm_version": CANONICAL_ALGORITHM_VERSION.encode("ascii"),
@@ -307,11 +371,11 @@ def _canonical_parquet_bytes(bars: list[DailyBar], context_sha256: str) -> bytes
             pa.array([bar.exchange.value for bar in bars], type=pa.string()),
             pa.array([bar.price_basis.value for bar in bars], type=pa.string()),
             pa.array([bar.trading_date for bar in bars], type=pa.date32()),
-            pa.array([bar.open for bar in bars], type=pa.decimal128(28, 10)),
-            pa.array([bar.high for bar in bars], type=pa.decimal128(28, 10)),
-            pa.array([bar.low for bar in bars], type=pa.decimal128(28, 10)),
-            pa.array([bar.close for bar in bars], type=pa.decimal128(28, 10)),
-            pa.array([bar.volume for bar in bars], type=pa.decimal128(28, 6)),
+            pa.array([bar.open for bar in bars], type=pa.decimal128(38, 28)),
+            pa.array([bar.high for bar in bars], type=pa.decimal128(38, 28)),
+            pa.array([bar.low for bar in bars], type=pa.decimal128(38, 28)),
+            pa.array([bar.close for bar in bars], type=pa.decimal128(38, 28)),
+            pa.array([bar.volume for bar in bars], type=pa.decimal128(38, 6)),
         ],
         schema=schema,
     )

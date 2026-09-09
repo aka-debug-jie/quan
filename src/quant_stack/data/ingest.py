@@ -258,7 +258,7 @@ def ingest_universe(
             bounded_end,
             documented_dates,
         )
-        for price_basis in PriceBasis:
+        for price_basis in (PriceBasis.RAW, PriceBasis.QFQ):
             existing_dates = normalized_dates(
                 data_root,
                 instrument.exchange.value,

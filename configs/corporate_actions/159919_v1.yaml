@@ -7,19 +7,86 @@ instrument:
   exchange: SZSE
   currency: CNY
   asset_class: etf
-completeness: incomplete
+completeness: complete
 events:
   - effective_date: 2019-01-11
     kind: share_split
     split_ratio: "1.110680861"
-    evidence:
+    event_announcement_date: 2019-01-04
+    verification_status: official_evidence_chain_verified
+    evidence: &value2019
       url: https://www.jsfund.cn/cms/Services/AttachDownLoad.jsp?id=416187
       sha256: d58b052dc8a29c43b75b59fc45ac215df4182ceb69743ddeb9eca1da50c7ba97
       published_on: 2019-01-04
+    availability_evidence: *value2019
+    value_evidence: *value2019
+  - effective_date: 2020-09-14
+    kind: cash_distribution
+    cash_per_unit: "0.1520"
+    event_announcement_date: 2020-08-29
+    retrospective_verification: true
+    verification_status: official_evidence_chain_verified
+    evidence: &value2020
+      url: https://static.cninfo.com.cn/finalpage/2021-03-30/1209472605.PDF
+      sha256: f2c2d3ac2d1804d5834a732269d74a5c5f2a2a982900ed8f007f3c4710d806d3
+      published_on: 2021-03-30
+    value_evidence: *value2020
+    availability_evidence:
+      url: https://www.szse.cn/option/notice/notify/t20200829_581151.html
+      sha256: d9309babb8333390362e7bb6fea69b828af775bf7008d7f62fc0cf4087e28311
+      published_on: 2020-08-29
+  - effective_date: 2021-09-13
+    kind: cash_distribution
+    cash_per_unit: "0.0700"
+    event_announcement_date: 2021-08-28
+    retrospective_verification: true
+    verification_status: official_evidence_chain_verified
+    evidence: &value2021
+      url: https://static.cninfo.com.cn/finalpage/2024-03-28/1219424707.PDF
+      sha256: 25258e570379910b8ce7a9b89eacd5a3634ae4d630e08c492a5d194e0b590235
+      published_on: 2024-03-28
+    value_evidence: *value2021
+    availability_evidence:
+      url: https://www.szse.cn/option/notice/notify/t20210828_588041.html
+      sha256: 9afce15d269e3d69aca138709cae75dd3f669c4395a7ece308ba4790b2943afc
+      published_on: 2021-08-28
+  - effective_date: 2024-09-18
+    kind: cash_distribution
+    cash_per_unit: "0.04530"
+    event_announcement_date: 2024-08-31
+    verification_status: official_evidence_chain_verified
+    evidence: &value2024
+      url: https://static.cninfo.com.cn/finalpage/2024-08-31/1221075235.PDF
+      sha256: fd1319c9e8fd1b66d5157f51c20b0a5102f47e01c8fe86a3616f0e866be1b583
+      published_on: 2024-08-31
+    value_evidence: *value2024
+    availability_evidence:
+      url: https://www.szse.cn/option/notice/notify/t20240830_609180.html
+      sha256: 01b201a53b280c2d1b6fedc7db2e307f3c9c13ed9feb51fb09510586bf763da9
+      published_on: 2024-08-31
   - effective_date: 2025-03-31
     kind: cash_distribution
     cash_per_unit: "0.06610"
-    evidence:
+    event_announcement_date: 2025-03-15
+    verification_status: official_evidence_chain_verified
+    evidence: &value2025
       url: https://www.jsfund.cn/plat_files/upload/product_ann/20250314/202503141741951225663/%E5%98%89%E5%AE%9E%E6%B2%AA%E6%B7%B1300%E4%BA%A4%E6%98%93%E5%9E%8B%E5%BC%80%E6%94%BE%E5%BC%8F%E6%8C%87%E6%95%B0%E8%AF%81%E5%88%B8%E6%8A%95%E8%B5%84%E5%9F%BA%E9%87%912025%E5%B9%B4%E7%AC%AC%E4%B8%80%E6%AC%A1%E6%94%B6%E7%9B%8A%E5%88%86%E9%85%8D%E5%85%AC%E5%91%8A.pdf
       sha256: ccfd60b73381f88cc4c463875c698a8379f94834f7b169d4cce8180dc11de63b
       published_on: 2025-03-15
+    availability_evidence: *value2025
+    value_evidence: *value2025
+  - effective_date: 2025-12-08
+    kind: cash_distribution
+    cash_per_unit: "0.0728"
+    event_announcement_date: 2025-11-22
+    retrospective_verification: true
+    verification_status: official_evidence_chain_verified
+    evidence: &value2025second
+      url: https://static.cninfo.com.cn/finalpage/2026-03-30/1225041523.PDF
+      sha256: 08a66f0e3b1ea5fa1d9e16fe811e489b1a73a21fbb122d20d7940f78839d2335
+      published_on: 2026-03-30
+    value_evidence: *value2025second
+    availability_evidence:
+      url: https://www.szse.cn/option/notice/notify/t20251121_617381.html
+      sha256: acbe7f194519708e706e226f0df1c04378aa80e23d037d4f9444a08c3f6c6a52
+      published_on: 2025-11-22

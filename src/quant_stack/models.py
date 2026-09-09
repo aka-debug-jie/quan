@@ -40,6 +40,7 @@ class PriceBasis(StrEnum):
 
     RAW = "raw"
     QFQ = "qfq"
+    CAUSAL_ADJUSTED = "causal_adjusted"
 
 
 class Side(StrEnum):

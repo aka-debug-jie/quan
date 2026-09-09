@@ -218,6 +218,11 @@ class CorporateActionEvent(DomainModel):
     cash_per_unit: Decimal | None = None
     split_ratio: Decimal | None = None
     evidence: OfficialEvidence
+    availability_evidence: OfficialEvidence | None = None
+    value_evidence: OfficialEvidence | None = None
+    event_announcement_date: date | None = None
+    retrospective_verification: bool = False
+    verification_status: Literal["candidate", "official_evidence_chain_verified"] = "candidate"
 
     @model_validator(mode="after")
     def validate_action_payload(self) -> CorporateActionEvent:
@@ -232,6 +237,10 @@ class CorporateActionEvent(DomainModel):
         if self.kind is CorporateActionKind.SHARE_SPLIT:
             if self.split_ratio is None or self.split_ratio <= 0 or self.cash_per_unit is not None:
                 raise ValueError("share split requires positive split_ratio only")
+        if self.verification_status == "official_evidence_chain_verified" and (
+            self.availability_evidence is None or self.value_evidence is None
+        ):
+            raise ValueError("verified action requires availability and value evidence")
         return self
 
 
