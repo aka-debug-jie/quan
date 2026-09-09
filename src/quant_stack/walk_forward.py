@@ -46,3 +46,11 @@ def load_preregistered_experiment(path: Path) -> dict[str, object]:
     if not isinstance(payload, dict) or payload.get("status") != "preregistered_not_executed":
         raise ValueError("experiment must be a preregistered, not-yet-executed mapping")
     return payload
+
+
+def require_executable_experiment(config: dict[str, object], snapshot_id: str) -> None:
+    """Reject execution unless a frozen config and immutable input snapshot are named."""
+    if config.get("status") != "preregistered_not_executed" or not snapshot_id:
+        raise ValueError(
+            "walk-forward execution requires frozen config and non-empty snapshot identity"
+        )

@@ -1,7 +1,13 @@
 from datetime import date, timedelta
 from pathlib import Path
 
-from quant_stack.walk_forward import chronological_splits, load_preregistered_experiment
+import pytest
+
+from quant_stack.walk_forward import (
+    chronological_splits,
+    load_preregistered_experiment,
+    require_executable_experiment,
+)
 
 
 def test_walk_forward_never_trains_on_its_future_test_interval() -> None:
@@ -14,3 +20,5 @@ def test_walk_forward_never_trains_on_its_future_test_interval() -> None:
 def test_loads_only_frozen_preregistered_experiment() -> None:
     config = load_preregistered_experiment(Path("configs/experiments/etf_walk_forward_v1.yaml"))
     assert config["locked_test_start"] == date(2024, 1, 2)
+    with pytest.raises(ValueError, match="snapshot identity"):
+        require_executable_experiment(config, "")
