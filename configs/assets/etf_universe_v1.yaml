@@ -1,0 +1,15 @@
+universe_id: cn_etf_smoke_v1
+version: 1
+instruments:
+  - symbol: "510300"
+    exchange: SSE
+    currency: CNY
+    effective_from: 2015-01-01
+  - symbol: "510500"
+    exchange: SSE
+    currency: CNY
+    effective_from: 2015-01-01
+  - symbol: "159915"
+    exchange: SZSE
+    currency: CNY
+    effective_from: 2015-01-01

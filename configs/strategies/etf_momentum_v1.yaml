@@ -1,0 +1,8 @@
+version: 1
+status: planned_not_implemented
+long_only: true
+trend_window_trading_days: 200
+momentum_windows_months: [3, 6, 12]
+volatility_window_trading_days: 60
+rebalance_frequency: monthly
+selection_count: 2

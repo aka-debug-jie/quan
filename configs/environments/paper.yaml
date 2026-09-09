@@ -1,0 +1,4 @@
+version: 1
+mode: paper
+allow_network_data_download: false
+allow_live_orders: false

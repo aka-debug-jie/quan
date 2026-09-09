@@ -1,0 +1,6 @@
+version: 1
+commission_rate: "0.0003"
+minimum_commission: "5.00"
+half_spread_bps: "2.0"
+slippage_bps: "3.0"
+note: Research assumption only; calibrate before M2 reporting.

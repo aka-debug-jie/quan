@@ -1,0 +1,22 @@
+universe_id: cn_etf_smoke_v2
+version: 2
+instruments:
+  - symbol: "510300"
+    exchange: SSE
+    currency: CNY
+    effective_from: 2015-01-01
+  - symbol: "510500"
+    exchange: SSE
+    currency: CNY
+    effective_from: 2015-01-01
+    documented_non_trading_events:
+      - dates: [2015-04-13, 2015-04-14]
+        reason: 基金份额折算暂停交易
+        evidence:
+          url: https://www.sse.com.cn/disclosure/fund/announcement/c/2015-04-12/510500_20150413_1.pdf
+          sha256: 7dba021082eccf73641f67a632baace67dbbcf8f049314fb87f8cd176e1a54ce
+          published_on: 2015-04-13
+  - symbol: "159919"
+    exchange: SZSE
+    currency: CNY
+    effective_from: 2015-01-01

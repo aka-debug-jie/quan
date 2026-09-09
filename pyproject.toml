@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quant-stack"
+version = "0.1.0"
+description = "Research-first, paper-trading-only quantitative platform skeleton"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "akshare>=1.18,<2",
+  "pandas>=2.2,<4",
+  "pydantic>=2.8,<3",
+  "pyarrow>=17,<24",
+  "pyyaml>=6,<7",
+  "typer>=0.12,<1",
+]
+
+[project.scripts]
+quant = "quant_stack.cli:app"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.100,<7",
+  "mypy>=1.11,<2",
+  "pre-commit>=3.8,<5",
+  "pytest>=8.3,<9",
+  "pytest-cov>=5,<7",
+  "pandas-stubs>=2.2,<3",
+  "ruff>=0.6,<1",
+  "types-PyYAML>=6.0,<7",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quant_stack"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["quant_stack"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
