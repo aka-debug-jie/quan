@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -54,3 +55,16 @@ def require_executable_experiment(config: dict[str, object], snapshot_id: str) -
         raise ValueError(
             "walk-forward execution requires frozen config and non-empty snapshot identity"
         )
+
+
+def verify_declared_config_hashes(config: dict[str, object], repository_root: Path) -> None:
+    """Verify every immutable experiment input has the exact preregistered content hash."""
+    declared = config.get("frozen_config_sha256")
+    if not isinstance(declared, dict) or not declared:
+        raise ValueError("experiment must declare frozen config hashes")
+    for relative_path, expected_hash in declared.items():
+        if not isinstance(relative_path, str) or not isinstance(expected_hash, str):
+            raise ValueError("frozen config hashes must map paths to SHA-256 strings")
+        observed_hash = sha256((repository_root / relative_path).read_bytes()).hexdigest()
+        if observed_hash != expected_hash:
+            raise ValueError(f"frozen config hash mismatch: {relative_path}")

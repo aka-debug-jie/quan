@@ -1,4 +1,5 @@
 .venv/
+.conda/
 .tools/
 .mypy_cache/
 .pytest_cache/

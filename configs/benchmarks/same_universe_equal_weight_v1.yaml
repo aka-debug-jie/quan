@@ -1,0 +1,13 @@
+benchmark_id: same_universe_equal_weight_v1
+status: frozen_not_executed
+kind: SAME_UNIVERSE_EQUAL_WEIGHT
+universe_config: configs/assets/etf_universe_v2.yaml
+exclude_asset_kinds: [cash, cash_equivalent]
+rebalance_frequency: monthly
+weighting: equal_weight
+uses_trend_filter: false
+uses_momentum_ranking: false
+uses_inverse_volatility: false
+uses_tactical_cash: false
+execution_config: configs/execution/monthly_t1_open_v1.yaml
+cost_config: configs/costs/cn_etf_v1.yaml

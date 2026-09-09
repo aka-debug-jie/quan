@@ -1,6 +1,13 @@
 experiment_id: etf_walk_forward_v1
 status: preregistered_not_executed
 evaluation_contract_sha256: 11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230
+frozen_config_sha256:
+  configs/assets/etf_universe_v2.yaml: 19fdc71b3c57e5368c8e1115b1e353a95fba7ba04e2ab07c46c982b8efab29cf
+  configs/strategies/etf_momentum_v1.yaml: 8cd8e479579742472b4e8e3ec2e04b17a4a5fff70b6e7a7661f7037236e45cb8
+  configs/benchmarks/same_universe_equal_weight_v1.yaml: df1ec60172de863c0ff36a96f71b9269ab466b74244b80185109af8442e71f97
+  configs/execution/monthly_t1_open_v1.yaml: c6b19a18ccc0aa2555b1daf8aa8090452f9cbffe55679beb54fc5940dfb5b7de
+  configs/costs/cn_etf_v1.yaml: c7b7cb083ab8b4164f5aa53c428dcdb0b6b70a75eaa3c484f6b3cec018983cb4
+  docs/ISSUE_009_EVALUATION_CONTRACT.md: 11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230
 selection_period_end: 2023-12-29
 locked_test_start: 2024-01-02
 parameter_grid:

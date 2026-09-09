@@ -1,5 +1,5 @@
 version: 1
-status: planned_not_implemented
+status: frozen_not_executed
 long_only: true
 trend_window_trading_days: 200
 momentum_windows_months: [3, 6, 12]

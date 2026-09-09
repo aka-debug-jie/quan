@@ -1,0 +1,8 @@
+execution_id: monthly_t1_open_v1
+status: frozen_not_executed
+signal_time: close_of_last_valid_session_each_natural_month
+earliest_execution: next_valid_session_open
+daily_mark: close
+on_untradable_execution: record_delayed_or_rejected
+price_basis: causal_adjusted
+cost_config: configs/costs/cn_etf_v1.yaml
