@@ -20,7 +20,7 @@
 | 006 | `issue/006-vectorbt-t1` | accepted `05c2a0d` | PASS | VectorBT T+1 order-timestamp test | Issue 007 accepted as descendant |
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
-| 009 | `issue/009-walk-forward` | base `85561e7`; current `0f5e09c` | IN_PROGRESS | Frozen evaluation contract/input hashes; deterministic target execution; fold runner; 89 offline tests pass | Locked test has not run; Issue 010 remains forbidden |
+| 009 | `issue/009-walk-forward` | base `85561e7`; current `61f6844` | IN_PROGRESS | Frozen inputs, deterministic execution, fold runner, causal-data preflight and immutable experiment registry; 93 offline tests pass | Locked test has not run; Issue 010 remains forbidden |
 | 010 | not created | — | NOT_STARTED | — | Forbidden before Issue 009 PASS |
 | 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
 | 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |
@@ -52,3 +52,7 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   adjusted dataset and a valid coverage proof for the exact required interval.
   There is currently no authorization to replace missing datasets, splice
   providers, synthesize prices, or change the frozen universe.
+- Current causal-data preflight: only `159919/SZSE` is present as a
+  hash-verified canonical causal series (`1252a806...`); `510300/SSE` and
+  `510500/SSE` are absent. This blocks the locked test without changing any
+  raw/qfq artifact or treating an adjusted provider export as a PIT-safe series.
