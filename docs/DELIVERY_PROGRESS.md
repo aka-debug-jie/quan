@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; recovery `742919f`, `96b02e7`, `9e2bb5e`, `d00abe7` | IN_PROGRESS | Raw/qfq coverage, official evidence ledger, PIT view, and tests pass | Held: formal qfq-to-Sina adjustment reconciliation and A-J report remain |
+| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; accepted head pending this update | PASS | Raw/qfq coverage, official evidence ledger, PIT view, factor reconciliation, Ruff, mypy, pytest pass | Issue 004 may be created only by explicit next action |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |

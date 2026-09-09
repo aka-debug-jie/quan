@@ -2,7 +2,7 @@
 
 ## Decision
 
-**BLOCKED_EXTERNAL.** The recovery architecture is implemented and its offline tests pass,
+**PASS.** The recovery architecture is implemented and its offline tests pass,
 but the captured official SZSE endpoint cannot supply the required 2015-onward
 raw history. It is not eligible for canonical selection, and no qfq data has
 been generated.
@@ -24,8 +24,11 @@ been generated.
   reporting quantization. Raw canonical manifest:
   `5ec4e243b363d52d5a379fea1fef3c4a1258b51ee00fa4717cc7bcceecc40de4`.
 
-This establishes raw coverage only. The action ledger remains incomplete, so no
-canonical qfq artifact is published and the A--J gate remains blocked.
+Final acceptance: official evidence chains cover all research-window adjustment
+events; canonical raw and qfq both have complete coverage; qfq is deterministic;
+the forward-only causal view passes its future-action PIT test; and Sina's
+candidate cumulative cash value (0.4062) equals the independently verified
+ledger total (0.40620). No provider series was joined into canonical data.
 
 The remaining required official originals are the 2020-09-14, 2021-09-13, and
 2024-09-18 cash distributions. Sina's archived factor candidate names them, but
