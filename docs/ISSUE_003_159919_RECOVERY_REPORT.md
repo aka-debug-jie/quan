@@ -2,7 +2,7 @@
 
 ## Decision
 
-**BLOCKED.** The recovery architecture is implemented and its offline tests pass,
+**BLOCKED_EXTERNAL.** The recovery architecture is implemented and its offline tests pass,
 but the captured official SZSE endpoint cannot supply the required 2015-onward
 raw history. It is not eligible for canonical selection, and no qfq data has
 been generated.
@@ -26,6 +26,12 @@ been generated.
 
 This establishes raw coverage only. The action ledger remains incomplete, so no
 canonical qfq artifact is published and the A--J gate remains blocked.
+
+The remaining required official originals are the 2020-09-14, 2021-09-13, and
+2024-09-18 cash distributions. Sina's archived factor candidate names them, but
+cannot substitute for first-party evidence. The minimum unblocking input is a
+hashable 嘉实 or SZSE primary-source document for each event, including the
+effective date and per-unit distribution amount.
 
 ## Preserved primary-provider state
 

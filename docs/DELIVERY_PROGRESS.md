@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; gate reviews `0e9dd5b`, `c98a974` | Recovery architecture implemented; real-data acceptance blocked | Offline provider, ledger, adjustment, reconciliation, calendar, and coverage tests pass | Held: official SZSE capture is only 201 bars and the action ledger is incomplete |
+| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; recovery `742919f`, `96b02e7`, `9e2bb5e` | BLOCKED_EXTERNAL | Offline provider, ledger, adjustment, reconciliation, calendar, and coverage tests pass | Held: official action originals for 2020, 2021, and 2024 are unavailable to complete the ledger |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
@@ -91,3 +91,9 @@ zero unexplained `expected_session_missing` dates.
   coverage once the official 2019-01-11 conversion suspension is applied; it was
   cross-checked against all 201 SZSE sessions and published as canonical raw only.
   qfq remains blocked by the incomplete official corporate-action ledger.
+- Final Issue 003 recovery disposition: `BLOCKED_EXTERNAL`. SZSE is limited to
+  201 sessions under tested pagination and date parameters; Sina raw and factor
+  candidates are fully archived, but only the 2019 split and 2025 distribution
+  have first-party source bodies. The 2020, 2021, and 2024 candidate events lack
+  archivably verified first-party originals. Consequently qfq cannot be derived,
+  all A--J gates cannot pass, and Issues 004--012 must not begin.
