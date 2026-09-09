@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-calendar-coverage-gate` | baseline `53cf6d3`; current branch records gate evidence | Implemented; real-data acceptance blocked | Calendar, evidence, and coverage tests pass | Held: `159919` raw/qfq coverage is incomplete |
+| 003 | `issue/003-calendar-coverage-gate` | baseline `53cf6d3`; gate review `0e9dd5b` | Implemented; real-data acceptance blocked | Calendar, evidence, and coverage tests pass | Held: `159919` raw/qfq coverage is incomplete |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
