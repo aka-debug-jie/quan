@@ -16,3 +16,10 @@ events:
       url: https://www.jsfund.cn/cms/Services/AttachDownLoad.jsp?id=416187
       sha256: d58b052dc8a29c43b75b59fc45ac215df4182ceb69743ddeb9eca1da50c7ba97
       published_on: 2019-01-04
+  - effective_date: 2025-03-31
+    kind: cash_distribution
+    cash_per_unit: "0.06610"
+    evidence:
+      url: https://www.jsfund.cn/plat_files/upload/product_ann/20250314/202503141741951225663/%E5%98%89%E5%AE%9E%E6%B2%AA%E6%B7%B1300%E4%BA%A4%E6%98%93%E5%9E%8B%E5%BC%80%E6%94%BE%E5%BC%8F%E6%8C%87%E6%95%B0%E8%AF%81%E5%88%B8%E6%8A%95%E8%B5%84%E5%9F%BA%E9%87%912025%E5%B9%B4%E7%AC%AC%E4%B8%80%E6%AC%A1%E6%94%B6%E7%9B%8A%E5%88%86%E9%85%8D%E5%85%AC%E5%91%8A.pdf
+      sha256: ccfd60b73381f88cc4c463875c698a8379f94834f7b169d4cce8180dc11de63b
+      published_on: 2025-03-15

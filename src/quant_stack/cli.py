@@ -38,8 +38,10 @@ from quant_stack.data.ingest import (
 from quant_stack.data.models import ETFHistoryRequest, ProviderSeriesManifest
 from quant_stack.data.sina_etf import (
     SinaProviderError,
+    fetch_sina_adjustment_candidate,
     fetch_sina_etf_history,
     load_sina_provider_bars,
+    persist_sina_adjustment_candidate,
     persist_sina_etf_history,
 )
 from quant_stack.data.szse_official import (
@@ -339,6 +341,23 @@ def reattest_szse_raw(
         typer.echo(f"SZSE re-attestation failed: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo(f"provider manifest: {result.manifest_id}")
+
+
+@data_app.command("capture-sina-adjustment-candidate")
+def capture_sina_adjustment_candidate(
+    symbol: Annotated[str, typer.Option()] = "159919",
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture a Sina factor candidate for audit only; it cannot publish qfq data."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for Sina adjustment capture")
+    try:
+        path = persist_sina_adjustment_candidate(fetch_sina_adjustment_candidate(symbol), data_root)
+    except SinaProviderError as error:
+        typer.echo(f"Sina adjustment candidate failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"candidate path: {path}")
 
 
 @data_app.command("ingest-sina-raw")

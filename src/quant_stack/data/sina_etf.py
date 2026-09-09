@@ -26,6 +26,7 @@ from quant_stack.validation import reject_duplicate_bars
 SINA_HISTORY_URL_TEMPLATE = (
     "https://finance.sina.com.cn/realstock/company/{symbol}/hisdata_klc2/klc_kl.js"
 )
+SINA_ADJUSTMENT_URL_TEMPLATE = "https://finance.sina.com.cn/realstock/company/{symbol}/hfq.js"
 SINA_PARSER_VERSION = "1.0.0"
 SINA_NORMALIZATION_VERSION = "1.0.1"
 SINA_MAX_ATTEMPTS = 3
@@ -72,6 +73,52 @@ def fetch_sina_etf_history(symbol: str) -> SinaHistoryPayload:
             if attempt + 1 < SINA_MAX_ATTEMPTS:
                 time.sleep(0.2 * (attempt + 1))
     raise SinaProviderError(f"unable to fetch Sina ETF history: {source_url}") from last_error
+
+
+def fetch_sina_adjustment_candidate(symbol: str) -> SinaHistoryPayload:
+    """Capture Sina's adjustment-factor candidate as raw evidence, never as canonical prices."""
+    normalized_symbol = _sina_symbol(symbol)
+    source_url = SINA_ADJUSTMENT_URL_TEMPLATE.format(symbol=normalized_symbol)
+    request = Request(source_url, headers={"User-Agent": "quant-stack-sina-provider/1.0"})
+    try:
+        with urlopen(request, timeout=30) as response:
+            return SinaHistoryPayload(
+                source_url=source_url,
+                request_parameters={"symbol": normalized_symbol, "series": "hfq_candidate"},
+                http_metadata={
+                    **{key.lower(): value for key, value in response.headers.items()},
+                    ":status": str(response.status),
+                },
+                retrieved_at=datetime.now(UTC),
+                raw_bytes=bytes(response.read()),
+            )
+    except OSError as error:
+        raise SinaProviderError(
+            f"unable to fetch Sina adjustment candidate: {source_url}"
+        ) from error
+
+
+def persist_sina_adjustment_candidate(payload: SinaHistoryPayload, data_root: Path) -> Path:
+    """Persist an unparsed candidate factor body and first retrieval metadata for verification."""
+    digest = _sha256(payload.raw_bytes)
+    path = data_root / "raw" / "sina_adjustment" / digest / "response.js"
+    write_immutable(path, payload.raw_bytes)
+    receipt = path.with_name("receipt.json")
+    if not receipt.exists():
+        write_immutable(
+            receipt,
+            _canonical_json(
+                {
+                    "source_url": payload.source_url,
+                    "request_parameters": payload.request_parameters,
+                    "http_metadata": payload.http_metadata,
+                    "retrieved_at": payload.retrieved_at.isoformat(),
+                    "sha256": digest,
+                }
+            )
+            + b"\n",
+        )
+    return path
 
 
 def parse_sina_etf_history(
