@@ -3,7 +3,7 @@
 ## Repository baseline
 
 - Baseline branch: `main`.
-- Baseline commit: pending local Git author identity configuration.
+- Baseline commit: `53cf6d3187b5c90147f6bfe8b8de259a2bb4f38d`.
 - Remote repository: none configured.
 - Git-managed scope excludes `data/`, `artifacts/`, credentials, caches, and
   local environments.
@@ -12,9 +12,9 @@
 
 | Issue | Branch | Commit | Status | Acceptance evidence | Promotion state |
 | --- | --- | --- | --- | --- | --- |
-| 001 | pending baseline | pending | Implemented in current baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
-| 002 | pending baseline | pending | Implemented in current baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | pending baseline | pending | Implemented in current baseline | Calendar and evidence tests pass | Held: `159919` raw/qfq coverage is incomplete |
+| 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
+| 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
+| 003 | `issue/003-calendar-coverage-gate` | baseline `53cf6d3`; current branch records gate evidence | Implemented; real-data acceptance blocked | Calendar, evidence, and coverage tests pass | Held: `159919` raw/qfq coverage is incomplete |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
@@ -50,3 +50,15 @@ Current result: all checks pass; `50 passed`; coverage is 83%.
 No strategy, feature, portfolio, backtest, Paper Broker, report, or systemd
 implementation may begin until `159919` obtains complete raw/qfq coverage with
 zero unexplained `expected_session_missing` dates.
+
+## Current branch review
+
+- Branch: `issue/003-calendar-coverage-gate`.
+- Reviewed scope: data adapter, immutable source capture, calendar source
+  archives, evidence-backed non-trading events, and coverage logic only.
+- Review outcome: no live-order, credential, strategy, T+1, cost, or future-data
+  behavior was added. `510500`'s two absences require a hash-verified official
+  PDF and never synthesize OHLC.
+- Remaining external blocker: AKShare's configured Eastmoney historical K-line
+  endpoint terminates TLS reads before returning `159919` data. Direct endpoint
+  probes exhibit the same failure. No alternate provider has been introduced.
