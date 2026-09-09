@@ -193,6 +193,8 @@ def _decimal_price(value: object) -> Decimal:
 def _affordable_notional(cash: Decimal, model: CostModel) -> Decimal:
     """Return the largest buy notional that leaves non-negative cash after frozen costs."""
     variable_rate = model.commission_rate + model.half_spread_rate + model.slippage_rate
+    if model.commission_rate == 0:
+        return cash / (Decimal("1") + variable_rate)
     if cash <= model.minimum_commission:
         return Decimal("0")
     minimum_commission_boundary = model.minimum_commission / model.commission_rate

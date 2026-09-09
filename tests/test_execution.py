@@ -51,3 +51,15 @@ def test_target_must_be_long_only_and_fully_allocated() -> None:
             {index[0]: {"ETF": Decimal("0.8")}},
             _costs(),
         )
+
+
+def test_zero_cost_model_does_not_divide_by_zero() -> None:
+    index = pd.date_range("2024-01-02", periods=2, freq="B")
+    prices = pd.DataFrame({"ETF": [10.0, 10.0]}, index=index)
+    result = simulate_target_weights(
+        prices,
+        prices,
+        {index[0]: {"ETF": Decimal("1"), "CASH": Decimal("0")}},
+        CostModel(Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")),
+    )
+    assert result.equity.iloc[-1] == 100000.0
