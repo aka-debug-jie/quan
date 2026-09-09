@@ -14,7 +14,7 @@
 | --- | --- | --- | --- | --- | --- |
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
-| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; recovery `742919f`, `96b02e7`, `9e2bb5e` | BLOCKED_EXTERNAL | Offline provider, ledger, adjustment, reconciliation, calendar, and coverage tests pass | Held: official action originals for 2020, 2021, and 2024 are unavailable to complete the ledger |
+| 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; recovery `742919f`, `96b02e7`, `9e2bb5e`, `d00abe7` | IN_PROGRESS | Raw/qfq coverage, official evidence ledger, PIT view, and tests pass | Held: formal qfq-to-Sina adjustment reconciliation and A-J report remain |
 | 004 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
