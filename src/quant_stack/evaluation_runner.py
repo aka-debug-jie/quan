@@ -44,6 +44,7 @@ def evaluate_walk_forward(
 ) -> tuple[FoldEvaluation, ...]:
     """Evaluate every frozen OOS fold without optimizing, filtering, or joining fold results."""
     folds: list[FoldEvaluation] = []
+    benchmark_sessions = natural_month_end_sessions(cast(pd.DatetimeIndex, open_prices.index))
     for split in splits:
         open_fold, close_fold = _fold_prices(open_prices, close_prices, split)
         strategy_fold_targets = {
@@ -52,7 +53,7 @@ def evaluate_walk_forward(
             if timestamp in open_fold.index
         }
         benchmark_targets = same_universe_equal_weight_targets(
-            natural_month_end_sessions(cast(pd.DatetimeIndex, open_fold.index)),
+            (session for session in benchmark_sessions if session in open_fold.index),
             tuple(open_fold.columns),
         )
         strategy = simulate_target_weights(
