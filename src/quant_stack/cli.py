@@ -22,6 +22,7 @@ from quant_stack.data.corporate_actions import (
 )
 from quant_stack.data.evidence import (
     EvidenceArchiveError,
+    archive_corporate_action_source,
     capture_corporate_action_evidence,
     capture_non_trading_evidence,
     require_non_trading_evidence,
@@ -34,12 +35,19 @@ from quant_stack.data.ingest import (
     normalized_dates,
     verify_normalized_parquet,
 )
-from quant_stack.data.models import ETFHistoryRequest
+from quant_stack.data.models import ETFHistoryRequest, ProviderSeriesManifest
+from quant_stack.data.sina_etf import (
+    SinaProviderError,
+    fetch_sina_etf_history,
+    load_sina_provider_bars,
+    persist_sina_etf_history,
+)
 from quant_stack.data.szse_official import (
     SZSEProviderError,
     fetch_szse_daily_history,
     load_szse_provider_bars,
     persist_szse_daily_history,
+    reattest_szse_daily_history,
 )
 from quant_stack.models import Exchange, PriceBasis
 from quant_stack.snapshot import create_raw_snapshot
@@ -162,6 +170,23 @@ def capture_corporate_action_evidence_command(
     typer.echo(f"verified corporate-action evidence archives: {len(paths)}")
 
 
+@data_app.command("archive-corporate-action-source")
+def archive_corporate_action_source_command(
+    url: Annotated[str, typer.Option(...)],
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Archive a first-party corporate-action source and print its identity for ledger review."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required to archive corporate-action evidence")
+    try:
+        evidence = archive_corporate_action_source(url, data_root)
+    except EvidenceArchiveError as error:
+        typer.echo(f"corporate-action source archive failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"evidence sha256: {evidence.sha256}")
+
+
 @data_app.command("ingest-szse-raw")
 def ingest_szse_raw(
     universe: UniverseOption,
@@ -219,6 +244,161 @@ def ingest_szse_raw(
     if not coverage.is_complete:
         typer.echo(
             "SZSE provider series is retained but cannot pass the Issue 003 coverage gate", err=True
+        )
+        raise typer.Exit(code=1)
+
+
+@data_app.command("audit-szse-history")
+def audit_szse_history(
+    universe: UniverseOption,
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    symbol: Annotated[str, typer.Option()] = "159919",
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Record three bounded official SZSE parameter probes without creating canonical data."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for SZSE history auditing")
+    start_date = _parse_cli_date(start, "start")
+    as_of_date = _parse_cli_date(as_of, "as-of")
+    probes = {
+        "base": {},
+        "pagination": {"page": "2", "pageSize": "5000"},
+        "date_window": {"beginDate": start_date.isoformat(), "endDate": as_of_date.isoformat()},
+    }
+    try:
+        instrument = next(
+            item
+            for item in load_etf_universe(universe).instruments
+            if item.symbol == symbol and item.exchange is Exchange.SZSE
+        )
+        request = ETFHistoryRequest(
+            instrument=instrument,
+            start_date=max(start_date, instrument.effective_from),
+            as_of_date=as_of_date,
+            price_basis=PriceBasis.RAW,
+        )
+        summaries = []
+        for name, parameters in probes.items():
+            manifest = persist_szse_daily_history(
+                request,
+                fetch_szse_daily_history(instrument.symbol, parameters),
+                data_root,
+            )
+            summaries.append(
+                {
+                    "probe": name,
+                    "manifest_id": manifest.manifest_id,
+                    "request_parameters": manifest.request_parameters,
+                    "row_count": manifest.row_count,
+                    "first_trading_date": manifest.first_trading_date.isoformat(),
+                    "last_trading_date": manifest.last_trading_date.isoformat(),
+                }
+            )
+    except (SZSEProviderError, StopIteration, ValueError) as error:
+        typer.echo(f"SZSE history audit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(summaries, ensure_ascii=False, indent=2))
+
+
+@data_app.command("reattest-szse-raw")
+def reattest_szse_raw(
+    manifest: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    universe: UniverseOption,
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    data_root: DataRootOption = Path("data"),
+) -> None:
+    """Re-normalize a retained SZSE raw response under the current parser without network access."""
+    start_date = _parse_cli_date(start, "start")
+    as_of_date = _parse_cli_date(as_of, "as-of")
+    try:
+        source_manifest = ProviderSeriesManifest.model_validate_json(
+            manifest.read_text(encoding="utf-8")
+        )
+        instrument = next(
+            item
+            for item in load_etf_universe(universe).instruments
+            if (
+                item.symbol == source_manifest.instrument.symbol
+                and item.exchange is source_manifest.instrument.exchange
+            )
+        )
+        result = reattest_szse_daily_history(
+            ETFHistoryRequest(
+                instrument=instrument,
+                start_date=max(start_date, instrument.effective_from),
+                as_of_date=as_of_date,
+                price_basis=PriceBasis.RAW,
+            ),
+            source_manifest,
+            data_root,
+        )
+    except (SZSEProviderError, StopIteration, ValueError) as error:
+        typer.echo(f"SZSE re-attestation failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"provider manifest: {result.manifest_id}")
+
+
+@data_app.command("ingest-sina-raw")
+def ingest_sina_raw(
+    universe: UniverseOption,
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    symbol: Annotated[str, typer.Option()] = "159919",
+    data_root: DataRootOption = Path("data"),
+    calendar_root: CalendarRootOption = Path("configs/calendars"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture an independent Sina raw series; it is never joined to another provider."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for Sina ingestion")
+    start_date = _parse_cli_date(start, "start")
+    as_of_date = _parse_cli_date(as_of, "as-of")
+    try:
+        instrument = next(
+            item
+            for item in load_etf_universe(universe).instruments
+            if item.symbol == symbol and item.exchange is Exchange.SZSE
+        )
+        calendar = ExchangeCalendarStore(calendar_root)
+        calendar.require_completed_as_of(instrument.exchange, as_of_date)
+        request = ETFHistoryRequest(
+            instrument=instrument,
+            start_date=max(start_date, instrument.effective_from),
+            as_of_date=as_of_date,
+            price_basis=PriceBasis.RAW,
+        )
+        manifest = persist_sina_etf_history(
+            request,
+            fetch_sina_etf_history(instrument.symbol),
+            data_root,
+        )
+        bars = load_sina_provider_bars(manifest, data_root)
+        coverage = calendar.coverage_report(
+            instrument,
+            PriceBasis.RAW,
+            {bar.trading_date for bar in bars},
+            request.start_date,
+            request.as_of_date,
+        )
+    except (
+        CalendarNotFoundError,
+        CalendarSourceError,
+        IncompleteSessionError,
+        SinaProviderError,
+        StopIteration,
+        ValueError,
+    ) as error:
+        typer.echo(f"Sina ingestion failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"provider manifest: {manifest.manifest_id}")
+    typer.echo(f"raw provider rows: {len(bars)}")
+    typer.echo(f"coverage complete: {coverage.is_complete}")
+    if not coverage.is_complete:
+        typer.echo(
+            "Sina provider series is retained but cannot pass the Issue 003 coverage gate", err=True
         )
         raise typer.Exit(code=1)
 

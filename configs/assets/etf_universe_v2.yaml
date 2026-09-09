@@ -20,3 +20,10 @@ instruments:
     exchange: SZSE
     currency: CNY
     effective_from: 2015-01-01
+    documented_non_trading_events:
+      - dates: [2019-01-11]
+        reason: 基金份额折算暂停交易
+        evidence:
+          url: https://www.jsfund.cn/cms/Services/AttachDownLoad.jsp?id=416187
+          sha256: d58b052dc8a29c43b75b59fc45ac215df4182ceb69743ddeb9eca1da50c7ba97
+          published_on: 2019-01-04

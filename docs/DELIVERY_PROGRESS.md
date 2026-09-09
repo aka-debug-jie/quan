@@ -87,3 +87,7 @@ zero unexplained `expected_session_missing` dates.
 - Tushare is not installed and no `TUSHARE_TOKEN` is configured, so it was not
   used as a cross-check. The reconciliation outcome is `blocked`, not an empty
   pass. See `ISSUE_003_159919_RECOVERY_REPORT.md` for A–J evidence.
+- Subsequent recovery: the independent Sina raw series now has complete calendar
+  coverage once the official 2019-01-11 conversion suspension is applied; it was
+  cross-checked against all 201 SZSE sessions and published as canonical raw only.
+  qfq remains blocked by the incomplete official corporate-action ledger.

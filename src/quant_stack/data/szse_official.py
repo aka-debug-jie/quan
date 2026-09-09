@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
@@ -22,7 +23,7 @@ from quant_stack.validation import reject_duplicate_bars
 
 SZSE_HISTORY_ENDPOINT = "https://www.szse.cn/api/market/ssjjhq/getHistoryData"
 SZSE_PARSER_VERSION = "1.0.0"
-SZSE_NORMALIZATION_VERSION = "1.0.0"
+SZSE_NORMALIZATION_VERSION = "1.0.1"
 
 
 class SZSEProviderError(ValueError):
@@ -40,9 +41,14 @@ class SZSEHistoryPayload:
     raw_bytes: bytes
 
 
-def fetch_szse_daily_history(symbol: str) -> SZSEHistoryPayload:
+def fetch_szse_daily_history(
+    symbol: str,
+    extra_parameters: Mapping[str, str] | None = None,
+) -> SZSEHistoryPayload:
     """Fetch one official SZSE daily-history response without canonicalizing it."""
     parameters = {"cycleType": "32", "marketId": "1", "code": symbol}
+    if extra_parameters is not None:
+        parameters.update(extra_parameters)
     source_url = f"{SZSE_HISTORY_ENDPOINT}?{urlencode(parameters)}"
     request = Request(source_url, headers={"User-Agent": "quant-stack-szse-provider/1.0"})
     try:
@@ -177,6 +183,7 @@ def persist_szse_daily_history(
         provider=ProviderId.SZSE_OFFICIAL,
         instrument=request.instrument,
         price_basis=PriceBasis.RAW,
+        volume_unit="lots",
         source_url=payload.source_url,
         retrieved_at=payload.retrieved_at,
         request_parameters=payload.request_parameters,
@@ -191,6 +198,32 @@ def persist_szse_daily_history(
     )
     write_immutable(manifest_path, manifest.model_dump_json(indent=2).encode("utf-8") + b"\n")
     return manifest
+
+
+def reattest_szse_daily_history(
+    request: ETFHistoryRequest,
+    source_manifest: ProviderSeriesManifest,
+    data_root: Path,
+) -> ProviderSeriesManifest:
+    """Re-normalize one retained SZSE raw response without any network request or overwrite."""
+    if source_manifest.provider is not ProviderId.SZSE_OFFICIAL:
+        raise SZSEProviderError("source manifest is not an SZSE official provider series")
+    if source_manifest.price_basis is not PriceBasis.RAW:
+        raise SZSEProviderError("SZSE re-attestation requires a raw provider source")
+    raw_path = data_root / source_manifest.raw_file.relative_path
+    if not raw_path.is_file() or _sha256(raw_path.read_bytes()) != source_manifest.raw_file.sha256:
+        raise SZSEProviderError("retained SZSE raw response does not match its source manifest")
+    return persist_szse_daily_history(
+        request,
+        SZSEHistoryPayload(
+            source_url=source_manifest.source_url,
+            request_parameters=source_manifest.request_parameters,
+            http_metadata=source_manifest.http_metadata,
+            retrieved_at=source_manifest.retrieved_at,
+            raw_bytes=raw_path.read_bytes(),
+        ),
+        data_root,
+    )
 
 
 def load_szse_provider_bars(manifest: ProviderSeriesManifest, data_root: Path) -> list[DailyBar]:

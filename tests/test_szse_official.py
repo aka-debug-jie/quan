@@ -12,6 +12,7 @@ from quant_stack.data.szse_official import (
     load_szse_provider_bars,
     parse_szse_daily_history,
     persist_szse_daily_history,
+    reattest_szse_daily_history,
 )
 from quant_stack.models import Exchange
 
@@ -89,3 +90,12 @@ def test_identical_provider_content_reuses_first_receipt_without_timestamp_in_id
 
     assert retry.manifest_id == first.manifest_id
     assert retry.retrieved_at == first.retrieved_at
+
+
+def test_reattests_retained_raw_response_without_network_access(tmp_path: Path) -> None:
+    original = persist_szse_daily_history(request(), payload(), tmp_path)
+
+    reattested = reattest_szse_daily_history(request(), original, tmp_path)
+
+    assert reattested.manifest_id == original.manifest_id
+    assert reattested.volume_unit == "lots"

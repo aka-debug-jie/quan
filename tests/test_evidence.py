@@ -1,11 +1,13 @@
-from datetime import date
+from datetime import UTC, date, datetime
 from hashlib import sha256
 from pathlib import Path
 
 import pytest
 
 from quant_stack.data.evidence import (
+    CapturedEvidence,
     EvidenceArchiveError,
+    archive_corporate_action_source,
     capture_non_trading_evidence,
     require_non_trading_evidence,
 )
@@ -50,6 +52,22 @@ def test_non_trading_evidence_rejects_hash_mismatch(tmp_path: Path) -> None:
         )
 
 
+def test_archives_corporate_action_source_with_first_http_receipt(tmp_path: Path) -> None:
+    evidence = archive_corporate_action_source(
+        "https://example.invalid/action.pdf",
+        tmp_path,
+        fetcher=lambda _: CapturedEvidence(
+            content=b"official-action",
+            http_metadata={":status": "200"},
+            retrieved_at=datetime(2024, 1, 3, tzinfo=UTC),
+        ),
+    )
+
+    body = tmp_path / "raw" / "corporate_action_evidence" / evidence.sha256 / "evidence.bin"
+    assert body.read_bytes() == b"official-action"
+    assert (body.parent / "receipt.json").is_file()
+
+
 def test_non_trading_event_rejects_duplicate_dates() -> None:
     with pytest.raises(ValueError, match="unique and sorted"):
         DocumentedNonTradingEvent(
@@ -76,3 +94,4 @@ def test_v2_universe_declares_verified_510500_non_trading_dates() -> None:
         date(2015, 4, 13),
         date(2015, 4, 14),
     )
+    assert instruments["159919"].documented_non_trading_events[0].dates == (date(2019, 1, 11),)

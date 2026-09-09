@@ -1,5 +1,5 @@
-# This ledger deliberately remains incomplete.  No price-derived or third-party event is
-# permitted to promote it; each eventual event must name and hash its primary source body.
+# This ledger deliberately remains incomplete. No price-derived or third-party event is
+# permitted to promote it; each eventual event names and hashes its primary source body.
 ledger_id: cn_etf_159919_official_actions
 version: 1
 instrument:
@@ -8,4 +8,11 @@ instrument:
   currency: CNY
   asset_class: etf
 completeness: incomplete
-events: []
+events:
+  - effective_date: 2019-01-11
+    kind: share_split
+    split_ratio: "1.110680861"
+    evidence:
+      url: https://www.jsfund.cn/cms/Services/AttachDownLoad.jsp?id=416187
+      sha256: d58b052dc8a29c43b75b59fc45ac215df4182ceb69743ddeb9eca1da50c7ba97
+      published_on: 2019-01-04

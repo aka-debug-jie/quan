@@ -15,6 +15,7 @@ import pyarrow.parquet as pq  # type: ignore[import-untyped]
 from quant_stack.data.evidence import require_corporate_action_evidence
 from quant_stack.data.models import (
     CanonicalDatasetManifest,
+    CorporateActionEvent,
     CorporateActionKind,
     CorporateActionLedger,
     ProviderSeriesManifest,
@@ -45,6 +46,43 @@ class CanonicalizationResult:
     qfq_manifest: CanonicalDatasetManifest
 
 
+def persist_canonical_raw_dataset(
+    provider_manifest: ProviderSeriesManifest,
+    raw_bars: list[DailyBar],
+    data_root: Path,
+) -> CanonicalDatasetManifest:
+    """Publish a raw provider series without implying approval of any adjusted-price series."""
+    if provider_manifest.price_basis is not PriceBasis.RAW:
+        raise CanonicalizationError("canonical raw source manifest must contain raw prices")
+    if not raw_bars:
+        raise CanonicalizationError("cannot publish an empty canonical raw series")
+    first = raw_bars[0]
+    if any(
+        bar.price_basis is not PriceBasis.RAW
+        or bar.symbol != first.symbol
+        or bar.exchange is not first.exchange
+        for bar in raw_bars
+    ):
+        raise CanonicalizationError("canonical raw series mixes identities or price bases")
+    if (
+        first.symbol != provider_manifest.instrument.symbol
+        or first.exchange is not provider_manifest.instrument.exchange
+    ):
+        raise CanonicalizationError("canonical raw bars do not match their provider manifest")
+    if tuple(bar.trading_date for bar in raw_bars) != tuple(
+        sorted(bar.trading_date for bar in raw_bars)
+    ):
+        raise CanonicalizationError("canonical raw bars must be ascending")
+    return _persist_one_canonical_basis(
+        provider_manifest,
+        raw_bars,
+        PriceBasis.RAW,
+        data_root,
+        corporate_action_ledger_id=None,
+        adjustment_factors=(),
+    )
+
+
 def derive_qfq_bars(
     raw_bars: list[DailyBar],
     ledger: CorporateActionLedger,
@@ -56,7 +94,7 @@ def derive_qfq_bars(
         raise CanonicalizationError("cannot derive qfq from an empty raw series")
     _validate_raw_bars(raw_bars, ledger)
     bars = sorted(raw_bars, key=lambda bar: bar.trading_date)
-    event_by_date = {event.effective_date: event for event in ledger.events}
+    event_by_date = _events_by_application_date(bars, ledger)
     factors: dict[date, Decimal] = {}
     factor = Decimal("1")
     for index in range(len(bars) - 1, -1, -1):
@@ -154,6 +192,25 @@ def _validate_raw_bars(raw_bars: list[DailyBar], ledger: CorporateActionLedger) 
         raise CanonicalizationError("raw bars must have unique ascending trading dates")
     if first.symbol != ledger.instrument.symbol or first.exchange is not ledger.instrument.exchange:
         raise CanonicalizationError("corporate-action ledger instrument does not match raw bars")
+
+
+def _events_by_application_date(
+    bars: list[DailyBar],
+    ledger: CorporateActionLedger,
+) -> dict[date, CorporateActionEvent]:
+    """Apply an action after the first tradable session on or after its effective date."""
+    applications: dict[date, CorporateActionEvent] = {}
+    for event in ledger.events:
+        apply_date = next(
+            (bar.trading_date for bar in bars if bar.trading_date >= event.effective_date),
+            None,
+        )
+        if apply_date is None:
+            raise CanonicalizationError("corporate action has no following raw session")
+        if apply_date in applications:
+            raise CanonicalizationError("multiple corporate actions apply before one raw session")
+        applications[apply_date] = event
+    return applications
 
 
 def _persist_one_canonical_basis(

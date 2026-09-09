@@ -6,12 +6,17 @@ from quant_stack.data.reconciliation import reconcile_raw_series
 from quant_stack.models import DailyBar, Exchange, Instrument, ManifestFile, PriceBasis
 
 
-def _manifest(provider: ProviderId, digest: str) -> ProviderSeriesManifest:
+def _manifest(
+    provider: ProviderId,
+    digest: str,
+    volume_unit: str = "unspecified",
+) -> ProviderSeriesManifest:
     return ProviderSeriesManifest(
         manifest_id=digest,
         provider=provider,
         instrument=Instrument(symbol="159919", exchange=Exchange.SZSE),
         price_basis=PriceBasis.RAW,
+        volume_unit=volume_unit,
         source_url="https://example.invalid/source",
         retrieved_at="2024-01-02T00:00:00+00:00",
         request_parameters={},
@@ -61,3 +66,17 @@ def test_reconciliation_does_not_merge_series_and_detects_disagreement() -> None
     assert report.status == "blocked"
     assert report.overlap_sessions == 1
     assert report.mismatched_sessions == 1
+
+
+def test_reconciliation_accepts_explicit_shares_to_lots_volume_conversion() -> None:
+    report = reconcile_raw_series(
+        _manifest(ProviderId.SINA, "c" * 64, "shares"),
+        [_bar("100")],
+        _manifest(ProviderId.SZSE_OFFICIAL, "d" * 64, "lots"),
+        [_bar("1")],
+    )
+
+    assert report.status == "pass"
+    assert report.mismatched_sessions == 0
+    assert report.source_to_cross_check_volume_multiplier == "0.01"
+    assert report.cross_check_volume_tolerance == "0.5"

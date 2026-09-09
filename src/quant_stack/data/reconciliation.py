@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
 
@@ -24,6 +25,8 @@ class ReconciliationReport:
     cross_check_manifest_id: str | None
     overlap_sessions: int
     mismatched_sessions: int
+    source_to_cross_check_volume_multiplier: str | None
+    cross_check_volume_tolerance: str | None
     reasons: tuple[str, ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -36,6 +39,8 @@ class ReconciliationReport:
             "cross_check_manifest_id": self.cross_check_manifest_id,
             "overlap_sessions": self.overlap_sessions,
             "mismatched_sessions": self.mismatched_sessions,
+            "source_to_cross_check_volume_multiplier": self.source_to_cross_check_volume_multiplier,
+            "cross_check_volume_tolerance": self.cross_check_volume_tolerance,
             "reasons": list(self.reasons),
         }
 
@@ -50,6 +55,8 @@ def reconcile_raw_series(
     reasons: list[str] = []
     overlap = 0
     mismatches = 0
+    volume_multiplier: Decimal | None = None
+    volume_tolerance: Decimal | None = None
     if cross_check_manifest is None or cross_check_bars is None:
         reasons.append("no independently captured cross-check provider series is available")
     else:
@@ -57,13 +64,21 @@ def reconcile_raw_series(
             raise ValueError("cross-provider reconciliation requires the same instrument")
         if source_manifest.price_basis != cross_check_manifest.price_basis:
             raise ValueError("cross-provider reconciliation requires the same price basis")
+        volume_multiplier = _volume_multiplier(source_manifest, cross_check_manifest)
+        volume_tolerance = _volume_tolerance(source_manifest, cross_check_manifest)
+        if volume_multiplier is None:
+            reasons.append("provider volume units have no configured deterministic conversion")
         right = {bar.trading_date: bar for bar in cross_check_bars}
         for left in source_bars:
             other = right.get(left.trading_date)
             if other is None:
                 continue
             overlap += 1
-            if _bar_tuple(left) != _bar_tuple(other):
+            if _price_tuple(left) != _price_tuple(other) or (
+                volume_multiplier is None
+                or volume_tolerance is None
+                or abs(left.volume * volume_multiplier - other.volume) > volume_tolerance
+            ):
                 mismatches += 1
         if overlap == 0:
             reasons.append("provider series have no common session for reconciliation")
@@ -81,6 +96,12 @@ def reconcile_raw_series(
         ),
         "overlap_sessions": overlap,
         "mismatched_sessions": mismatches,
+        "source_to_cross_check_volume_multiplier": (
+            str(volume_multiplier) if volume_multiplier is not None else None
+        ),
+        "cross_check_volume_tolerance": (
+            str(volume_tolerance) if volume_tolerance is not None else None
+        ),
         "reasons": reasons,
     }
     return ReconciliationReport(
@@ -92,6 +113,12 @@ def reconcile_raw_series(
         ),
         overlap_sessions=overlap,
         mismatched_sessions=mismatches,
+        source_to_cross_check_volume_multiplier=(
+            str(volume_multiplier) if volume_multiplier is not None else None
+        ),
+        cross_check_volume_tolerance=(
+            str(volume_tolerance) if volume_tolerance is not None else None
+        ),
         reasons=tuple(reasons),
     )
 
@@ -103,9 +130,37 @@ def persist_reconciliation_report(report: ReconciliationReport, data_root: Path)
     return path
 
 
-def _bar_tuple(bar: DailyBar) -> tuple[object, ...]:
-    """Return the comparable raw OHLCV fields for exactly one session."""
-    return (bar.open, bar.high, bar.low, bar.close, bar.volume)
+def _price_tuple(bar: DailyBar) -> tuple[object, ...]:
+    """Return comparable raw price fields without silently converting a provider volume."""
+    return (bar.open, bar.high, bar.low, bar.close)
+
+
+def _volume_multiplier(
+    source_manifest: ProviderSeriesManifest,
+    cross_check_manifest: ProviderSeriesManifest,
+) -> Decimal | None:
+    """Return the only known shares-to-lots conversion; unknown units block reconciliation."""
+    if source_manifest.volume_unit == cross_check_manifest.volume_unit:
+        return Decimal("1")
+    if source_manifest.volume_unit == "shares" and cross_check_manifest.volume_unit == "lots":
+        return Decimal("0.01")
+    if source_manifest.volume_unit == "lots" and cross_check_manifest.volume_unit == "shares":
+        return Decimal("100")
+    return None
+
+
+def _volume_tolerance(
+    source_manifest: ProviderSeriesManifest,
+    cross_check_manifest: ProviderSeriesManifest,
+) -> Decimal | None:
+    """Return half of one reporting unit only where a source explicitly rounds 100-share lots."""
+    if source_manifest.volume_unit == cross_check_manifest.volume_unit:
+        return Decimal("0")
+    if source_manifest.volume_unit == "shares" and cross_check_manifest.volume_unit == "lots":
+        return Decimal("0.5")
+    if source_manifest.volume_unit == "lots" and cross_check_manifest.volume_unit == "shares":
+        return Decimal("50")
+    return None
 
 
 def _canonical_json(value: object) -> bytes:

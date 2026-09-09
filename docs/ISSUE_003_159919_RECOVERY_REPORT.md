@@ -7,6 +7,26 @@ but the captured official SZSE endpoint cannot supply the required 2015-onward
 raw history. It is not eligible for canonical selection, and no qfq data has
 been generated.
 
+## Subsequent recovery evidence
+
+- SZSE parameter probes (base, `page=2&pageSize=5000`, and the full 2015--2026
+  date window) each returned the same 201 sessions. The short result is a source
+  limitation, not adapter pagination.
+- Independent Sina raw manifest
+  `08a5902f92d0f2c78cc900742bba88886057339dc440c5c0c580f5cffd983f6d`
+  contains 2,840 sessions from 2015-01-05 through 2026-09-09. Its sole absent
+  session, 2019-01-11, is an evidence-backed fund-share conversion suspension.
+- The first-party 嘉实 source body is archived under SHA-256
+  `d58b052dc8a29c43b75b59fc45ac215df4182ceb69743ddeb9eca1da50c7ba97`.
+  It also records the 1.110680861 share conversion in the still-incomplete ledger.
+- Sina and SZSE reconcile across all 201 overlapping sessions: OHLC match exactly;
+  Sina shares are converted to SZSE lots by 0.01 with at most 0.5-lot source
+  reporting quantization. Raw canonical manifest:
+  `5ec4e243b363d52d5a379fea1fef3c4a1258b51ee00fa4717cc7bcceecc40de4`.
+
+This establishes raw coverage only. The action ledger remains incomplete, so no
+canonical qfq artifact is published and the A--J gate remains blocked.
+
 ## Preserved primary-provider state
 
 AKShare `fund_etf_hist_em` / Eastmoney remains the primary provider. Its existing

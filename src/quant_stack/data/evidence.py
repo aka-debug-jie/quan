@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -15,6 +18,15 @@ from quant_stack.data.models import (
 from quant_stack.snapshot import write_immutable
 
 EvidenceFetcher = Callable[[str], bytes]
+
+
+@dataclass(frozen=True)
+class CapturedEvidence:
+    """A first-party evidence body together with the HTTP receipt captured at retrieval."""
+
+    content: bytes
+    http_metadata: dict[str, str]
+    retrieved_at: datetime
 
 
 class EvidenceArchiveError(ValueError):
@@ -98,6 +110,33 @@ def capture_corporate_action_evidence(
     )
 
 
+def archive_corporate_action_source(
+    url: str,
+    data_root: Path,
+    fetcher: Callable[[str], CapturedEvidence] | None = None,
+) -> OfficialEvidence:
+    """Archive a first-party corporate-action source before its SHA is added to a ledger."""
+    captured = (fetcher or _fetch_evidence_with_receipt)(url)
+    digest = _sha256(captured.content)
+    evidence = OfficialEvidence(url=url, sha256=digest, published_on=captured.retrieved_at.date())
+    evidence_path = corporate_action_evidence_archive_path(data_root, evidence)
+    write_immutable(evidence_path, captured.content)
+    receipt_path = evidence_path.with_name("receipt.json")
+    if not receipt_path.exists():
+        receipt = {
+            "source_url": url,
+            "retrieved_at": captured.retrieved_at.astimezone(UTC).isoformat(),
+            "http_metadata": captured.http_metadata,
+            "sha256": digest,
+        }
+        write_immutable(
+            receipt_path,
+            json.dumps(receipt, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8")
+            + b"\n",
+        )
+    return evidence
+
+
 def _unique_evidence(events: Iterable[DocumentedNonTradingEvent]) -> tuple[OfficialEvidence, ...]:
     """Return evidence once per content hash while preserving configuration order."""
     unique: dict[str, OfficialEvidence] = {}
@@ -165,6 +204,23 @@ def _fetch_evidence_bytes(url: str) -> bytes:
             return bytes(response.read())
     except OSError as error:
         raise EvidenceArchiveError(f"unable to fetch non-trading evidence: {url}") from error
+
+
+def _fetch_evidence_with_receipt(url: str) -> CapturedEvidence:
+    """Download one official source body and retain response metadata for provenance."""
+    request = Request(url, headers={"User-Agent": "quant-stack-evidence/1.0"})
+    try:
+        with urlopen(request, timeout=30) as response:
+            return CapturedEvidence(
+                content=bytes(response.read()),
+                http_metadata={
+                    **{key.lower(): value for key, value in response.headers.items()},
+                    ":status": str(response.status),
+                },
+                retrieved_at=datetime.now(UTC),
+            )
+    except OSError as error:
+        raise EvidenceArchiveError(f"unable to fetch corporate-action evidence: {url}") from error
 
 
 def _sha256(content: bytes) -> str:

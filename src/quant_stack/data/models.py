@@ -163,6 +163,7 @@ class ProviderId(StrEnum):
 
     AKSHARE_EASTMONEY = "akshare_eastmoney"
     SZSE_OFFICIAL = "szse_official"
+    SINA = "sina"
     TUSHARE = "tushare"
 
 
@@ -173,6 +174,7 @@ class ProviderSeriesManifest(DomainModel):
     provider: ProviderId
     instrument: Instrument
     price_basis: PriceBasis
+    volume_unit: Literal["shares", "lots", "unspecified"] = "unspecified"
     source_url: Annotated[str, Field(min_length=1)]
     retrieved_at: datetime
     request_parameters: dict[str, str]
