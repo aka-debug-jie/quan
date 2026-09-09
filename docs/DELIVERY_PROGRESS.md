@@ -15,7 +15,7 @@
 | 001 | `issue/001-akshare-etf-adapter` | baseline `53cf6d3` | Implemented in captured baseline | Offline adapter tests; Ruff, mypy, pytest pass | Held by 001-003 shared data gate |
 | 002 | `issue/002-provenance-manifests` | baseline `53cf6d3` | Implemented in captured baseline | Immutable raw/Parquet/manifest tests pass | Held by 001-003 shared data gate |
 | 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; accepted head pending this update | PASS | Raw/qfq coverage, official evidence ledger, PIT view, factor reconciliation, Ruff, mypy, pytest pass | Issue 004 may be created only by explicit next action |
-| 004 | `issue/004-features` | base `eea1e16` | Implemented; acceptance review pending | PIT-safe feature warm-up tests; Ruff, mypy, pytest pass | Do not enter Issue 005 before review and accepted commit |
+| 004 | `issue/004-features` | base `eea1e16`; accepted `4b81116` | PASS | PIT-safe feature warm-up tests; Ruff, mypy, pytest pass | Issue 005 may be created |
 | 005 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 007 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
