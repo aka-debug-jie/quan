@@ -1,0 +1,13 @@
+experiment_id: etf_walk_forward_v1
+status: preregistered_not_executed
+selection_period_end: 2023-12-29
+locked_test_start: 2024-01-02
+parameter_grid:
+  trend_windows: [200]
+  momentum_windows_months: [3, 6, 12]
+  volatility_windows: [60]
+  selection_counts: [1, 2]
+required_stress_tests:
+  - one_session_execution_delay
+  - doubled_costs
+  - start_end_date_sensitivity
