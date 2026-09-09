@@ -62,3 +62,12 @@ zero unexplained `expected_session_missing` dates.
 - Remaining external blocker: AKShare's configured Eastmoney historical K-line
   endpoint terminates TLS reads before returning `159919` data. Direct endpoint
   probes exhibit the same failure. No alternate provider has been introduced.
+
+## Provider probe log
+
+- 2026-09-10 Asia/Shanghai: an explicit short-range
+  `ak.fund_etf_hist_em(symbol="159919", start_date="20150105",
+  end_date="20150130", adjust="")` probe again failed with a remote TLS read
+  disconnect. This confirms the block is not caused by multi-year request size.
+- No fallback provider, manual CSV import, synthetic bar, or data waiver was
+  used after this probe.
