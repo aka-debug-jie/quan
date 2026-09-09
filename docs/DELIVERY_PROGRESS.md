@@ -17,7 +17,7 @@
 | 003 | `issue/003-159919-szse-recovery` | baseline `53cf6d3`; accepted head pending this update | PASS | Raw/qfq coverage, official evidence ledger, PIT view, factor reconciliation, Ruff, mypy, pytest pass | Issue 004 may be created only by explicit next action |
 | 004 | `issue/004-features` | base `eea1e16`; accepted `4b81116` | PASS | PIT-safe feature warm-up tests; Ruff, mypy, pytest pass | Issue 005 may be created |
 | 005 | `issue/005-portfolio-construction` | base `8812be2`; accepted `b2416dd` | PASS | Constraint and deterministic weighting tests pass | Issue 006 may be created |
-| 006 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
+| 006 | `issue/006-vectorbt-t1` | base `fdb9267`; accepted `c506299` | Implemented; acceptance review pending | VectorBT T+1 order timestamp test; Ruff, mypy, pytest pass | Do not enter Issue 007 before review |
 | 007 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 008 | not created | — | Not started | — | Forbidden before 001-003 gate passes |
 | 009 | not created | — | Not started | — | Forbidden before 004-008 gate passes |
