@@ -24,3 +24,48 @@ events:
       url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20210111_5299412.shtml
       sha256: d28d10cb76650c7fd42f2918055289c75f63490cf12238e320594ff995585a53
       published_on: 2021-01-11
+  - effective_date: 2022-01-19
+    record_date: 2022-01-18
+    payment_date: 2022-01-24
+    kind: cash_distribution
+    cash_per_unit: "0.075"
+    event_announcement_date: 2022-01-12
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2021
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2022-01-12/510300_20220112_1_pWPNE0aG.pdf
+      sha256: 1f5411e65cb9043bec5ae100df3925e6bb0aa122ea18186c7ba9a7e0747a9b50
+      published_on: 2022-01-12
+    value_evidence: *value2021
+    availability_evidence:
+      url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20220112_5681396.shtml
+      sha256: 7286321a1dd1c9ca1cbfbab844a976a9783178a209cdeb156dcd41ad41d92fce
+      published_on: 2022-01-12
+  - effective_date: 2023-01-16
+    record_date: 2023-01-13
+    payment_date: 2023-01-19
+    kind: cash_distribution
+    cash_per_unit: "0.064"
+    event_announcement_date: 2023-01-09
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2022
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2023-01-09/510300_20230109_0ED5.pdf
+      sha256: 68f2227ae25acec3b831d50d042b87f12696dc0df1514ef9dacb36e018d571d7
+      published_on: 2023-01-09
+    availability_evidence: *value2022
+    value_evidence: *value2022
+  - effective_date: 2024-01-18
+    record_date: 2024-01-17
+    payment_date: 2024-01-23
+    kind: cash_distribution
+    cash_per_unit: "0.069"
+    event_announcement_date: 2024-01-11
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2023
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2024-01-11/510300_20240111_QQFV.pdf
+      sha256: 165ddaec9b36480ff4cbc738227043db7b7acc4f80ac31bedaa0e4f5c4001f4b
+      published_on: 2024-01-11
+    availability_evidence: *value2023
+    value_evidence: *value2023
