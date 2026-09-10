@@ -1,10 +1,10 @@
 # quant-stack
 
 `quant-stack` is a reproducible, Linux-first ETF research and local
-paper-trading platform. Issues 001--008 provide typed data contracts, immutable
+paper-trading platform. Issues 001--010 provide typed data contracts, immutable
 snapshots, point-in-time features, constrained long-only portfolio construction,
-T+1 execution and explicit costs. Issue 009 is in progress; it has not produced
-a locked-test result and makes no profitability claim.
+T+1 execution and explicit costs. Issue 009 produced a controlled-recovery
+result of `NO_EVIDENCE_OF_EDGE`; it makes no profitability claim.
 
 ## Safety boundary
 
@@ -76,6 +76,21 @@ uv run quant data verify data/normalized/.../snapshot.parquet
 
 Formal Issue 009 runs remain gated by frozen configuration hashes, an immutable
 data snapshot and a recorded locked-test precommit manifest.
+
+## Paper account
+
+The local paper account has no broker integration and cannot submit a live order.
+It uses raw-price fills, Decimal fractional shares, corporate actions, SQLite WAL
+storage and an append-only hash chain.
+
+```bash
+uv run quant paper initialize
+uv run quant paper reconcile
+uv run quant paper run-daily --allow-network
+```
+
+Daily reports are written below `artifacts/paper/`. Install the optional
+user-level timer with `bash scripts/install_paper_systemd_user.sh`.
 
 ## Layout
 

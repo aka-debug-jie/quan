@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 import typer
 
@@ -65,6 +66,8 @@ from quant_stack.data_qualification import persist_qualification_report, qualify
 from quant_stack.issue009_runner import run_issue009_controlled_recovery, run_issue009_locked_test
 from quant_stack.locked_test import create_locked_test_precommit, persist_locked_test_precommit
 from quant_stack.models import Exchange, PriceBasis
+from quant_stack.paper_broker import PaperLedgerError
+from quant_stack.paper_service import PaperDailyError, initialize_paper_account, run_paper_catchup
 from quant_stack.research_result import recover_controlled_publication, recover_publication
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
@@ -839,9 +842,59 @@ def generate_signal() -> None:
 
 
 @paper_app.command("reconcile")
-def reconcile_paper() -> None:
-    """Reserve the future paper-ledger reconciliation interface."""
-    _m0_placeholder("paper reconciliation")
+def reconcile_paper(
+    environment: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/environments/paper.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/paper"),
+) -> None:
+    """Replay the local strategy ledger and print its reconciled state."""
+    broker = initialize_paper_account(environment, artifact_root)
+    result = broker.reconcile()
+    typer.echo(f"events: {result.event_count}")
+    typer.echo(f"ledger head: {result.head_hash}")
+    typer.echo(f"nav: {result.snapshot.net_asset_value}")
+
+
+@paper_app.command("initialize")
+def initialize_paper(
+    environment: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/environments/paper.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/paper"),
+) -> None:
+    """Initialize the local CNY paper strategy and benchmark accounts."""
+    broker = initialize_paper_account(environment, artifact_root)
+    snapshot = broker.snapshot()
+    typer.echo(f"paper account initialized: {broker.config.account_id}")
+    typer.echo(f"cash: {snapshot.cash}")
+
+
+@paper_app.command("run-daily")
+def run_daily_paper(
+    environment: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/environments/paper.yaml"
+    ),
+    data_root: DataRootOption = Path("data"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/paper"),
+    as_of: Annotated[str | None, typer.Option()] = None,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Refresh approved raw data and process one confirmed paper session locally."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for paper data refresh")
+    trading_date = (
+        date.fromisoformat(as_of) if as_of else datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    )
+    try:
+        reports = run_paper_catchup(
+            environment, data_root, artifact_root, trading_date, allow_network=True
+        )
+    except (PaperDailyError, PaperLedgerError, ValueError, OSError) as error:
+        typer.echo(f"paper daily run failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    for report in reports:
+        typer.echo(f"paper report: {report}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,7 @@
+[Unit]
+Description=Notify Quant Stack paper task failure for %I
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/quant-stack/paper.env
+ExecStart=/bin/sh -c 'logger -t quant-paper "paper task failed: %I"; command -v notify-send >/dev/null && notify-send "Quant paper task failed" "%I" || true'

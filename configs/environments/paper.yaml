@@ -1,4 +1,15 @@
 version: 1
 mode: paper
-allow_network_data_download: false
+allow_network_data_download: true
 allow_live_orders: false
+account_id: cn_etf_paper_v1
+currency: CNY
+initial_cash: "100000.00"
+fractional_shares: true
+strategy_id: etf_momentum_v2_experimental
+benchmark_id: same_universe_equal_weight_v2_shadow
+universe: configs/assets/etf_universe_v2.yaml
+source_registry: configs/data_qualification/d0_sources_v1.yaml
+ledger_root: configs/corporate_actions
+calendar_root: configs/calendars
+cost_config: configs/costs/cn_etf_v1.yaml

@@ -78,9 +78,9 @@ controlled recomputation, not authorization from the engineering recovery comman
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
 | 009 | `codex/issue009-runner-hardening` | code `d865221`; authorization `cc98d5f` | PASS_CONTROLLED_RECOVERY | D0 PASS; two V3 builds identical; frozen result `NO_EVIDENCE_OF_EDGE` | Accepted for platform engineering; not a fresh holdout or edge claim |
-| 010 | not created | — | NOT_STARTED | — | Permitted after V3 controlled-recovery acceptance |
-| 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
-| 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |
+| 010 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | SQLite paper ledger and reconciliation | No live orders |
+| 011 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | Offline HTML account report | Depends on Issue 010 data |
+| 012 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | User systemd timer and failure handler | Depends on daily integration acceptance |
 
 ## Current acceptance commands
 

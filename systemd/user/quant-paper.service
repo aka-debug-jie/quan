@@ -1,0 +1,12 @@
+[Unit]
+Description=Quant Stack paper account daily processing
+After=network-online.target
+Wants=network-online.target
+OnFailure=quant-paper-failure@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/quant-stack/paper.env
+ExecStart=/bin/sh ${QUANT_STACK_REPO}/scripts/run_paper_systemd.sh
+TimeoutStartSec=20min
+Nice=10
