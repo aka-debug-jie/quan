@@ -40,10 +40,13 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
 
 ## Current Issue 009 review
 
-- Substage: `009-D0 Frozen Universe Data Qualification`.
+- Substage: `009 Locked-Test V2`.
 - Status: `D0 PASS`; locked-test V2 `INVALID_RESEARCH_RESULT`.
 
-- Evaluation contract SHA-256: `11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230`.
+- V1 evaluation contract SHA-256:
+  `11869af4ab20ceec8a10c5d2e8f958114b1ca59da0da041628a1862c8b6df230`.
+- V2 supplemental contract SHA-256:
+  `e0cbb2c91e522d5a4f76a58429eaa316b8c89e992c378279bbb952b8208c40b1`.
 - Frozen inputs: universe, strategy, primary benchmark, execution and cost YAML
   files are hash-verified by the preregistration manifest before any executable
   experiment can proceed.
