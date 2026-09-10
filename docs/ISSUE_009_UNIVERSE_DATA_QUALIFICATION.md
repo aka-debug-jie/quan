@@ -15,7 +15,7 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | `510300` | PASS | incomplete; 8 verified + 4 retrospective candidates | FAIL | missing | PASS | NOT_QUALIFIED |
-| `510500` | PASS | incomplete; 5 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510500` | PASS | incomplete; 6 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
 `510300` 的独立 Sina/AKShare raw reconciliation 已保存为
@@ -34,6 +34,14 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 Tushare 未安装且当前环境没有配置 `TUSHARE_TOKEN`；因此它不能作为第三个
 cross-check provider。该缺失未被用作放宽 Sina/AKShare 的 0.002 价格差异，
 也不要求在仓库或日志中提供任何凭据。
+
+2026-07-15 的 `510500` 分红已完成 authoritative evidence chain：上交所
+availability 证据 `944367139323420ab7e6efd2ec690181f82b2e2abdad31335f776d314ddf8455`
+确认公告日与除息日；南方基金 2026 年中期报告 value 证据
+`01136d5f27e09722b45876afe96bc30070635b76495c95d656b0c34b44a07861`
+在 §6.4.8.2 记录截至 7 月 14 日登记、每 10 份 1.4900 元。value evidence
+发布于 2026-08-31，ledger 记录为 retrospective verification，未回填到事件当日。
+该单事件通过不改变 `510500` ledger incomplete 或其 `NOT_QUALIFIED` 状态。
 
 `159919` passed the D0 cross-provider and reproduction gates: report
 `ab424736c7ffbd1e1dfe517e7cc2f02f85609c56da5d6ac30bfe067b8ca2d739`

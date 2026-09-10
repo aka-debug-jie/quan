@@ -31,6 +31,9 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert str(ledger.events[3].cash_per_unit) == "0.091"
     assert ledger.events[4].effective_date.isoformat() == "2026-01-16"
     assert str(ledger.events[4].cash_per_unit) == "0.062"
+    assert ledger.events[5].effective_date.isoformat() == "2026-07-15"
+    assert str(ledger.events[5].cash_per_unit) == "0.149"
+    assert ledger.events[5].retrospective_verification
 
 
 def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:

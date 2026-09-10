@@ -81,3 +81,20 @@ events:
       published_on: 2026-01-09
     availability_evidence: *value2026
     value_evidence: *value2026
+  - effective_date: 2026-07-15
+    record_date: 2026-07-14
+    kind: cash_distribution
+    cash_per_unit: "0.149"
+    event_announcement_date: 2026-07-08
+    evidence_type: annual_report
+    retrospective_verification: true
+    verification_status: official_evidence_chain_verified
+    evidence: &value2026h1
+      url: https://www.nffund.com/main/files/2026/08/28/223078883675.pdf
+      sha256: 01136d5f27e09722b45876afe96bc30070635b76495c95d656b0c34b44a07861
+      published_on: 2026-08-31
+    value_evidence: *value2026h1
+    availability_evidence:
+      url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20260708_10824766.shtml
+      sha256: 944367139323420ab7e6efd2ec690181f82b2e2abdad31335f776d314ddf8455
+      published_on: 2026-07-08
