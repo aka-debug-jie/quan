@@ -14,7 +14,7 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| `510300` | PASS | incomplete; 6 verified + 6 retrospective candidates | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510300` | PASS | incomplete; 8 verified + 4 retrospective candidates | FAIL | missing | PASS | NOT_QUALIFIED |
 | `510500` | PASS | incomplete; 5 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
