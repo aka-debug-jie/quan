@@ -20,7 +20,7 @@
 | 006 | `issue/006-vectorbt-t1` | accepted `05c2a0d` | PASS | VectorBT T+1 order-timestamp test | Issue 007 accepted as descendant |
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
-| 009 | `issue/009-walk-forward` | D0 close `6081641` | IN_PROGRESS | All frozen-universe assets qualified; deterministic execution, fold runner and immutable experiment registry | D0 PASS; locked test not run |
+| 009 | `issue/009-walk-forward` | D0 close `686a626` | IN_PROGRESS | All frozen-universe assets qualified; deterministic execution, fold runner and immutable experiment registry | D0 PASS; locked test not run |
 | 010 | not created | — | NOT_STARTED | — | Forbidden before Issue 009 PASS |
 | 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
 | 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |
@@ -52,7 +52,7 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
 - No locked-test manifest, result, outcome classification, or robustness report
   exists yet. The runner has not read or evaluated the locked test interval.
 - Final D0 qualification artifact:
-  `4a554e464cef4f836187484cd9d4c364d57ed5e6dda698c926d5e0067ec46940`.
+  `66ed03b7fda4057fac1a1f5ab916443d66fe87fe30ab5a6903e67433cc20978a`.
   `159919`, `510300`, and `510500` are all `QUALIFIED`.
 - `510300` has 12 verified dividends and zero unexplained events. Its 2015
   original SSE notice establishes the 2015-01-20 ex-date and CNY 0.35 per 10
@@ -62,9 +62,9 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   SSE assets. AKShare/Eastmoney remains an independent full-history cross-check;
   Sina adjudicates its five 2020 discrepancies per asset. All official values
   are corroborated, with zero rejected or unexplained records and no splicing.
-- Causal output SHA-256 values are `c108505b...` for `510300`, `3e1a90f7...`
+- Causal output SHA-256 values are `7bf2e960...` for `510300`, `35e94885...`
   for `510500`, and `9b096bc9...` for `159919`. Isolated rebuilds at code
-  commit `6081641` reproduce all three output hashes exactly.
+  commit `686a626` reproduce all three output hashes exactly.
 - A new `LOCKED_TEST_PRECOMMIT` may now be prepared as a separate next step.
   No precommit was generated and the locked test interval has not been read or
   evaluated in this D0 change.

@@ -10,7 +10,7 @@ timing rule, parameter grid, or split.
 
 ## Final qualification
 
-Artifact: `artifacts/data_qualification/4a554e464cef4f836187484cd9d4c364d57ed5e6dda698c926d5e0067ec46940/qualification.json`
+Artifact: `artifacts/data_qualification/66ed03b7fda4057fac1a1f5ab916443d66fe87fe30ab5a6903e67433cc20978a/qualification.json`
 
 | Symbol | Raw | Inventory | Ledger | PIT | Causal | Reconciliation | Reproducible | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -19,7 +19,7 @@ Artifact: `artifacts/data_qualification/4a554e464cef4f836187484cd9d4c364d57ed5e6
 | `510500` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | QUALIFIED |
 
 The source registry SHA-256 is
-`cd420fd578e50a1e3b8293856a8c4c9cd7c80942994879c4cfe028e69887ad2c`.
+`8af9b0c43c06f9fa757d2376fe8c1584918f583e5dd9f378427183264cd550d4`.
 It selects one complete SSE official raw series for each SSE asset, retains
 AKShare/Eastmoney as the full-history cross-check, and uses Sina only as a
 third-provider adjudicator. No provider rows are spliced.
@@ -47,8 +47,8 @@ has an unexplained provider adjustment candidate or official event.
 
 | Symbol | Sessions | AKShare differences | Sina-confirmed SSE values | Source rejected | Unexplained | Report |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `510300` | 2,841 | 5 | 5 | 0 | 0 | `49659bc62c4cf03dccfc3019c8b78c5b5c9e3e84421563ec5c203b19f6defd74` |
-| `510500` | 2,839 | 5 | 5 | 0 | 0 | `14634c11db3afc9832024034f2cc3d2f897cf6f2d9f6e8a169daf05c5efaec92` |
+| `510300` | 2,841 | 5 | 5 | 0 | 0 | `8167a5f943fadde1f0cf540bb8a8b2ccd845fc731e2a9159c67958055e093a35` |
+| `510500` | 2,839 | 5 | 5 | 0 | 0 | `0d6a6c335366eedc6fd97a83792581d124a27d8ba918df63a4172390fc0cadc0` |
 
 The five differences for each asset occur on 2020-08-21 and 2020-08-24 through
 2020-08-27. Each SSE OHLC record is independently matched by Sina. Maximum
@@ -60,13 +60,13 @@ present in the canonical-source reconciliation.
 
 | Symbol | Ledger SHA-256 | Causal output SHA-256 | Reproduction report |
 | --- | --- | --- | --- |
-| `510300` | `d4ae033d73c0ab352930d2e70f64039e6176c330e2f159be24920f889328f53f` | `c108505b68156c28b1b9190dbf0f4d3c7e9d3468d960fee77c20c66729f9a00d` | `a5e75fd94d36894c6d8717de2b586bb5f9891582c22aba18ee12dbbaf42ddd0b` |
-| `510500` | `3930b6e171ff790e71c68b54f0a0eb35877a0a432d0bd152e05d7aacedc486a1` | `3e1a90f772b7614c1d5927a2710761d677baf8c63e6d36e8eeb3135e0903f1cc` | `ec4e7bb9f51c54ac89fd634ef9e46ea1450da018a759723a971a8857bf1012f3` |
-| `159919` | `448c11403a9af0cfe49333c5b067b366d72f0e336d9597cf3c3a6b3d19bd8cf6` | `9b096bc92625404ea6c70a44e00218bf41de59c3c69a762cd7d78a1709cd6d26` | `83a44e0c1ccbee1a6c7c41e13fab6ad2f3f533d8c66cc3aa1448ba6e824c0bef` |
+| `510300` | `d4ae033d73c0ab352930d2e70f64039e6176c330e2f159be24920f889328f53f` | `7bf2e9602ac7d4cac49cfa9e24288dc9436ed63ca87799d0b081ea9e92aa8f4b` | `4428842efd2110b4192531b28590f0ae81e4a32578563ce01ec7b5589ece81bd` |
+| `510500` | `3930b6e171ff790e71c68b54f0a0eb35877a0a432d0bd152e05d7aacedc486a1` | `35e94885dee82f1bd092700ff049f966c041034729d752b6ec596a3f3e3e98ce` | `f0aa71a2727218bcb16d178b75da03538c941752f796f896711c392da24e06b0` |
+| `159919` | `448c11403a9af0cfe49333c5b067b366d72f0e336d9597cf3c3a6b3d19bd8cf6` | `9b096bc92625404ea6c70a44e00218bf41de59c3c69a762cd7d78a1709cd6d26` | `973fb33f8dff5dba5b0897aeadc9d41e8941a410f129f725b57fe7bf67ef271c` |
 
 All three reports rebuilt the selected raw snapshot and complete ledger in an
 isolated temporary root with algorithm version `1.0.0` and code commit
-`6081641`. Observed manifest and output hashes exactly equal the retained
+`686a626`. Observed manifest and output hashes exactly equal the retained
 canonical artifacts. A regression test also verifies that a future action does
 not change an earlier adjusted input, feature, or signal, and raw OHLC remains
 unchanged.
