@@ -31,13 +31,20 @@ events:
       published_on: 2016-01-14
     availability_evidence: *value2015
     value_evidence: *value2015
-  - effective_date: 2017-01-20
+  - effective_date: 2017-01-23
+    record_date: 2017-01-20
+    payment_date: 2017-01-26
     kind: cash_distribution
     cash_per_unit: "0.055"
-    evidence_type: annual_report
-    retrospective_verification: true
-    verification_status: candidate
-    evidence: *prospectus2022
+    event_announcement_date: 2017-01-17
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2016
+      url: https://static.cninfo.com.cn/finalpage/2017-01-17/1203020541.PDF
+      sha256: a43612267be7e68a6a110013ba7b14faeae48657932b7dca713db8a44ea46b6b
+      published_on: 2017-01-17
+    availability_evidence: *value2016
+    value_evidence: *value2016
   - effective_date: 2018-01-23
     record_date: 2018-01-22
     payment_date: 2018-01-26
