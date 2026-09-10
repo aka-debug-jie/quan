@@ -270,6 +270,10 @@ class CorporateActionLedger(DomainModel):
             raise ValueError("corporate-action ledger dates must be unique")
         if dates != tuple(sorted(dates)):
             raise ValueError("corporate-action ledger events must be sorted")
+        if self.completeness == "complete" and any(
+            event.verification_status == "candidate" for event in self.events
+        ):
+            raise ValueError("complete corporate-action ledger cannot retain candidate events")
         return self
 
 

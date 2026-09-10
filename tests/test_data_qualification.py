@@ -56,6 +56,7 @@ def test_qualification_reports_all_frozen_assets_not_only_known_missing_ones(
     assert report.assets[0].ledger_sha256 is None
     assert report.assets[0].cross_provider_report_id is None
     assert report.assets[0].deterministic_reproduction_report_id is None
+    assert report.assets[0].official_event_count == 0
     first = persist_qualification_report(report, tmp_path / "artifacts")
     second = persist_qualification_report(report, tmp_path / "artifacts")
     assert first == second

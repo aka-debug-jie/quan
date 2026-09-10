@@ -44,6 +44,8 @@ class AssetQualification:
     ledger_status: str
     ledger_sha256: str | None
     ledger_evidence_archived: bool
+    official_event_count: int
+    unresolved_official_events: int
     pit_causal_safe: bool
     causal_adjusted_available: bool
     causal_manifest_id: str | None
@@ -93,6 +95,7 @@ def qualify_frozen_universe(
         raw_manifest = _selected_raw_manifest(data_root / "manifests", symbol, exchange)
         ledger_path = ledger_root / f"{symbol}_v1.yaml"
         ledger_status, evidence_archived = _ledger_status(ledger_path, data_root)
+        official_event_count, unresolved_official_events = _official_event_inventory(ledger_path)
         ledger_sha256 = (
             sha256(ledger_path.read_bytes()).hexdigest() if ledger_path.is_file() else None
         )
@@ -122,6 +125,7 @@ def qualify_frozen_universe(
             raw_valid,
             ledger_status,
             evidence_archived,
+            unresolved_official_events,
             causal_available,
             inventory,
             cross_provider_reconciliation,
@@ -138,6 +142,8 @@ def qualify_frozen_universe(
                 ledger_status=ledger_status,
                 ledger_sha256=ledger_sha256,
                 ledger_evidence_archived=evidence_archived,
+                official_event_count=official_event_count,
+                unresolved_official_events=unresolved_official_events,
                 pit_causal_safe=pit_safe,
                 causal_adjusted_available=causal_available,
                 causal_manifest_id=causal_input.manifest_id if causal_input else None,
@@ -211,6 +217,19 @@ def _ledger_status(ledger_path: Path, data_root: Path) -> tuple[str, bool]:
     except (EvidenceArchiveError, ValueError):
         return "invalid_or_unarchived", False
     return ledger.completeness, True
+
+
+def _official_event_inventory(ledger_path: Path) -> tuple[int, int]:
+    """Count total and still-candidate official-event inventory rows without promoting them."""
+    if not ledger_path.is_file():
+        return 0, 0
+    try:
+        ledger = load_corporate_action_ledger(ledger_path)
+    except ValueError:
+        return 0, 0
+    return len(ledger.events), sum(
+        event.verification_status == "candidate" for event in ledger.events
+    )
 
 
 def _candidate_inventory(
@@ -453,6 +472,7 @@ def _qualification_reasons(
     raw_valid: bool,
     ledger_status: str,
     evidence_archived: bool,
+    unresolved_official_events: int,
     causal_available: bool,
     inventory: CandidateInventory,
     cross_provider_reconciliation: bool,
@@ -470,6 +490,8 @@ def _qualification_reasons(
         reasons.append("corporate_action_ledger_not_complete")
     if not evidence_archived:
         reasons.append("corporate_action_evidence_not_archived")
+    if unresolved_official_events:
+        reasons.append("unresolved_official_events")
     if not causal_available:
         reasons.append("canonical_causal_adjusted_missing")
     if inventory.unresolved_factor_change_points:

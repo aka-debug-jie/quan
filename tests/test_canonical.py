@@ -74,6 +74,9 @@ def test_split_ledger_deterministically_reconstructs_qfq_ohlc() -> None:
                 kind=CorporateActionKind.SHARE_SPLIT,
                 split_ratio=Decimal("2"),
                 evidence=evidence(),
+                availability_evidence=evidence(),
+                value_evidence=evidence(),
+                verification_status="official_evidence_chain_verified",
             ),
         ),
     )
@@ -111,6 +114,9 @@ def test_future_action_does_not_rewrite_prior_causal_adjusted_input() -> None:
                 kind=CorporateActionKind.CASH_DISTRIBUTION,
                 cash_per_unit=Decimal("1"),
                 evidence=evidence(),
+                availability_evidence=evidence(),
+                value_evidence=evidence(),
+                verification_status="official_evidence_chain_verified",
             ),
         ),
     )
@@ -163,6 +169,9 @@ def test_split_on_documented_non_trading_day_applies_before_next_raw_session() -
                 kind=CorporateActionKind.SHARE_SPLIT,
                 split_ratio=Decimal("2"),
                 evidence=evidence(),
+                availability_evidence=evidence(),
+                value_evidence=evidence(),
+                verification_status="official_evidence_chain_verified",
             ),
         ),
     )
@@ -193,6 +202,9 @@ def test_complete_ledger_and_same_raw_snapshot_reproduce_canonical_artifacts(tmp
                 kind=CorporateActionKind.SHARE_SPLIT,
                 split_ratio=Decimal("2"),
                 evidence=action_evidence,
+                availability_evidence=action_evidence,
+                value_evidence=action_evidence,
+                verification_status="official_evidence_chain_verified",
             ),
         ),
     )

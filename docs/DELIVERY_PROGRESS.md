@@ -59,9 +59,9 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   hash-verified canonical causal series (`1252a806...`); `510300/SSE` and
   `510500/SSE` are absent. This blocks the locked test without changing any
   raw/qfq artifact or treating an adjusted provider export as a PIT-safe series.
-- D0 evidence progress: `510300` currently has eight verified cash-distribution
-  entries (2019--2026 effective dates) and four retrospective candidates
-  (2015--2018);
+- D0 evidence progress: `510300` currently has ten verified cash-distribution
+  entries (2016--2026 effective dates) and two retrospective candidates
+  (2015 and 2017);
   `510500` has two verified share-split entries (2015 and 2022) plus one
   verified 2024, one verified 2025, and two verified 2026 cash distributions.
   Both ledgers are explicitly incomplete.

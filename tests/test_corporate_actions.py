@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from quant_stack.data.corporate_actions import load_corporate_action_ledger
+from quant_stack.data.models import CorporateActionLedger
 
 
 def test_159919_official_action_ledger_has_complete_verified_event_chain() -> None:
@@ -62,3 +65,11 @@ def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness
     assert str(ledger.events[10].cash_per_unit) == "0.088"
     assert ledger.events[11].effective_date.isoformat() == "2026-01-19"
     assert str(ledger.events[11].cash_per_unit) == "0.123"
+
+
+def test_complete_ledger_rejects_any_remaining_candidate_event() -> None:
+    ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510300_v1.yaml"))
+    payload = ledger.model_dump()
+    payload["completeness"] = "complete"
+    with pytest.raises(ValueError, match="cannot retain candidate"):
+        CorporateActionLedger.model_validate(payload)
