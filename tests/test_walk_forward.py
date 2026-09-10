@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+import yaml
 
 from quant_stack.walk_forward import (
     chronological_splits,
@@ -38,3 +39,23 @@ def test_experiment_rejects_changed_frozen_config(tmp_path: Path) -> None:
     config_path.write_text("version: 2\n", encoding="utf-8")
     with pytest.raises(ValueError, match="hash mismatch"):
         verify_declared_config_hashes(config, tmp_path)
+
+
+def test_v2_freezes_complete_walk_forward_and_locked_boundaries() -> None:
+    path = Path("configs/experiments/etf_walk_forward_v2.yaml")
+    config = load_preregistered_experiment(path)
+
+    verify_declared_config_hashes(config, Path("."))
+
+    assert config["locked_test_start"] == date(2024, 1, 2)
+    assert config["locked_test_end"] == date(2026, 9, 9)
+    assert config["last_locked_signal_date"] == date(2026, 8, 31)
+    assert len(config["walk_forward_splits"]) == 6
+    benchmark = yaml.safe_load(
+        Path("configs/benchmarks/same_universe_equal_weight_v2.yaml").read_text(encoding="utf-8")
+    )
+    strategy = yaml.safe_load(
+        Path("configs/strategies/etf_momentum_v2.yaml").read_text(encoding="utf-8")
+    )
+    assert benchmark["execution_config"] == "configs/execution/monthly_t1_open_v2.yaml"
+    assert strategy["benchmark_id"] == benchmark["benchmark_id"]

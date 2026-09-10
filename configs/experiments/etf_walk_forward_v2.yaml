@@ -1,0 +1,53 @@
+experiment_id: etf_walk_forward_v2
+status: preregistered_not_executed
+supersedes: etf_walk_forward_v1
+evaluation_contract_sha256: e0cbb2c91e522d5a4f76a58429eaa316b8c89e992c378279bbb952b8208c40b1
+source_registry_path: configs/data_qualification/d0_sources_v1.yaml
+frozen_config_sha256:
+  configs/assets/etf_universe_v2.yaml: 19fdc71b3c57e5368c8e1115b1e353a95fba7ba04e2ab07c46c982b8efab29cf
+  configs/strategies/etf_momentum_v2.yaml: 5ae3d737dd57142ad093d83ffe253f5593c554c142aaac4d3215182e1a89d08d
+  configs/benchmarks/same_universe_equal_weight_v2.yaml: d8aed5515fed86260a728cc1256a7885983c21a6f9468f9bf9beadcd891eb615
+  configs/execution/monthly_t1_open_v2.yaml: ba93c8723242c3e9c2a7f75623affdbdf9741016cbe6710f578241f421c4dde3
+  configs/costs/cn_etf_v1.yaml: c7b7cb083ab8b4164f5aa53c428dcdb0b6b70a75eaa3c484f6b3cec018983cb4
+  configs/data_qualification/d0_sources_v1.yaml: 8af9b0c43c06f9fa757d2376fe8c1584918f583e5dd9f378427183264cd550d4
+  docs/ISSUE_009_EVALUATION_CONTRACT_V2.md: e0cbb2c91e522d5a4f76a58429eaa316b8c89e992c378279bbb952b8208c40b1
+selection_period_end: 2023-12-29
+locked_test_start: 2024-01-02
+locked_test_end: 2026-09-09
+last_locked_signal_date: 2026-08-31
+walk_forward_splits:
+  - {train_start: 2015-01-05, train_end: 2017-12-29, test_start: 2018-01-02, test_end: 2018-12-28}
+  - {train_start: 2016-01-04, train_end: 2018-12-28, test_start: 2019-01-02, test_end: 2019-12-31}
+  - {train_start: 2017-01-03, train_end: 2019-12-31, test_start: 2020-01-02, test_end: 2020-12-31}
+  - {train_start: 2018-01-02, train_end: 2020-12-31, test_start: 2021-01-04, test_end: 2021-12-31}
+  - {train_start: 2019-01-02, train_end: 2021-12-31, test_start: 2022-01-04, test_end: 2022-12-30}
+  - {train_start: 2020-01-02, train_end: 2022-12-30, test_start: 2023-01-03, test_end: 2023-12-29}
+base_parameters:
+  trend_window: 200
+  momentum_window_months: 12
+  volatility_window: 60
+  selection_count: 2
+parameter_grid:
+  trend_windows: [200]
+  momentum_windows_months: [3, 6, 12]
+  volatility_windows: [60]
+  selection_counts: [1, 2]
+required_runs:
+  - base_cost_t1
+  - doubled_costs_t1
+  - base_cost_t2
+  - parameter_neighborhood
+  - locked_start_trim_21_sessions
+  - locked_end_trim_21_sessions
+start_end_sensitivity:
+  start_trim_sessions: 21
+  end_trim_sessions: 21
+parameter_neighborhood_rule:
+  minimum_nonnegative_neighbors: 3
+  median_neighbor_excess_cagr_minimum: 0
+isolated_observation_rule:
+  minimum_rebalances: 12
+  largest_positive_active_days: 3
+  maximum_positive_active_return_share: 0.5
+diagnostic_ablations: []
+random_seed: 0

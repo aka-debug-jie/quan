@@ -62,6 +62,8 @@ from quant_stack.data.szse_official import (
     reattest_szse_daily_history,
 )
 from quant_stack.data_qualification import persist_qualification_report, qualify_frozen_universe
+from quant_stack.issue009_runner import run_issue009_locked_test
+from quant_stack.locked_test import create_locked_test_precommit, persist_locked_test_precommit
 from quant_stack.models import Exchange, PriceBasis
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
@@ -686,6 +688,59 @@ def _parse_cli_date(value: str, option_name: str) -> date:
 def run_backtest() -> None:
     """Reserve the future backtest interface."""
     _m0_placeholder("backtest")
+
+
+@backtest_app.command("precommit-v2")
+def backtest_precommit_v2(
+    experiment: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    qualification: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    source_registry: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    output: Annotated[Path, typer.Option()] = Path(
+        "configs/experiments/LOCKED_TEST_PRECOMMIT_V2.json"
+    ),
+    repository_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path("."),
+    data_root: DataRootOption = Path("data"),
+) -> None:
+    """Create the immutable Issue 009 V2 precommit before locked-result access."""
+    try:
+        precommit = create_locked_test_precommit(
+            repository_root.resolve(),
+            data_root.resolve(),
+            experiment.resolve(),
+            qualification.resolve(),
+            source_registry.resolve(),
+            output.resolve(),
+        )
+        persist_locked_test_precommit(precommit, output)
+    except ValueError as error:
+        typer.echo(f"locked-test precommit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"locked-test precommit: {output}")
+    typer.echo(f"precommit id: {precommit.precommit_id}")
+
+
+@backtest_app.command("locked-run-v2")
+def backtest_locked_run_v2(
+    precommit: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    qualification: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    repository_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path("."),
+    data_root: DataRootOption = Path("data"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/issue009"),
+) -> None:
+    """Execute one verified precommit exactly once and retain every frozen run."""
+    try:
+        path, result = run_issue009_locked_test(
+            precommit.resolve(),
+            repository_root.resolve(),
+            data_root.resolve(),
+            qualification.resolve(),
+            artifact_root,
+        )
+    except ValueError as error:
+        typer.echo(f"locked test failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"locked result: {path}")
+    typer.echo(f"outcome: {result['outcome']}")
 
 
 @signal_app.command("generate")

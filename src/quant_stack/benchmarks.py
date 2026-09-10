@@ -23,5 +23,5 @@ def same_universe_equal_weight_targets(
         raise ValueError("benchmark requires a non-empty unique universe")
     weight = Decimal("1") / Decimal(len(symbols))
     target = {symbol: weight for symbol in symbols}
-    target["CASH"] = Decimal("0")
+    target["CASH"] = Decimal("1") - weight * Decimal(len(symbols))
     return {session: target.copy() for session in sessions}

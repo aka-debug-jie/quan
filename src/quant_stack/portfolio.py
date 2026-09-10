@@ -18,20 +18,20 @@ class PortfolioConstraints:
 
 
 def construct_weights(
-    rows: list[FeatureRow], constraints: PortfolioConstraints
+    rows: list[FeatureRow], constraints: PortfolioConstraints, momentum_months: int = 12
 ) -> dict[str, Decimal]:
     """Filter trend-positive rows, rank momentum, inverse-vol weight, and retain required cash."""
     eligible = [
         row
         for row in rows
         if row.ma200 is not None
-        and row.momentum_12m is not None
+        and _momentum(row, momentum_months) is not None
         and row.volatility_60d not in (None, Decimal("0"))
         and row.bar.close >= row.ma200
     ]
-    selected = sorted(eligible, key=lambda row: (-_momentum(row), row.bar.symbol))[
-        : constraints.max_positions
-    ]
+    selected = sorted(
+        eligible, key=lambda row: (-_required_momentum(row, momentum_months), row.bar.symbol)
+    )[: constraints.max_positions]
     if not selected:
         return {"CASH": Decimal("1")}
     inverse = {
@@ -49,7 +49,19 @@ def construct_weights(
     return weights
 
 
-def _momentum(row: FeatureRow) -> Decimal:
-    """Return the known momentum of an eligible feature row."""
-    assert row.momentum_12m is not None
-    return row.momentum_12m
+def _momentum(row: FeatureRow, months: int) -> Decimal | None:
+    """Return one preregistered momentum horizon without deriving a new feature."""
+    if months == 3:
+        return row.momentum_3m
+    if months == 6:
+        return row.momentum_6m
+    if months == 12:
+        return row.momentum_12m
+    raise ValueError("momentum months must be one of 3, 6, or 12")
+
+
+def _required_momentum(row: FeatureRow, months: int) -> Decimal:
+    """Return the already-validated momentum value for one eligible row."""
+    value = _momentum(row, months)
+    assert value is not None
+    return value

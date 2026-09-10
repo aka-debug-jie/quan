@@ -13,17 +13,26 @@ from quant_stack.features import FeatureRow
 from quant_stack.portfolio import PortfolioConstraints, construct_weights
 
 
-def etf_momentum_weights(rows: list[FeatureRow]) -> dict[str, Decimal]:
+def etf_momentum_weights(
+    rows: list[FeatureRow], momentum_months: int = 12, selection_count: int = 2
+) -> dict[str, Decimal]:
     """Return deterministic long-only weights from one same-date feature snapshot."""
     if not rows:
         return {"CASH": Decimal("1")}
     if len({row.bar.trading_date for row in rows}) != 1:
         raise ValueError("strategy requires one exchange-local feature date")
-    return construct_weights(rows, PortfolioConstraints(Decimal("0.5"), Decimal("0.1"), 2))
+    return construct_weights(
+        rows,
+        PortfolioConstraints(Decimal("0.5"), Decimal("0.1"), selection_count),
+        momentum_months,
+    )
 
 
 def monthly_etf_momentum_targets(
-    sessions: pd.DatetimeIndex, features_by_date: Mapping[date, list[FeatureRow]]
+    sessions: pd.DatetimeIndex,
+    features_by_date: Mapping[date, list[FeatureRow]],
+    momentum_months: int = 12,
+    selection_count: int = 2,
 ) -> dict[pd.Timestamp, dict[str, Decimal]]:
     """Calculate frozen targets only after each natural month's final supplied close."""
     targets: dict[pd.Timestamp, dict[str, Decimal]] = {}
@@ -31,5 +40,5 @@ def monthly_etf_momentum_targets(
         rows = features_by_date.get(session.date())
         if rows is None:
             raise ValueError("every month-end session requires a complete PIT feature snapshot")
-        targets[session] = etf_momentum_weights(rows)
+        targets[session] = etf_momentum_weights(rows, momentum_months, selection_count)
     return targets

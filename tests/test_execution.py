@@ -27,6 +27,23 @@ def test_close_signal_executes_only_on_later_open_with_costs() -> None:
     assert result.equity.iloc[1] < 100000.0
 
 
+def test_fill_audit_uses_raw_open_instead_of_adjusted_accounting_price() -> None:
+    index = pd.date_range("2024-01-02", periods=2, freq="B")
+    adjusted = pd.DataFrame({"ETF": [5.0, 5.5]}, index=index)
+    raw = pd.DataFrame({"ETF": [10.0, 11.0]}, index=index)
+
+    result = simulate_target_weights(
+        adjusted,
+        adjusted,
+        {index[0]: {"ETF": Decimal("1"), "CASH": Decimal("0")}},
+        CostModel(Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")),
+        execution_audit_prices=raw,
+    )
+
+    assert result.trades[0].raw_fill_price == Decimal("11.0")
+    assert result.trades[0].raw_quantity == result.trades[0].notional / Decimal("11.0")
+
+
 def test_last_session_signal_is_rejected_instead_of_filled_early() -> None:
     index = pd.date_range("2024-01-02", periods=2, freq="B")
     prices = pd.DataFrame({"ETF": [10.0, 11.0]}, index=index)
@@ -63,3 +80,20 @@ def test_zero_cost_model_does_not_divide_by_zero() -> None:
         CostModel(Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")),
     )
     assert result.equity.iloc[-1] == 100000.0
+
+
+def test_minimum_commission_affordability_includes_spread_and_slippage() -> None:
+    index = pd.date_range("2024-01-02", periods=2, freq="B")
+    prices = pd.DataFrame({"ETF": [10.0, 10.0]}, index=index)
+    model = CostModel(Decimal("0.0003"), Decimal("5"), Decimal("0.0002"), Decimal("0.0003"))
+
+    result = simulate_target_weights(
+        prices,
+        prices,
+        {index[0]: {"ETF": Decimal("1"), "CASH": Decimal("0")}},
+        model,
+        initial_cash=Decimal("1000"),
+    )
+
+    assert result.cash_weights.iloc[-1] >= 0
+    assert result.trades[0].notional + result.trades[0].transaction_cost <= Decimal("1000")

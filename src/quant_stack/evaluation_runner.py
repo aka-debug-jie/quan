@@ -41,12 +41,21 @@ def evaluate_walk_forward(
     splits: tuple[WalkForwardSplit, ...],
     cost_model: CostModel,
     execution_delay_sessions: int = 1,
+    execution_audit_prices: pd.DataFrame | None = None,
+    benchmark_rebalance_sessions: tuple[pd.Timestamp, ...] | None = None,
 ) -> tuple[FoldEvaluation, ...]:
     """Evaluate every frozen OOS fold without optimizing, filtering, or joining fold results."""
     folds: list[FoldEvaluation] = []
-    benchmark_sessions = natural_month_end_sessions(cast(pd.DatetimeIndex, open_prices.index))
+    benchmark_sessions = benchmark_rebalance_sessions or natural_month_end_sessions(
+        cast(pd.DatetimeIndex, open_prices.index)
+    )
     for split in splits:
         open_fold, close_fold = _fold_prices(open_prices, close_prices, split)
+        audit_fold = (
+            execution_audit_prices.loc[open_fold.index]
+            if execution_audit_prices is not None
+            else open_fold
+        )
         strategy_fold_targets = {
             timestamp: target
             for timestamp, target in strategy_targets.items()
@@ -62,6 +71,7 @@ def evaluate_walk_forward(
             strategy_fold_targets,
             cost_model,
             execution_delay_sessions,
+            execution_audit_prices=audit_fold,
         )
         benchmark = simulate_target_weights(
             open_fold,
@@ -69,6 +79,7 @@ def evaluate_walk_forward(
             benchmark_targets,
             cost_model,
             execution_delay_sessions,
+            execution_audit_prices=audit_fold,
         )
         strategy_metrics = evaluate_equity_curve(strategy.equity, _execution_statistics(strategy))
         benchmark_metrics = evaluate_equity_curve(

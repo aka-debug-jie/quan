@@ -20,6 +20,8 @@ class SimulatedTrade:
     symbol: str
     notional: Decimal
     transaction_cost: Decimal
+    raw_fill_price: Decimal
+    raw_quantity: Decimal
 
 
 @dataclass(frozen=True)
@@ -42,9 +44,12 @@ def simulate_target_weights(
     cost_model: CostModel,
     execution_delay_sessions: int = 1,
     initial_cash: Decimal = Decimal("100000"),
+    execution_audit_prices: pd.DataFrame | None = None,
 ) -> TargetWeightSimulation:
-    """Execute close-derived targets at a later valid-session open and mark daily close."""
+    """Execute later-open target notionals and retain an explicit raw-price fill audit."""
     _validate_prices(open_prices, close_prices)
+    audit_prices = execution_audit_prices if execution_audit_prices is not None else open_prices
+    _validate_audit_prices(open_prices, audit_prices)
     if execution_delay_sessions < 1 or initial_cash <= 0:
         raise ValueError("execution delay must be at least one session and initial cash positive")
     index = cast(pd.DatetimeIndex, open_prices.index)
@@ -70,6 +75,7 @@ def simulate_target_weights(
                 target,
                 pre_trade_value,
                 cost_model,
+                audit_prices.loc[timestamp],
             )
             trades.extend(day_trades)
             turnover += day_turnover
@@ -118,6 +124,7 @@ def _rebalance(
     target: Mapping[str, Decimal],
     pre_trade_value: Decimal,
     cost_model: CostModel,
+    audit_row: pd.Series,
 ) -> tuple[list[SimulatedTrade], Decimal, Decimal]:
     """Sell before buys, charge every fill, and retain any unaffordable residual as cash."""
     _validate_target(target, tuple(positions))
@@ -133,7 +140,10 @@ def _rebalance(
             positions[symbol] -= notional / price
             cash += notional - cost
             turnover += notional / pre_trade_value
-            trades.append(SimulatedTrade(timestamp, symbol, -notional, cost))
+            raw_price = _decimal_price(audit_row[symbol])
+            trades.append(
+                SimulatedTrade(timestamp, symbol, -notional, cost, raw_price, -notional / raw_price)
+            )
     for symbol in sorted(positions):
         price = _decimal_price(open_row[symbol])
         desired = pre_trade_value * target.get(symbol, Decimal("0"))
@@ -146,8 +156,13 @@ def _rebalance(
             cost = trade_cost(notional, cost_model)
             positions[symbol] += notional / price
             cash -= notional + cost
+            if cash < 0:
+                raise ValueError("affordability calculation produced negative cash")
             turnover += notional / pre_trade_value
-            trades.append(SimulatedTrade(timestamp, symbol, notional, cost))
+            raw_price = _decimal_price(audit_row[symbol])
+            trades.append(
+                SimulatedTrade(timestamp, symbol, notional, cost, raw_price, notional / raw_price)
+            )
     return trades, cash, turnover
 
 
@@ -177,6 +192,17 @@ def _validate_target(target: Mapping[str, Decimal], symbols: tuple[str, ...]) ->
         raise ValueError("target weights including CASH must sum exactly to one")
 
 
+def _validate_audit_prices(accounting_open: pd.DataFrame, audit_open: pd.DataFrame) -> None:
+    """Require raw execution-audit opens to align exactly with the accounting panel."""
+    if (
+        not accounting_open.index.equals(audit_open.index)
+        or not accounting_open.columns.equals(audit_open.columns)
+        or audit_open.isna().any().any()
+        or (audit_open <= 0).any().any()
+    ):
+        raise ValueError("execution audit prices must be aligned complete positive raw opens")
+
+
 def _position_value(positions: Mapping[str, Decimal], prices: pd.Series) -> Decimal:
     """Value all current long positions at the supplied daily price row."""
     return sum(
@@ -198,7 +224,10 @@ def _affordable_notional(cash: Decimal, model: CostModel) -> Decimal:
     if cash <= model.minimum_commission:
         return Decimal("0")
     minimum_commission_boundary = model.minimum_commission / model.commission_rate
-    fixed_commission_notional = cash - model.minimum_commission
+    non_commission_rate = model.half_spread_rate + model.slippage_rate
+    fixed_commission_notional = (cash - model.minimum_commission) / (
+        Decimal("1") + non_commission_rate
+    )
     if fixed_commission_notional <= minimum_commission_boundary:
         return fixed_commission_notional
     return cash / (Decimal("1") + variable_rate)
