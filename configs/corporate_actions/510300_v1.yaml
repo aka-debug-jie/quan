@@ -7,6 +7,37 @@ instrument:
   asset_class: etf
 completeness: incomplete
 events:
+  - effective_date: 2015-01-19
+    kind: cash_distribution
+    cash_per_unit: "0.035"
+    evidence_type: annual_report
+    retrospective_verification: true
+    verification_status: candidate
+    evidence: &prospectus2022
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2022-06-11/510300_20220611_1_i59GRWtC.pdf
+      sha256: 10d591e8c88ec3c197b7bb4a93994bccba0009301a88bd74891d97516812190f
+      published_on: 2022-06-11
+  - effective_date: 2016-01-19
+    kind: cash_distribution
+    cash_per_unit: "0.051"
+    evidence_type: annual_report
+    retrospective_verification: true
+    verification_status: candidate
+    evidence: *prospectus2022
+  - effective_date: 2017-01-20
+    kind: cash_distribution
+    cash_per_unit: "0.055"
+    evidence_type: annual_report
+    retrospective_verification: true
+    verification_status: candidate
+    evidence: *prospectus2022
+  - effective_date: 2018-01-22
+    kind: cash_distribution
+    cash_per_unit: "0.046"
+    evidence_type: annual_report
+    retrospective_verification: true
+    verification_status: candidate
+    evidence: *prospectus2022
   - effective_date: 2019-01-16
     record_date: 2019-01-15
     kind: cash_distribution
