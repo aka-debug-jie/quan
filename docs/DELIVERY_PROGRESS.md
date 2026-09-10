@@ -78,9 +78,9 @@ controlled recomputation, not authorization from the engineering recovery comman
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
 | 009 | `codex/issue009-runner-hardening` | code `d865221`; authorization `cc98d5f` | PASS_CONTROLLED_RECOVERY | D0 PASS; two V3 builds identical; frozen result `NO_EVIDENCE_OF_EDGE` | Accepted for platform engineering; not a fresh holdout or edge claim |
-| 010 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | SQLite paper ledger and reconciliation | No live orders |
-| 011 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | Offline HTML account report | Depends on Issue 010 data |
-| 012 | `codex/issue009-runner-hardening` | working tree | IN_PROGRESS | User systemd timer and failure handler | Depends on daily integration acceptance |
+| 010 | `codex/issue009-runner-hardening` | `acc0198`, `725f86a` | PASS | SQLite WAL, hash-chain, raw fills, actions, reconciliation and idempotency tests | No live orders |
+| 011 | `codex/issue009-runner-hardening` | `acc0198` | PASS | Offline single-file HTML report, SVG and evidence rendering tests | Local report artifacts only |
+| 012 | `codex/issue009-runner-hardening` | `acc0198` | READY_TO_INSTALL | User systemd units, catch-up workflow, lock, failure receipts and unit validation | Install script has not been run |
 
 ## Current acceptance commands
 
