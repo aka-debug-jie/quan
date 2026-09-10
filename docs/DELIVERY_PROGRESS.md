@@ -20,7 +20,7 @@
 | 006 | `issue/006-vectorbt-t1` | accepted `05c2a0d` | PASS | VectorBT T+1 order-timestamp test | Issue 007 accepted as descendant |
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
-| 009 | `issue/009-walk-forward` | base `85561e7`; D0 remediation | BLOCKED_DATA | Full-universe D0 qualification scan, frozen inputs, deterministic execution, fold runner and immutable experiment registry | `510300` ledger missing; `510500` ledger incomplete; locked test and Issue 010 forbidden |
+| 009 | `issue/009-walk-forward` | base `85561e7`; D0 remediation | BLOCKED_DATA | Full-universe D0 qualification scan, frozen inputs, deterministic execution, fold runner and immutable experiment registry | `510300` and `510500` ledgers incomplete; locked test and Issue 010 forbidden |
 | 010 | not created | — | NOT_STARTED | — | Forbidden before Issue 009 PASS |
 | 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
 | 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |

@@ -10,11 +10,11 @@ cost model, timing rule, parameter grid, or split.
 
 ## Current full-universe scan
 
-Artifact: `artifacts/data_qualification/e8e3ee22ca4346461f3b33ab45003c2badbe08f2a2eef2d2dcadddbc6bf8c773/qualification.json`
+Artifact: `artifacts/data_qualification/68fa8cfe4a4cbb515ad305f4c0eec35032dca82ab634c356885ad1fe430c81b5/qualification.json`
 
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| `510300` | PASS | missing | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510300` | PASS | incomplete; 1 verified dividend | FAIL | missing | PASS | NOT_QUALIFIED |
 | `510500` | PASS | incomplete; 2 verified splits | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | NOT_QUALIFIED |
 

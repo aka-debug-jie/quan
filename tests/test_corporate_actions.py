@@ -25,3 +25,11 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert ledger.events[0].record_date is not None
     assert ledger.events[1].effective_date.isoformat() == "2022-08-26"
     assert str(ledger.events[1].split_ratio) == "1.14539"
+
+
+def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:
+    ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510300_v1.yaml"))
+    assert ledger.completeness == "incomplete"
+    assert ledger.events[0].effective_date.isoformat() == "2021-01-18"
+    assert str(ledger.events[0].cash_per_unit) == "0.072"
+    assert ledger.events[0].payment_date is not None

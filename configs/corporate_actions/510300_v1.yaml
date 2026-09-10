@@ -1,0 +1,26 @@
+ledger_id: cn_etf_510300_official_actions
+version: 1
+instrument:
+  symbol: "510300"
+  exchange: SSE
+  currency: CNY
+  asset_class: etf
+completeness: incomplete
+events:
+  - effective_date: 2021-01-18
+    record_date: 2021-01-15
+    payment_date: 2021-01-21
+    kind: cash_distribution
+    cash_per_unit: "0.072"
+    event_announcement_date: 2021-01-11
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2020
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2021-01-11/510300_20210111_1.pdf
+      sha256: 1992271ca55dc3c7f88cf528f8f0f757fc48143b2a805159d2b3efdfb9143fc2
+      published_on: 2021-01-11
+    value_evidence: *value2020
+    availability_evidence:
+      url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20210111_5299412.shtml
+      sha256: d28d10cb76650c7fd42f2918055289c75f63490cf12238e320594ff995585a53
+      published_on: 2021-01-11
