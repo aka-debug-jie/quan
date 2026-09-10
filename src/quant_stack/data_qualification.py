@@ -25,7 +25,9 @@ class CandidateInventory:
     """Provider and raw-price diagnostics; neither is official corporate-action evidence."""
 
     provider_factor_change_points: int
+    provider_factor_classification: str
     raw_discontinuity_dates: tuple[str, ...]
+    unresolved_raw_discontinuity_dates: tuple[str, ...]
     unresolved_factor_change_points: int
 
 
@@ -88,7 +90,7 @@ def qualify_frozen_universe(
         ledger_path = ledger_root / f"{symbol}_v1.yaml"
         ledger_status, evidence_archived = _ledger_status(ledger_path, data_root)
         causal_input = causal_by_identity.get((symbol, exchange))
-        inventory = _candidate_inventory(raw_manifest, data_root)
+        inventory = _candidate_inventory(raw_manifest, data_root, ledger_path)
         expected_session_coverage = _expected_session_coverage(
             raw_manifest, instrument, data_root, calendar
         )
@@ -191,31 +193,66 @@ def _ledger_status(ledger_path: Path, data_root: Path) -> tuple[str, bool]:
 
 
 def _candidate_inventory(
-    raw_manifest: dict[str, object] | None, data_root: Path
+    raw_manifest: dict[str, object] | None, data_root: Path, ledger_path: Path
 ) -> CandidateInventory:
     """Inventory every provider factor change and raw one-session discontinuity diagnostic."""
     if raw_manifest is None:
-        return CandidateInventory(0, (), 0)
+        return CandidateInventory(0, "NO_PROVIDER_SERIES", (), (), 0)
     symbol = _request_identity(raw_manifest, "symbol")
     exchange = _request_identity(raw_manifest, "exchange")
     if symbol is None or exchange is None:
-        return CandidateInventory(0, (), 0)
+        return CandidateInventory(0, "NO_PROVIDER_SERIES", (), (), 0)
     qfq_manifest = _matching_qfq_manifest(data_root / "manifests", symbol, exchange)
     if qfq_manifest is None:
-        return CandidateInventory(0, (), 0)
+        return CandidateInventory(0, "NO_PROVIDER_QFQ_SERIES", (), (), 0)
     raw_path = _normalized_path(raw_manifest, data_root)
     qfq_path = _normalized_path(qfq_manifest, data_root)
     if raw_path is None or qfq_path is None:
-        return CandidateInventory(0, (), 0)
+        return CandidateInventory(0, "INVALID_PROVIDER_SERIES", (), (), 0)
     raw = pq.read_table(raw_path).to_pandas().sort_values("trading_date")
     qfq = pq.read_table(qfq_path).to_pandas().sort_values("trading_date")
     if len(raw) != len(qfq) or not raw.trading_date.equals(qfq.trading_date):
-        return CandidateInventory(0, (), 0)
+        return CandidateInventory(0, "UNALIGNED_PROVIDER_SERIES", (), (), 0)
     factor = qfq.close.astype(float) / raw.close.astype(float)
     factor_changes = int(factor.ne(factor.shift()).sum())
     raw_return = raw.close.astype(float).pct_change().abs()
     discontinuities = tuple(raw.loc[raw_return > 0.2, "trading_date"].astype(str))
-    return CandidateInventory(factor_changes, discontinuities, factor_changes)
+    action_dates = _applied_ledger_dates(ledger_path, tuple(raw.trading_date))
+    unresolved_discontinuities = tuple(
+        item for item in discontinuities if date.fromisoformat(item) not in action_dates
+    )
+    if factor_changes == 0:
+        classification = "NO_PROVIDER_ADJUSTMENT_CHANGES"
+        unresolved = 0
+    elif factor_changes * 2 > len(raw):
+        classification = "PROVIDER_ARTIFACT"
+        unresolved = 0
+    else:
+        classification = "UNEXPLAINED"
+        unresolved = factor_changes
+    return CandidateInventory(
+        factor_changes,
+        classification,
+        discontinuities,
+        unresolved_discontinuities,
+        unresolved,
+    )
+
+
+def _applied_ledger_dates(ledger_path: Path, raw_dates: tuple[date, ...]) -> set[date]:
+    """Map configured official actions to their first available raw session for diagnostics."""
+    if not ledger_path.is_file():
+        return set()
+    try:
+        ledger = load_corporate_action_ledger(ledger_path)
+    except ValueError:
+        return set()
+    applied: set[date] = set()
+    for event in ledger.events:
+        next_date = next((value for value in raw_dates if value >= event.effective_date), None)
+        if next_date is not None:
+            applied.add(next_date)
+    return applied
 
 
 def _expected_session_coverage(
@@ -372,6 +409,8 @@ def _qualification_reasons(
         reasons.append("canonical_causal_adjusted_missing")
     if inventory.unresolved_factor_change_points:
         reasons.append("unresolved_provider_factor_change_points")
+    if inventory.unresolved_raw_discontinuity_dates:
+        reasons.append("unresolved_raw_price_discontinuities")
     if not cross_provider_reconciliation:
         reasons.append("cross_provider_reconciliation_unverified")
     if not deterministic_reproduction:

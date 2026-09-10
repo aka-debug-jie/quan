@@ -23,3 +23,5 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert ledger.events[0].effective_date.isoformat() == "2015-04-14"
     assert str(ledger.events[0].split_ratio) == "0.28032483"
     assert ledger.events[0].record_date is not None
+    assert ledger.events[1].effective_date.isoformat() == "2022-08-26"
+    assert str(ledger.events[1].split_ratio) == "1.14539"

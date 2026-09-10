@@ -23,3 +23,16 @@ events:
       url: https://www.sse.com.cn/disclosure/fund/announcement/c/2015-04-12/510500_20150413_1.pdf
       sha256: 7dba021082eccf73641f67a632baace67dbbcf8f049314fb87f8cd176e1a54ce
       published_on: 2015-04-13
+  - effective_date: 2022-08-26
+    record_date: 2022-08-26
+    kind: share_split
+    split_ratio: "1.14539"
+    event_announcement_date: 2022-08-23
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &split2022
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2022-08-23/510500_20220823_1_aMMa3ZNB.pdf
+      sha256: 2c933c4c0fddf34b5e90ab711990d34be0644d66275a7d8ea9a40467ebdb586c
+      published_on: 2022-08-23
+    availability_evidence: *split2022
+    value_evidence: *split2022

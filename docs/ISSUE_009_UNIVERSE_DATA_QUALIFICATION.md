@@ -10,12 +10,12 @@ cost model, timing rule, parameter grid, or split.
 
 ## Current full-universe scan
 
-Artifact: `artifacts/data_qualification/89d589cafb91ebdf9ccc85220ab461324ebd5af6ff85cd7974da04127050e2d7/qualification.json`
+Artifact: `artifacts/data_qualification/e8e3ee22ca4346461f3b33ab45003c2badbe08f2a2eef2d2dcadddbc6bf8c773/qualification.json`
 
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | `510300` | PASS | missing | FAIL | missing | PASS | NOT_QUALIFIED |
-| `510500` | PASS | missing | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510500` | PASS | incomplete; 2 verified splits | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | NOT_QUALIFIED |
 
 `159919` remains not qualified for this D0 scan until its existing independent
@@ -27,9 +27,11 @@ revision of its accepted Issue 003 history.
 
 The retained provider raw/qfq pairs are discovery-only. Their exact qfq/raw
 ratios change on 2,653 sessions for `510300` and 2,785 sessions for `510500`.
-They therefore cannot be treated as an event ledger or as canonical adjusted
-prices. Every unresolved factor change remains a blocker until an official
-event or evidence-supported provider artifact classification is recorded.
+Because each relation changes on more than half of observed sessions, the D0
+diagnostic classifies the whole provider-factor relation as
+`PROVIDER_ARTIFACT`, not as a discrete corporate-action ledger. This does not
+make either provider qfq series canonical. Discrete raw-price discontinuities
+and official-announcement inventories remain independently reconcilable.
 
 ## Promotion rule
 

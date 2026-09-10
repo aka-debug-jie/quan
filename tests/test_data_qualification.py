@@ -50,7 +50,8 @@ def test_qualification_reports_all_frozen_assets_not_only_known_missing_ones(
     report = qualify_frozen_universe(universe, tmp_path, tmp_path / "ledgers")
     assert [asset.symbol for asset in report.assets] == ["A", "B"]
     assert all(asset.result == "NOT_QUALIFIED" for asset in report.assets)
-    assert report.assets[0].candidate_inventory.unresolved_factor_change_points > 0
+    assert report.assets[0].candidate_inventory.provider_factor_classification == "UNEXPLAINED"
+    assert report.assets[0].candidate_inventory.unresolved_factor_change_points == 1
     assert "raw_coverage_missing" in report.assets[1].reasons
     first = persist_qualification_report(report, tmp_path / "artifacts")
     second = persist_qualification_report(report, tmp_path / "artifacts")
