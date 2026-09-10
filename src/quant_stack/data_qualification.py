@@ -22,10 +22,9 @@ from quant_stack.data.canonical import CANONICAL_ALGORITHM_VERSION
 from quant_stack.data.corporate_actions import load_corporate_action_ledger
 from quant_stack.data.evidence import EvidenceArchiveError, require_corporate_action_evidence
 from quant_stack.data.ingest import load_etf_universe
-from quant_stack.data.models import ETFUniverseInstrument
+from quant_stack.data.models import CanonicalDatasetManifest, ETFUniverseInstrument
 from quant_stack.data.provider_series import load_provider_series
 from quant_stack.models import DailyBar, PriceBasis
-from quant_stack.research_inputs import preflight_causal_universe
 from quant_stack.snapshot import write_immutable
 
 
@@ -102,10 +101,6 @@ def qualify_frozen_universe(
     universe_identities = {(item.symbol, item.exchange) for item in universe.instruments}
     if set(selections) != universe_identities:
         raise ValueError("D0 source registry must select every frozen-universe asset exactly once")
-    causal_preflight = preflight_causal_universe(
-        universe_path, data_root / "canonical" / "manifests", data_root
-    )
-    causal_by_identity = {(item.symbol, item.exchange): item for item in causal_preflight.inputs}
     assets: list[AssetQualification] = []
     calendar = ExchangeCalendarStore(calendar_root)
     for instrument in universe.instruments:
@@ -145,11 +140,9 @@ def qualify_frozen_universe(
         ledger_sha256 = (
             sha256(ledger_path.read_bytes()).hexdigest() if ledger_path.is_file() else None
         )
-        causal_input = causal_by_identity.get((symbol, exchange))
-        if causal_input is not None and not _causal_manifest_uses_source(
-            data_root, causal_input.manifest_id, selection.canonical_raw_manifest_id
-        ):
-            causal_input = None
+        causal_manifest_id = _causal_manifest_for_source(
+            data_root, symbol, exchange, selection.canonical_raw_manifest_id
+        )
         inventory = _candidate_inventory(inventory_report, raw_bars, ledger_path)
         reconciliation_report_id = _passing_reconciliation_report(
             data_root / "reports" / "reconciliation",
@@ -169,12 +162,12 @@ def qualify_frozen_universe(
         )
         raw_coverage = raw_manifest is not None and expected_session_coverage
         raw_valid = _manifest_files_match(raw_manifest, data_root)
-        causal_available = causal_input is not None
+        causal_available = causal_manifest_id is not None
         reproduction_report_id = _passing_reproduction_report(
             artifact_root / "reproductions",
             _string(raw_manifest, "manifest_id"),
             ledger_sha256,
-            causal_input.manifest_id if causal_input else None,
+            causal_manifest_id,
             registry_sha256,
         )
         deterministic_reproduction = reproduction_report_id is not None
@@ -209,7 +202,7 @@ def qualify_frozen_universe(
                 unresolved_official_events=unresolved_official_events,
                 pit_causal_safe=pit_safe,
                 causal_adjusted_available=causal_available,
-                causal_manifest_id=causal_input.manifest_id if causal_input else None,
+                causal_manifest_id=causal_manifest_id,
                 execution_raw_available=raw_coverage and raw_valid,
                 cross_provider_reconciliation=cross_provider_reconciliation,
                 cross_provider_report_id=reconciliation_report_id,
@@ -466,17 +459,30 @@ def _matching_qfq_manifest(
     )
 
 
-def _causal_manifest_uses_source(
-    data_root: Path, causal_manifest_id: str, source_manifest_id: str
-) -> bool:
-    """Bind an accepted causal output to the registry-selected raw source."""
-    path = data_root / "canonical" / "manifests" / f"{causal_manifest_id}.json"
-    if not path.is_file():
-        return False
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        return False
-    return bool(payload.get("source_manifest_ids") == [source_manifest_id])
+def _causal_manifest_for_source(
+    data_root: Path, symbol: str, exchange: str, source_manifest_id: str
+) -> str | None:
+    """Select one hash-valid causal output bound to the registry-selected raw source."""
+    matches: list[str] = []
+    for path in sorted((data_root / "canonical" / "manifests").glob("*.json")):
+        manifest = CanonicalDatasetManifest.model_validate_json(path.read_text(encoding="utf-8"))
+        if (
+            manifest.price_basis is not PriceBasis.CAUSAL_ADJUSTED
+            or manifest.instrument.symbol != symbol
+            or manifest.instrument.exchange.value != exchange
+            or manifest.source_manifest_ids != (source_manifest_id,)
+        ):
+            continue
+        output = data_root / manifest.output_file.relative_path
+        if (
+            path.stem == manifest.manifest_id
+            and output.is_file()
+            and sha256(output.read_bytes()).hexdigest() == manifest.output_file.sha256
+        ):
+            matches.append(manifest.manifest_id)
+    if len(matches) > 1:
+        raise ValueError(f"ambiguous causal manifests for selected source: {symbol}/{exchange}")
+    return matches[0] if matches else None
 
 
 def _manifest_files_match(manifest: dict[str, object] | None, data_root: Path) -> bool:
