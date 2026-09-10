@@ -53,3 +53,17 @@ events:
       url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20240510_10754204.shtml
       sha256: 727dfdfe05cf93f5dfd11fe9ce5db88e49b6c492d79be5e546de72abfe071599
       published_on: 2024-05-10
+  - effective_date: 2025-01-16
+    record_date: 2025-01-15
+    payment_date: 2025-01-21
+    kind: cash_distribution
+    cash_per_unit: "0.091"
+    event_announcement_date: 2025-01-09
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2025
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2025-01-09/510500_20250109_GIJW.pdf
+      sha256: 494b00d5f7a973d4dcb83c5414afc1cf1feed644bfdf31529712c94b0cf08488
+      published_on: 2025-01-09
+    availability_evidence: *value2025
+    value_evidence: *value2025
