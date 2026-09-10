@@ -10,18 +10,20 @@ cost model, timing rule, parameter grid, or split.
 
 ## Current full-universe scan
 
-Artifact: `artifacts/data_qualification/7cc66991d049d1c132d7f57684236a1e01824a088b192480dfd8be433b6f4fe6/qualification.json`
+Artifact: `artifacts/data_qualification/53c083a70c62b47cef29549081ef5f801e4fd3c2a188efe1f60b004ba59889c0/qualification.json`
 
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | `510300` | PASS | incomplete; 4 verified dividends | FAIL | missing | PASS | NOT_QUALIFIED |
 | `510500` | PASS | incomplete; 2 verified splits | FAIL | missing | PASS | NOT_QUALIFIED |
-| `159919` | PASS | complete + archived | PASS | available | PASS | NOT_QUALIFIED |
+| `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
-`159919` remains not qualified for this D0 scan until its existing independent
-cross-provider reconciliation and deterministic-reproduction evidence is
-registered by the D0 audit. This is a conservative reporting state, not a
-revision of its accepted Issue 003 history.
+`159919` passed the D0 cross-provider and reproduction gates: report
+`ab424736c7ffbd1e1dfe517e7cc2f02f85609c56da5d6ac30bfe067b8ca2d739`
+records 201 overlapping sessions with zero mismatch; reproduction artifact
+`8ac4974e31a59b401444fc3dc00e6fff05f8837492dff982c7246e9623ad5938`
+recreates the same causal manifest and output SHA-256. This does not alter its
+accepted Issue 003 history.
 
 ## Candidate inventory
 

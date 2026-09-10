@@ -49,7 +49,9 @@ class AssetQualification:
     causal_manifest_id: str | None
     execution_raw_available: bool
     cross_provider_reconciliation: bool
+    cross_provider_report_id: str | None
     deterministic_reproduction: bool
+    deterministic_reproduction_report_id: str | None
     candidate_inventory: CandidateInventory
     result: str
     reasons: tuple[str, ...]
@@ -73,6 +75,7 @@ def qualify_frozen_universe(
     data_root: Path,
     ledger_root: Path,
     calendar_root: Path = Path("configs/calendars"),
+    artifact_root: Path = Path("artifacts/data_qualification"),
 ) -> UniverseDataQualificationReport:
     """Audit every frozen ETF asset without using provider qfq as canonical adjusted data."""
     universe = load_etf_universe(universe_path)
@@ -95,12 +98,23 @@ def qualify_frozen_universe(
         )
         causal_input = causal_by_identity.get((symbol, exchange))
         inventory = _candidate_inventory(raw_manifest, data_root, ledger_path)
+        reconciliation_report_id = _passing_reconciliation_report(
+            data_root / "reports" / "reconciliation", _string(raw_manifest, "manifest_id")
+        )
+        cross_provider_reconciliation = reconciliation_report_id is not None
         expected_session_coverage = _expected_session_coverage(
             raw_manifest, instrument, data_root, calendar
         )
         raw_coverage = raw_manifest is not None and expected_session_coverage
         raw_valid = _manifest_files_match(raw_manifest, data_root)
         causal_available = causal_input is not None
+        reproduction_report_id = _passing_reproduction_report(
+            artifact_root / "reproductions",
+            _string(raw_manifest, "manifest_id"),
+            ledger_sha256,
+            causal_input.manifest_id if causal_input else None,
+        )
+        deterministic_reproduction = reproduction_report_id is not None
         pit_safe = ledger_status == "complete" and evidence_archived and causal_available
         reasons = _qualification_reasons(
             raw_coverage,
@@ -110,8 +124,8 @@ def qualify_frozen_universe(
             evidence_archived,
             causal_available,
             inventory,
-            False,
-            False,
+            cross_provider_reconciliation,
+            deterministic_reproduction,
         )
         assets.append(
             AssetQualification(
@@ -128,8 +142,10 @@ def qualify_frozen_universe(
                 causal_adjusted_available=causal_available,
                 causal_manifest_id=causal_input.manifest_id if causal_input else None,
                 execution_raw_available=raw_coverage and raw_valid,
-                cross_provider_reconciliation=False,
-                deterministic_reproduction=False,
+                cross_provider_reconciliation=cross_provider_reconciliation,
+                cross_provider_report_id=reconciliation_report_id,
+                deterministic_reproduction=deterministic_reproduction,
+                deterministic_reproduction_report_id=reproduction_report_id,
                 candidate_inventory=inventory,
                 result="QUALIFIED" if not reasons else "NOT_QUALIFIED",
                 reasons=tuple(reasons),
@@ -294,6 +310,50 @@ def _expected_session_coverage(
     except (CalendarSourceError, ValueError):
         return False
     return coverage.is_complete
+
+
+def _passing_reconciliation_report(report_root: Path, source_manifest_id: str | None) -> str | None:
+    """Return a retained zero-mismatch cross-provider report for the selected raw source."""
+    if source_manifest_id is None:
+        return None
+    for path in sorted(report_root.glob("*.json")):
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        report_id = payload.get("report_id")
+        if (
+            isinstance(report_id, str)
+            and payload.get("status") == "pass"
+            and payload.get("source_manifest_id") == source_manifest_id
+            and payload.get("overlap_sessions", 0) > 0
+            and payload.get("mismatched_sessions") == 0
+        ):
+            return report_id
+    return None
+
+
+def _passing_reproduction_report(
+    report_root: Path,
+    source_manifest_id: str | None,
+    ledger_sha256: str | None,
+    causal_manifest_id: str | None,
+) -> str | None:
+    """Return an immutable exact-output causal reproduction report for the current inputs."""
+    if source_manifest_id is None or ledger_sha256 is None or causal_manifest_id is None:
+        return None
+    for path in sorted(report_root.glob("*/causal_reproduction.json")):
+        content = path.read_bytes()
+        payload = json.loads(content)
+        report_id = path.parent.name
+        if (
+            sha256(content).hexdigest() == report_id
+            and payload.get("status") == "pass"
+            and payload.get("source_manifest_id") == source_manifest_id
+            and payload.get("ledger_sha256") == ledger_sha256
+            and payload.get("expected_causal_manifest_id") == causal_manifest_id
+            and payload.get("observed_causal_manifest_id") == causal_manifest_id
+            and payload.get("expected_output_sha256") == payload.get("observed_output_sha256")
+        ):
+            return report_id
+    return None
 
 
 def _matching_qfq_manifest(

@@ -95,7 +95,9 @@ def qualify_universe(
 ) -> None:
     """Qualify every frozen-universe asset and refuse promotion when any D0 gate is unmet."""
     try:
-        report = qualify_frozen_universe(universe, data_root, ledger_root, calendar_root)
+        report = qualify_frozen_universe(
+            universe, data_root, ledger_root, calendar_root, artifact_root
+        )
         path = persist_qualification_report(report, artifact_root)
     except ValueError as error:
         typer.echo(f"universe qualification failed: {error}", err=True)
