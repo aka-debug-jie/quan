@@ -60,6 +60,6 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   `510500/SSE` are absent. This blocks the locked test without changing any
   raw/qfq artifact or treating an adjusted provider export as a PIT-safe series.
 - D0 evidence progress: `510300` currently has four verified cash-distribution
-  entries (2021--2024 effective dates); `510500` has two verified share-split
-  entries (2015 and 2022) plus one verified 2024 cash distribution. Both ledgers
-  are explicitly incomplete.
+  entries (2021--2024 effective dates) and two 2019 retrospective candidates;
+  `510500` has two verified share-split entries (2015 and 2022) plus one
+  verified 2024 cash distribution. Both ledgers are explicitly incomplete.

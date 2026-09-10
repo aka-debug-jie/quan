@@ -32,12 +32,15 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
 def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:
     ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510300_v1.yaml"))
     assert ledger.completeness == "incomplete"
-    assert ledger.events[0].effective_date.isoformat() == "2021-01-18"
-    assert str(ledger.events[0].cash_per_unit) == "0.072"
-    assert ledger.events[0].payment_date is not None
-    assert ledger.events[1].effective_date.isoformat() == "2022-01-19"
-    assert str(ledger.events[1].cash_per_unit) == "0.075"
-    assert ledger.events[2].effective_date.isoformat() == "2023-01-16"
-    assert str(ledger.events[2].cash_per_unit) == "0.064"
-    assert ledger.events[3].effective_date.isoformat() == "2024-01-18"
-    assert str(ledger.events[3].cash_per_unit) == "0.069"
+    assert ledger.events[0].verification_status == "candidate"
+    assert ledger.events[0].retrospective_verification
+    assert ledger.events[1].effective_date.isoformat() == "2019-12-11"
+    assert ledger.events[2].effective_date.isoformat() == "2021-01-18"
+    assert str(ledger.events[2].cash_per_unit) == "0.072"
+    assert ledger.events[2].payment_date is not None
+    assert ledger.events[3].effective_date.isoformat() == "2022-01-19"
+    assert str(ledger.events[3].cash_per_unit) == "0.075"
+    assert ledger.events[4].effective_date.isoformat() == "2023-01-16"
+    assert str(ledger.events[4].cash_per_unit) == "0.064"
+    assert ledger.events[5].effective_date.isoformat() == "2024-01-18"
+    assert str(ledger.events[5].cash_per_unit) == "0.069"
