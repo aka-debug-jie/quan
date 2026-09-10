@@ -154,6 +154,12 @@ def _rebalance(
             if notional == 0:
                 continue
             cost = trade_cost(notional, cost_model)
+            if notional + cost > cash:
+                # Decimal division can round the affordability bound upwards by one ULP.
+                notional = notional.next_minus()
+                cost = trade_cost(notional, cost_model)
+            if notional + cost > cash:
+                raise ValueError("affordability calculation produced negative cash")
             positions[symbol] += notional / price
             cash -= notional + cost
             if cash < 0:

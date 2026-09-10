@@ -3,16 +3,24 @@
 from __future__ import annotations
 
 import json
+import os
+import platform
 import subprocess
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import date
 from hashlib import sha256
 from pathlib import Path
 from typing import cast
 
+import numpy as np
+import pandas as pd
+import pyarrow  # type: ignore[import-untyped]
+
 from quant_stack.d0_inventory import load_d0_source_registry
 from quant_stack.data.models import CanonicalDatasetManifest
 from quant_stack.models import PriceBasis
+from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
 from quant_stack.walk_forward import (
     load_preregistered_experiment,
@@ -20,6 +28,18 @@ from quant_stack.walk_forward import (
 )
 
 PRECOMMIT_VERSION = "1.0.0"
+RECOVERY_PRECOMMIT_VERSION = "2.0.0"
+RECOVERY_MODE = "controlled_recovery_after_persistence_failure"
+V2_PRECOMMIT_ID = "d1c3c371864885134f4a733cebdc09b0fedcd2ca69ad7a8a9c1898c4374fe7c6"
+V2_PRECOMMIT_FILE_SHA256 = "0af4dc26b5f72e947830fa6aac3b1dbc3d826a6bc2eeeae5874dfe77329c34c1"
+V2_ATTEMPT_SHA256 = "ee0a73f596b7dfc79892c919526f1fa5845c3e40325726d6804c35dc4af1195e"
+V2_FAILURE_SHA256 = "f363c065c07ed96e44b5136326c9b6773d6e5114d2ca5c4092af1ba3734a7820"
+V2_DATA_SNAPSHOT_ID = "6f33e58c7681a3444d05933d7605672a22940ca5a5039b748d962c419fea4750"
+V2_QUALIFICATION_ID = "66ed03b7fda4057fac1a1f5ab916443d66fe87fe30ab5a6903e67433cc20978a"
+V3_EXPERIMENT_SHA256 = "65e085ffe6977cfed7fa4aa302439592960da478ee3f1013fd3ba55589f6d447"
+V3_EXPERIMENT_PATH = "configs/experiments/etf_walk_forward_v3.yaml"
+V3_AUTHORIZATION_PATH = "configs/experiments/CONTROLLED_RECOVERY_AUTHORIZATION_V3.json"
+V2_WALK_FORWARD_SPLIT_SHA256 = "83630da354cc4de65c99441f671875966ddbf406c68694056cd4c160e6742b7d"
 
 
 @dataclass(frozen=True)
@@ -61,6 +81,15 @@ class LockedTestPrecommit:
     last_locked_signal_date: str
     random_seed: int
     assets: tuple[LockedAssetInput, ...]
+    protocol_mode: str = "fresh_holdout"
+    predecessor_precommit_id: str | None = None
+    predecessor_attempt_sha256: str | None = None
+    predecessor_failure_sha256: str | None = None
+    predecessor_precommit_file_sha256: str | None = None
+    run_plan_names: tuple[str, ...] = ()
+    holdout_status: str = "FRESH"
+    authorized_builds: tuple[str, ...] = ("build_a",)
+    retry_count: int = 0
 
     def as_dict(self) -> dict[str, object]:
         """Return the stable JSON representation including its content identity."""
@@ -80,6 +109,21 @@ def create_locked_test_precommit(
     """Freeze executable code, D0-qualified data, configs, periods, and split identity."""
     _require_clean_tracked_tree(repository_root)
     experiment = load_preregistered_experiment(experiment_path)
+    recovery = _controlled_recovery(experiment)
+    if recovery is None:
+        reject_consumed_holdout(
+            _date_string(experiment, "locked_test_start"),
+            _date_string(experiment, "locked_test_end"),
+        )
+    else:
+        if (
+            experiment_path.relative_to(repository_root).as_posix() != V3_EXPERIMENT_PATH
+            or sha256(experiment_path.read_bytes()).hexdigest() != V3_EXPERIMENT_SHA256
+            or output_path.relative_to(repository_root).as_posix() != V3_AUTHORIZATION_PATH
+        ):
+            raise ValueError("controlled recovery must use the exact authorized V3 files")
+        _verify_v2_failure_archive(repository_root)
+        _verify_recovery_runtime(experiment)
     verify_declared_config_hashes(experiment, repository_root)
     config_hashes = _string_mapping(experiment.get("frozen_config_sha256"), "config hashes")
     registry_relative = _string(experiment, "source_registry_path")
@@ -91,6 +135,8 @@ def create_locked_test_precommit(
     if not isinstance(qualification, dict) or qualification.get("all_qualified") is not True:
         raise ValueError("locked test requires an all-qualified D0 report")
     qualification_id = qualification_path.parent.name
+    if recovery is not None and qualification_id != V2_QUALIFICATION_ID:
+        raise ValueError("controlled recovery must use the exact V2 D0 qualification")
     if sha256(qualification_bytes).hexdigest() != qualification_id:
         raise ValueError("D0 qualification report is not content-addressed")
     registry = load_d0_source_registry(
@@ -152,13 +198,18 @@ def create_locked_test_precommit(
     assets.sort(key=lambda item: item.symbol)
     experiment_relative = experiment_path.relative_to(repository_root).as_posix()
     output_relative = output_path.relative_to(repository_root).as_posix()
+    data_snapshot_id = _hash_json([asdict(asset) for asset in assets])
+    if recovery is not None and data_snapshot_id != V2_DATA_SNAPSHOT_ID:
+        raise ValueError("controlled recovery must use the exact V2 data snapshot")
+    version = RECOVERY_PRECOMMIT_VERSION if recovery is not None else PRECOMMIT_VERSION
+    status = "CONTROLLED_RECOVERY_PRECOMMIT" if recovery is not None else "LOCKED_TEST_PRECOMMIT"
     payload: dict[str, object] = {
-        "version": PRECOMMIT_VERSION,
-        "status": "LOCKED_TEST_PRECOMMIT",
+        "version": version,
+        "status": status,
         "experiment_id": _string(experiment, "experiment_id"),
         "code_commit": _git(repository_root, "rev-parse", "HEAD"),
         "tracked_tree_sha256": _tracked_tree_sha256(repository_root, output_relative),
-        "data_snapshot_id": _hash_json([asdict(asset) for asset in assets]),
+        "data_snapshot_id": data_snapshot_id,
         "qualification_report_id": qualification_id,
         "qualification_report_sha256": sha256(qualification_bytes).hexdigest(),
         "source_registry_sha256": registry_sha256,
@@ -173,12 +224,23 @@ def create_locked_test_precommit(
         "last_locked_signal_date": _date_string(experiment, "last_locked_signal_date"),
         "random_seed": _integer(experiment, "random_seed"),
         "assets": [asdict(asset) for asset in assets],
+        "protocol_mode": RECOVERY_MODE if recovery is not None else "fresh_holdout",
+        "predecessor_precommit_id": V2_PRECOMMIT_ID if recovery is not None else None,
+        "predecessor_attempt_sha256": V2_ATTEMPT_SHA256 if recovery is not None else None,
+        "predecessor_failure_sha256": V2_FAILURE_SHA256 if recovery is not None else None,
+        "predecessor_precommit_file_sha256": (
+            V2_PRECOMMIT_FILE_SHA256 if recovery is not None else None
+        ),
+        "run_plan_names": _recovery_run_names(experiment) if recovery is not None else [],
+        "holdout_status": "NOT_FRESH_PREVIOUSLY_ACCESSED" if recovery is not None else "FRESH",
+        "authorized_builds": ["build_a", "build_b"] if recovery is not None else ["build_a"],
+        "retry_count": 0,
     }
     precommit_id = _hash_json(payload)
     return LockedTestPrecommit(
         precommit_id=precommit_id,
-        version=PRECOMMIT_VERSION,
-        status="LOCKED_TEST_PRECOMMIT",
+        version=version,
+        status=status,
         experiment_id=_string(experiment, "experiment_id"),
         code_commit=_git(repository_root, "rev-parse", "HEAD"),
         tracked_tree_sha256=cast(str, payload["tracked_tree_sha256"]),
@@ -197,6 +259,17 @@ def create_locked_test_precommit(
         last_locked_signal_date=_date_string(experiment, "last_locked_signal_date"),
         random_seed=_integer(experiment, "random_seed"),
         assets=tuple(assets),
+        protocol_mode=cast(str, payload["protocol_mode"]),
+        predecessor_precommit_id=cast(str | None, payload["predecessor_precommit_id"]),
+        predecessor_attempt_sha256=cast(str | None, payload["predecessor_attempt_sha256"]),
+        predecessor_failure_sha256=cast(str | None, payload["predecessor_failure_sha256"]),
+        predecessor_precommit_file_sha256=cast(
+            str | None, payload["predecessor_precommit_file_sha256"]
+        ),
+        run_plan_names=tuple(cast(list[str], payload["run_plan_names"])),
+        holdout_status=cast(str, payload["holdout_status"]),
+        authorized_builds=tuple(cast(list[str], payload["authorized_builds"])),
+        retry_count=0,
     )
 
 
@@ -211,6 +284,8 @@ def verify_locked_test_precommit(
     repository_root: Path,
     data_root: Path,
     qualification_path: Path,
+    *,
+    before_data_read: Callable[[LockedTestPrecommit], None] | None = None,
 ) -> LockedTestPrecommit:
     """Revalidate every frozen code, config, D0, raw, causal, and split identity."""
     payload = json.loads(precommit_path.read_text(encoding="utf-8"))
@@ -220,9 +295,24 @@ def verify_locked_test_precommit(
     if not isinstance(assets_payload, list):
         raise ValueError("locked-test precommit must declare assets")
     precommit = LockedTestPrecommit(
-        **{**payload, "assets": tuple(LockedAssetInput(**item) for item in assets_payload)}
+        **{
+            **payload,
+            "assets": tuple(LockedAssetInput(**item) for item in assets_payload),
+            "run_plan_names": tuple(payload.get("run_plan_names", ())),
+            "authorized_builds": tuple(payload.get("authorized_builds", ("build_a",))),
+        }
     )
-    if precommit.version != PRECOMMIT_VERSION or precommit.status != "LOCKED_TEST_PRECOMMIT":
+    recovery_precommit = precommit.protocol_mode == RECOVERY_MODE
+    if recovery_precommit:
+        _validate_recovery_precommit_identity(precommit)
+    else:
+        reject_consumed_holdout(precommit.locked_test_start, precommit.locked_test_end)
+    expected_identity = (
+        (RECOVERY_PRECOMMIT_VERSION, "CONTROLLED_RECOVERY_PRECOMMIT")
+        if recovery_precommit
+        else (PRECOMMIT_VERSION, "LOCKED_TEST_PRECOMMIT")
+    )
+    if (precommit.version, precommit.status) != expected_identity:
         raise ValueError("locked-test precommit has an unsupported version or status")
     identity = precommit.as_dict()
     identity.pop("precommit_id")
@@ -246,6 +336,17 @@ def verify_locked_test_precommit(
     if sha256(experiment_path.read_bytes()).hexdigest() != precommit.experiment_config_sha256:
         raise ValueError("locked experiment config changed after precommit")
     experiment = load_preregistered_experiment(experiment_path)
+    recovery = _controlled_recovery(experiment)
+    if recovery_precommit != (recovery is not None):
+        raise ValueError("experiment and precommit recovery modes differ")
+    if recovery is not None:
+        if (
+            precommit.experiment_config_path != V3_EXPERIMENT_PATH
+            or precommit.experiment_config_sha256 != V3_EXPERIMENT_SHA256
+            or precommit.qualification_report_id != V2_QUALIFICATION_ID
+        ):
+            raise ValueError("controlled recovery inputs differ from the V3 authorization")
+        _verify_recovery_runtime(experiment)
     verify_declared_config_hashes(experiment, repository_root)
     expected_config_hashes = _string_mapping(
         experiment.get("frozen_config_sha256"), "config hashes"
@@ -302,6 +403,10 @@ def verify_locked_test_precommit(
     }
     if precommit.data_snapshot_id != _hash_json([asdict(asset) for asset in precommit.assets]):
         raise ValueError("precommit data snapshot identity mismatch")
+    if recovery_precommit:
+        _verify_v2_failure_archive(repository_root)
+    if before_data_read is not None:
+        before_data_read(precommit)
     for asset in precommit.assets:
         qualified = qualified_assets.get(asset.symbol)
         if (
@@ -321,6 +426,93 @@ def verify_locked_test_precommit(
         causal = _load_causal_manifest(data_root, asset.causal_manifest_id, asset.raw_manifest_id)
         if causal.output_file.sha256 != asset.causal_output_sha256:
             raise ValueError(f"causal input changed after precommit: {asset.symbol}")
+    return precommit
+
+
+def verify_controlled_recovery_authorization(
+    precommit_path: Path, repository_root: Path
+) -> LockedTestPrecommit:
+    """Verify the V3 authorization and frozen code/config identity without reading prices."""
+    payload = json.loads(precommit_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or not isinstance(payload.get("assets"), list):
+        raise ValueError("controlled recovery authorization must be a JSON object with assets")
+    precommit = LockedTestPrecommit(
+        **{
+            **payload,
+            "assets": tuple(LockedAssetInput(**item) for item in payload["assets"]),
+            "run_plan_names": tuple(payload.get("run_plan_names", ())),
+            "authorized_builds": tuple(payload.get("authorized_builds", ())),
+        }
+    )
+    if (
+        precommit.version != RECOVERY_PRECOMMIT_VERSION
+        or precommit.status != "CONTROLLED_RECOVERY_PRECOMMIT"
+        or precommit.protocol_mode != RECOVERY_MODE
+    ):
+        raise ValueError("unsupported controlled recovery authorization identity")
+    identity = precommit.as_dict()
+    identity.pop("precommit_id")
+    if _hash_json(identity) != precommit.precommit_id:
+        raise ValueError("controlled recovery authorization content hash mismatch")
+    _validate_recovery_precommit_identity(precommit)
+    expected_path = repository_root.resolve() / V3_AUTHORIZATION_PATH
+    if precommit_path.resolve() != expected_path:
+        raise ValueError("controlled recovery authorization path is not canonical")
+    _require_clean_tracked_tree(repository_root)
+    head = _git(repository_root, "rev-parse", "HEAD")
+    if head != precommit.code_commit:
+        commits = int(
+            _git(repository_root, "rev-list", "--count", f"{precommit.code_commit}..{head}")
+        )
+        changed = _git(
+            repository_root, "diff", "--name-only", f"{precommit.code_commit}..{head}"
+        ).splitlines()
+        if commits != 1 or changed != [V3_AUTHORIZATION_PATH]:
+            raise ValueError("HEAD must contain only the V3 authorization above frozen code")
+    if (
+        _tracked_tree_sha256(repository_root, V3_AUTHORIZATION_PATH)
+        != precommit.tracked_tree_sha256
+    ):
+        raise ValueError("tracked research tree changed after V3 authorization")
+    experiment_path = repository_root / V3_EXPERIMENT_PATH
+    if (
+        sha256(experiment_path.read_bytes()).hexdigest() != V3_EXPERIMENT_SHA256
+        or precommit.experiment_config_path != V3_EXPERIMENT_PATH
+        or precommit.experiment_config_sha256 != V3_EXPERIMENT_SHA256
+    ):
+        raise ValueError("V3 experiment differs from its frozen authorization")
+    experiment = load_preregistered_experiment(experiment_path)
+    _controlled_recovery(experiment)
+    verify_declared_config_hashes(experiment, repository_root)
+    expected_hashes = _string_mapping(experiment.get("frozen_config_sha256"), "config hashes")
+    if precommit.config_hashes != expected_hashes:
+        raise ValueError("V3 authorization configuration hashes differ")
+    expected_fields = (
+        (precommit.experiment_id, _string(experiment, "experiment_id")),
+        (precommit.selection_period_end, _date_string(experiment, "selection_period_end")),
+        (precommit.locked_test_start, _date_string(experiment, "locked_test_start")),
+        (precommit.locked_test_end, _date_string(experiment, "locked_test_end")),
+        (precommit.last_locked_signal_date, _date_string(experiment, "last_locked_signal_date")),
+        (precommit.random_seed, _integer(experiment, "random_seed")),
+        (precommit.walk_forward_split_sha256, _hash_json(experiment["walk_forward_splits"])),
+    )
+    if any(observed != expected for observed, expected in expected_fields):
+        raise ValueError("V3 authorization fields differ from its experiment")
+    qualification = (
+        repository_root
+        / "artifacts/data_qualification"
+        / V2_QUALIFICATION_ID
+        / "qualification.json"
+    )
+    if (
+        not qualification.is_file()
+        or sha256(qualification.read_bytes()).hexdigest() != V2_QUALIFICATION_ID
+        or precommit.qualification_report_sha256 != V2_QUALIFICATION_ID
+    ):
+        raise ValueError("V3 authorization D0 report identity mismatch")
+    if precommit.data_snapshot_id != _hash_json([asdict(asset) for asset in precommit.assets]):
+        raise ValueError("V3 authorization asset snapshot identity mismatch")
+    _verify_v2_failure_archive(repository_root)
     return precommit
 
 
@@ -438,6 +630,120 @@ def _hash_json(value: object) -> str:
 
 
 def _json_bytes(value: object) -> bytes:
-    return json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
-    ).encode()
+    return canonical_json(value)
+
+
+def reject_consumed_holdout(start: str, end: str) -> None:
+    """Preserve the consumed V2 interval across code, snapshot and precommit ID changes."""
+    if date.fromisoformat(start) <= date(2026, 9, 9) and date.fromisoformat(end) >= date(
+        2024, 1, 2
+    ):
+        raise ValueError("V2 holdout interval is consumed; a new research protocol is required")
+
+
+def _controlled_recovery(experiment: dict[str, object]) -> dict[str, object] | None:
+    """Validate the one explicitly authorized V3 predecessor and return its declaration."""
+    if experiment.get("protocol_mode") != RECOVERY_MODE:
+        return None
+    recovery = experiment.get("controlled_recovery")
+    expected: dict[str, object] = {
+        "predecessor_precommit_id": V2_PRECOMMIT_ID,
+        "predecessor_precommit_file_sha256": V2_PRECOMMIT_FILE_SHA256,
+        "predecessor_attempt_sha256": V2_ATTEMPT_SHA256,
+        "predecessor_failure_sha256": V2_FAILURE_SHA256,
+        "predecessor_data_snapshot_id": V2_DATA_SNAPSHOT_ID,
+        "authorized_builds": ["build_a", "build_b"],
+        "require_prepared_bytes_equal": True,
+        "publish_build": "build_a",
+        "parent_attempt_limit": 1,
+        "retry_count": 0,
+        "evidence_scope": "CONTROLLED_RECOVERY_RESEARCH",
+        "holdout_status": "NOT_FRESH_PREVIOUSLY_ACCESSED",
+    }
+    if recovery != expected:
+        raise ValueError("controlled recovery declaration differs from the V3 authorization")
+    if (
+        _date_string(experiment, "locked_test_start") != "2024-01-02"
+        or _date_string(experiment, "locked_test_end") != "2026-09-09"
+        or _date_string(experiment, "last_locked_signal_date") != "2026-08-31"
+    ):
+        raise ValueError("controlled recovery dates differ from the authorized V2 interval")
+    _recovery_run_names(experiment)
+    return expected
+
+
+def _validate_recovery_precommit_identity(precommit: LockedTestPrecommit) -> None:
+    """Reject any widened or relabelled consumed-interval recovery precommit."""
+    if (
+        precommit.predecessor_precommit_id != V2_PRECOMMIT_ID
+        or precommit.predecessor_attempt_sha256 != V2_ATTEMPT_SHA256
+        or precommit.predecessor_failure_sha256 != V2_FAILURE_SHA256
+        or precommit.predecessor_precommit_file_sha256 != V2_PRECOMMIT_FILE_SHA256
+        or precommit.data_snapshot_id != V2_DATA_SNAPSHOT_ID
+        or precommit.locked_test_start != "2024-01-02"
+        or precommit.locked_test_end != "2026-09-09"
+        or precommit.last_locked_signal_date != "2026-08-31"
+        or precommit.selection_period_end != "2023-12-29"
+        or precommit.walk_forward_split_sha256 != V2_WALK_FORWARD_SPLIT_SHA256
+        or precommit.qualification_report_id != V2_QUALIFICATION_ID
+        or precommit.random_seed != 0
+        or precommit.run_plan_names != tuple(_AUTHORIZED_RECOVERY_RUNS)
+        or precommit.holdout_status != "NOT_FRESH_PREVIOUSLY_ACCESSED"
+        or precommit.authorized_builds != ("build_a", "build_b")
+        or precommit.retry_count != 0
+    ):
+        raise ValueError("controlled recovery precommit exceeds its explicit authorization")
+
+
+def _verify_v2_failure_archive(repository_root: Path) -> None:
+    """Bind V3 to the preserved V2 attempt and failure bytes before market-data access."""
+    root = repository_root / "artifacts" / "issue009" / "locked_runs" / V2_PRECOMMIT_ID
+    expected = (("attempt.json", V2_ATTEMPT_SHA256), ("failure.json", V2_FAILURE_SHA256))
+    for filename, digest in expected:
+        path = root / filename
+        if not path.is_file() or sha256(path.read_bytes()).hexdigest() != digest:
+            raise ValueError(f"archived V2 {filename} does not match the recovery contract")
+    precommit_path = repository_root / "configs/experiments/LOCKED_TEST_PRECOMMIT_V2.json"
+    if sha256(precommit_path.read_bytes()).hexdigest() != V2_PRECOMMIT_FILE_SHA256:
+        raise ValueError("archived V2 precommit file does not match the recovery contract")
+
+
+_AUTHORIZED_RECOVERY_RUNS = [
+    *(f"WALK_FORWARD_BASE_FOLD_{index}" for index in range(1, 7)),
+    "LOCKED_BASE_T1",
+    "LOCKED_DOUBLE_COST_T1",
+    "LOCKED_BASE_T2",
+    "LOCKED_NEIGHBOR_M3_N1",
+    "LOCKED_NEIGHBOR_M3_N2",
+    "LOCKED_NEIGHBOR_M6_N1",
+    "LOCKED_NEIGHBOR_M6_N2",
+    "LOCKED_NEIGHBOR_M12_N1",
+    "LOCKED_START_TRIM_21",
+    "LOCKED_END_TRIM_21",
+]
+
+
+def _recovery_run_names(experiment: dict[str, object]) -> list[str]:
+    value = experiment.get("ordered_run_names")
+    if value != _AUTHORIZED_RECOVERY_RUNS:
+        raise ValueError("controlled recovery ordered run plan differs from authorization")
+    return list(_AUTHORIZED_RECOVERY_RUNS)
+
+
+def _verify_recovery_runtime(experiment: dict[str, object]) -> None:
+    """Require the exact preregistered runtime identity for both deterministic builds."""
+    declared = experiment.get("runtime_environment")
+    observed = {
+        "python": platform.python_version(),
+        "pandas": pd.__version__,
+        "numpy": np.__version__,
+        "pyarrow": pyarrow.__version__,
+        "pythonhashseed": os.environ.get("PYTHONHASHSEED", "UNSET"),
+        "timezone": os.environ.get("TZ", "UNSET"),
+        "omp_num_threads": os.environ.get("OMP_NUM_THREADS", "UNSET"),
+        "openblas_num_threads": os.environ.get("OPENBLAS_NUM_THREADS", "UNSET"),
+        "mkl_num_threads": os.environ.get("MKL_NUM_THREADS", "UNSET"),
+        "numexpr_num_threads": os.environ.get("NUMEXPR_NUM_THREADS", "UNSET"),
+    }
+    if declared != observed:
+        raise ValueError(f"controlled recovery runtime mismatch: observed {observed}")

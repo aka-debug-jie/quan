@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import cast
@@ -43,6 +43,7 @@ def evaluate_walk_forward(
     execution_delay_sessions: int = 1,
     execution_audit_prices: pd.DataFrame | None = None,
     benchmark_rebalance_sessions: tuple[pd.Timestamp, ...] | None = None,
+    on_fold: Callable[[FoldEvaluation], None] | None = None,
 ) -> tuple[FoldEvaluation, ...]:
     """Evaluate every frozen OOS fold without optimizing, filtering, or joining fold results."""
     folds: list[FoldEvaluation] = []
@@ -101,6 +102,8 @@ def evaluate_walk_forward(
                 ),
             )
         )
+        if on_fold is not None:
+            on_fold(folds[-1])
     positive_percentage = _positive_excess_fold_percentage(folds)
     return tuple(
         FoldEvaluation(

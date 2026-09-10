@@ -62,9 +62,10 @@ from quant_stack.data.szse_official import (
     reattest_szse_daily_history,
 )
 from quant_stack.data_qualification import persist_qualification_report, qualify_frozen_universe
-from quant_stack.issue009_runner import run_issue009_locked_test
+from quant_stack.issue009_runner import run_issue009_controlled_recovery, run_issue009_locked_test
 from quant_stack.locked_test import create_locked_test_precommit, persist_locked_test_precommit
 from quant_stack.models import Exchange, PriceBasis
+from quant_stack.research_result import recover_controlled_publication, recover_publication
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
 
@@ -741,6 +742,94 @@ def backtest_locked_run_v2(
         raise typer.Exit(code=1) from error
     typer.echo(f"locked result: {path}")
     typer.echo(f"outcome: {result['outcome']}")
+
+
+@backtest_app.command("precommit-v3-recovery")
+def backtest_precommit_v3_recovery(
+    experiment: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    qualification: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    source_registry: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    output: Annotated[Path, typer.Option()] = Path(
+        "configs/experiments/CONTROLLED_RECOVERY_AUTHORIZATION_V3.json"
+    ),
+    repository_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path("."),
+    data_root: DataRootOption = Path("data"),
+) -> None:
+    """Freeze the one explicitly authorized V3 controlled-recovery attempt."""
+    try:
+        precommit = create_locked_test_precommit(
+            repository_root.resolve(),
+            data_root.resolve(),
+            experiment.resolve(),
+            qualification.resolve(),
+            source_registry.resolve(),
+            output.resolve(),
+        )
+        if precommit.protocol_mode != "controlled_recovery_after_persistence_failure":
+            raise ValueError("experiment is not the V3 controlled recovery")
+        persist_locked_test_precommit(precommit, output)
+    except ValueError as error:
+        typer.echo(f"controlled recovery precommit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"controlled recovery precommit: {output}")
+    typer.echo(f"precommit id: {precommit.precommit_id}")
+
+
+@backtest_app.command("locked-run-v3-recovery")
+def backtest_locked_run_v3_recovery(
+    precommit: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    qualification: Annotated[Path, typer.Option(..., exists=True, readable=True)],
+    repository_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path("."),
+    data_root: DataRootOption = Path("data"),
+) -> None:
+    """Execute the two preregistered V3 builds once and require byte equality."""
+    try:
+        path, result = run_issue009_controlled_recovery(
+            precommit.resolve(),
+            repository_root.resolve(),
+            data_root.resolve(),
+            qualification.resolve(),
+            repository_root.resolve() / "artifacts/issue009",
+        )
+    except (ValueError, OSError, TypeError) as error:
+        typer.echo(f"controlled recovery failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"controlled recovery result: {path}")
+    typer.echo(f"outcome: {result['outcome']}")
+
+
+@backtest_app.command("recover-publication")
+def recover_issue009_publication(
+    run_directory: Annotated[Path, typer.Option(..., exists=True, file_okay=False)],
+    expected_sha256: Annotated[str, typer.Option(...)],
+    registry_root: Annotated[Path, typer.Option(...)],
+) -> None:
+    """Recover complete synthetic publications only; never recompute or replay old V2."""
+    try:
+        path, _ = recover_publication(run_directory, registry_root, expected_sha256=expected_sha256)
+    except (ValueError, OSError) as error:
+        typer.echo(f"publication recovery refused: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"synthetic publication recovered: {path}")
+
+
+@backtest_app.command("recover-v3-publication")
+def recover_issue009_v3_publication(
+    precommit_id: Annotated[str, typer.Option(...)],
+    repository_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path("."),
+) -> None:
+    """Publish complete V3 builds from an independently supplied receipt hash; never recompute."""
+    authority = repository_root.resolve() / "artifacts/issue009"
+    run_directory = authority / "locked_runs" / precommit_id
+    try:
+        path, _ = recover_controlled_publication(
+            run_directory,
+            authority / "experiment_registry",
+        )
+    except (ValueError, OSError) as error:
+        typer.echo(f"V3 publication recovery refused: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"V3 publication recovered: {path}")
 
 
 @signal_app.command("generate")

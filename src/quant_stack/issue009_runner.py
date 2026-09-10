@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import statistics
+import subprocess
+import sys
+from collections.abc import Callable
 from dataclasses import asdict
 from datetime import date
 from decimal import Decimal
+from functools import partial
 from hashlib import sha256
 from pathlib import Path
 from typing import cast
@@ -19,10 +25,19 @@ from quant_stack.costs import CostModel
 from quant_stack.data.provider_series import load_provider_series
 from quant_stack.evaluation import ResearchOutcome, RobustnessEvidence, classify_research_outcome
 from quant_stack.evaluation_runner import FoldEvaluation, evaluate_walk_forward
-from quant_stack.experiment_registry import register_experiment
 from quant_stack.features import FeatureRow, calculate_features
-from quant_stack.locked_test import LockedTestPrecommit, verify_locked_test_precommit
+from quant_stack.locked_test import RECOVERY_MODE, LockedTestPrecommit, verify_locked_test_precommit
 from quant_stack.models import DailyBar, Exchange, PriceBasis
+from quant_stack.research_json import canonical_json
+from quant_stack.research_result import (
+    EvidenceScope,
+    ExecutionPlan,
+    StepArtifact,
+    prepare_publication,
+    publish_prepared,
+    recover_controlled_publication,
+    save_failure,
+)
 from quant_stack.snapshot import write_immutable
 from quant_stack.strategy import monthly_etf_momentum_targets
 from quant_stack.walk_forward import WalkForwardSplit, load_preregistered_experiment
@@ -36,13 +51,282 @@ def run_issue009_locked_test(
     artifact_root: Path,
 ) -> tuple[Path, dict[str, object]]:
     """Execute the precommitted protocol once and persist every run before classification."""
-    precommit = verify_locked_test_precommit(
-        precommit_path, repository_root, data_root, qualification_path
-    )
-    run_directory = _claim_locked_attempt(artifact_root, precommit)
-    destination = run_directory / "result.json"
+    if _declared_protocol_mode(precommit_path) == RECOVERY_MODE:
+        raise ValueError("controlled recovery precommit requires the V3 recovery runner")
+    authority = repository_root.resolve() / "artifacts/issue009"
+    if artifact_root.resolve() != authority:
+        raise ValueError("locked attempt authority must be repository artifacts/issue009")
+    run_directory: Path | None = None
+
+    def claim(precommit: LockedTestPrecommit) -> None:
+        nonlocal run_directory
+        run_directory = _claim_locked_attempt(authority, precommit)
+        _freeze_execution_plan(precommit, repository_root, run_directory, "RESEARCH")
+
+    try:
+        precommit = verify_locked_test_precommit(
+            precommit_path,
+            repository_root,
+            data_root,
+            qualification_path,
+            before_data_read=claim,
+        )
+        assert run_directory is not None
+        return _execute_issue009(
+            precommit,
+            repository_root,
+            data_root,
+            artifact_root,
+            run_directory,
+            evidence_scope="RESEARCH",
+        )
+    except BaseException as error:
+        if run_directory is not None:
+            save_failure(run_directory, error)
+        raise
+
+
+def run_issue009_controlled_recovery(
+    precommit_path: Path,
+    repository_root: Path,
+    data_root: Path,
+    qualification_path: Path,
+    artifact_root: Path,
+) -> tuple[Path, dict[str, object]]:
+    """Run exactly two preregistered builds and publish only after byte equality."""
+    if _declared_protocol_mode(precommit_path) != RECOVERY_MODE:
+        raise ValueError("V3 recovery runner requires a controlled recovery precommit")
+    authority = repository_root.resolve() / "artifacts/issue009"
+    if artifact_root.resolve() != authority:
+        raise ValueError("locked attempt authority must be repository artifacts/issue009")
+    parent: Path | None = None
+
+    def claim(precommit: LockedTestPrecommit) -> None:
+        nonlocal parent
+        parent = _claim_locked_attempt(authority, precommit)
+        for name in ("build_a", "build_b"):
+            _freeze_execution_plan(
+                precommit,
+                repository_root,
+                parent / name,
+                "CONTROLLED_RECOVERY_RESEARCH",
+            )
+
+    try:
+        precommit = verify_locked_test_precommit(
+            precommit_path,
+            repository_root,
+            data_root,
+            qualification_path,
+            before_data_read=claim,
+        )
+        assert parent is not None
+        environment = {
+            **os.environ,
+            "PYTHONHASHSEED": "0",
+            "TZ": "UTC",
+            "OMP_NUM_THREADS": "1",
+            "OPENBLAS_NUM_THREADS": "1",
+            "MKL_NUM_THREADS": "1",
+            "NUMEXPR_NUM_THREADS": "1",
+        }
+        processes: list[tuple[str, subprocess.Popen[bytes]]] = []
+        for name in ("build_a", "build_b"):
+            command = (
+                sys.executable,
+                "-m",
+                "quant_stack.controlled_build",
+                "--precommit",
+                str(precommit_path),
+                "--repository-root",
+                str(repository_root),
+                "--data-root",
+                str(data_root),
+                "--qualification",
+                str(qualification_path),
+                "--build-directory",
+                str(parent / name),
+                "--build-name",
+                name,
+            )
+            processes.append(
+                (
+                    name,
+                    subprocess.Popen(
+                        command,
+                        cwd=repository_root,
+                        env=environment,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    ),
+                )
+            )
+        exits = {name: process.wait() for name, process in processes}
+        write_immutable(
+            parent / "child_processes.json",
+            canonical_json(
+                {
+                    "schema_version": "1.0.0",
+                    "precommit_id": precommit.precommit_id,
+                    "build_exit_codes": exits,
+                    "retry_count": 0,
+                }
+            )
+            + b"\n",
+        )
+        if exits != {"build_a": 0, "build_b": 0}:
+            raise ValueError("one or more controlled recovery child builds failed")
+        prepared = [parent / name / "prepared.json" for name in ("build_a", "build_b")]
+        first_bytes, second_bytes = (path.read_bytes() for path in prepared)
+        first_hash = sha256(first_bytes).hexdigest()
+        second_hash = sha256(second_bytes).hexdigest()
+        if first_bytes != second_bytes:
+            raise ValueError("controlled recovery deterministic builds differ")
+        reproduction = {
+            "schema_version": "1.0.0",
+            "status": "PREPARED_BYTES_IDENTICAL",
+            "evidence_scope": "CONTROLLED_RECOVERY_RESEARCH",
+            "precommit_id": precommit.precommit_id,
+            "data_snapshot_id": precommit.data_snapshot_id,
+            "build_a_prepared_sha256": first_hash,
+            "build_b_prepared_sha256": second_hash,
+            "identical": True,
+            "authorized_build_count": 2,
+            "published_build": "build_a",
+        }
+        write_immutable(parent / "reproduction.json", canonical_json(reproduction) + b"\n")
+        reproduction_sha = sha256((parent / "reproduction.json").read_bytes()).hexdigest()
+        child_sha = sha256((parent / "child_processes.json").read_bytes()).hexdigest()
+        write_immutable(
+            parent / "publication_anchor.json",
+            canonical_json(
+                {
+                    "schema_version": "1.0.0",
+                    "precommit_id": precommit.precommit_id,
+                    "reproduction_sha256": reproduction_sha,
+                    "child_processes_sha256": child_sha,
+                    "authorization_sha256": sha256(precommit_path.read_bytes()).hexdigest(),
+                }
+            )
+            + b"\n",
+        )
+        destination, published = recover_controlled_publication(
+            parent, artifact_root / "experiment_registry"
+        )
+        pointer = {
+            "schema_version": "1.0.0",
+            "precommit_id": precommit.precommit_id,
+            "result_relative_path": destination.relative_to(parent).as_posix(),
+            "result_sha256": sha256(destination.read_bytes()).hexdigest(),
+            "reproduction_sha256": reproduction_sha,
+            "publication_anchor_sha256": sha256(
+                (parent / "publication_anchor.json").read_bytes()
+            ).hexdigest(),
+        }
+        write_immutable(parent / "result_pointer.json", canonical_json(pointer) + b"\n")
+        return destination, published
+    except BaseException as error:
+        if parent is not None:
+            save_failure(parent, error)
+        raise
+
+
+def run_issue009_controlled_build(
+    precommit_path: Path,
+    repository_root: Path,
+    data_root: Path,
+    qualification_path: Path,
+    build_directory: Path,
+    build_name: str,
+) -> Path:
+    """Execute one preauthorized child build without claiming or publishing."""
+    if build_name not in ("build_a", "build_b"):
+        raise ValueError("controlled recovery build name is not authorized")
+    authority = repository_root.resolve() / "artifacts/issue009"
+    precommit_id = json.loads(precommit_path.read_text(encoding="utf-8")).get("precommit_id")
+    if not isinstance(precommit_id, str):
+        raise ValueError("controlled recovery precommit lacks its identity")
+    parent = authority / "locked_runs" / precommit_id
+    if build_directory.resolve() != (parent / build_name).resolve():
+        raise ValueError("controlled recovery build directory differs from its parent attempt")
+
+    def validate_parent(precommit: LockedTestPrecommit) -> None:
+        attempt = json.loads((parent / "attempt.json").read_bytes())
+        if attempt.get("precommit_id") != precommit.precommit_id:
+            raise ValueError("controlled recovery parent claim identity mismatch")
+        expected = _freeze_execution_plan(
+            precommit,
+            repository_root,
+            build_directory,
+            "CONTROLLED_RECOVERY_RESEARCH",
+        )
+        observed = ExecutionPlan.model_validate_json(
+            (build_directory / "execution_plan.json").read_bytes()
+        )
+        if observed != expected:
+            raise ValueError("controlled recovery child plan mismatch")
+
+    try:
+        precommit = verify_locked_test_precommit(
+            precommit_path,
+            repository_root,
+            data_root,
+            qualification_path,
+            before_data_read=validate_parent,
+        )
+        path, _ = _execute_issue009(
+            precommit,
+            repository_root,
+            data_root,
+            authority,
+            build_directory,
+            evidence_scope="CONTROLLED_RECOVERY_RESEARCH",
+            publish_result=False,
+        )
+        return path
+    except BaseException as error:
+        save_failure(build_directory, error)
+        raise
+
+
+def _execute_issue009(
+    precommit: LockedTestPrecommit,
+    repository_root: Path,
+    data_root: Path,
+    artifact_root: Path,
+    run_directory: Path,
+    *,
+    evidence_scope: EvidenceScope,
+    publish_result: bool = True,
+) -> tuple[Path, dict[str, object]]:
+    """Shared computation pipeline; tests replace only the immutable input boundary."""
+    completed = 0
+
+    def save_fold(fold: FoldEvaluation) -> None:
+        nonlocal completed
+        payload = _fold_payload(fold)
+        checkpoint = {
+            "schema_version": "1.0.0",
+            "precommit_id": precommit.precommit_id,
+            "execution_plan_sha256": sha256(
+                (run_directory / "execution_plan.json").read_bytes()
+            ).hexdigest(),
+            "ordinal": completed,
+            "run_name": plan.run_names[completed],
+            "fold": payload,
+        }
+        StepArtifact.model_validate_json(canonical_json(checkpoint))
+        write_immutable(
+            run_directory / "steps" / f"{completed:03d}.json",
+            canonical_json(checkpoint) + b"\n",
+        )
+        completed += 1
+
+    one_fold = partial(_one_fold, on_fold=save_fold)
     experiment_path = repository_root / precommit.experiment_config_path
     experiment = load_preregistered_experiment(experiment_path)
+    plan = _freeze_execution_plan(precommit, repository_root, run_directory, evidence_scope)
+    config_hashes = plan.config_hashes
     accounting_open, accounting_close, raw_open, feature_rows = _load_panels(precommit, data_root)
     signal_cutoff = pd.Timestamp(precommit.last_locked_signal_date)
     signal_index = cast(pd.DatetimeIndex, accounting_close.index)
@@ -72,8 +356,9 @@ def run_issue009_locked_test(
         1,
         raw_open,
         benchmark_sessions,
+        on_fold=save_fold,
     )
-    primary = _one_fold(
+    primary = one_fold(
         accounting_open,
         accounting_close,
         raw_open,
@@ -83,7 +368,7 @@ def run_issue009_locked_test(
         1,
         benchmark_sessions,
     )
-    doubled = _one_fold(
+    doubled = one_fold(
         accounting_open,
         accounting_close,
         raw_open,
@@ -93,7 +378,7 @@ def run_issue009_locked_test(
         1,
         benchmark_sessions,
     )
-    delayed = _one_fold(
+    delayed = one_fold(
         accounting_open,
         accounting_close,
         raw_open,
@@ -112,7 +397,7 @@ def run_issue009_locked_test(
             ):
                 continue
             targets = _targets(signal_index, feature_rows, momentum, selection_count)
-            fold = _one_fold(
+            fold = one_fold(
                 accounting_open,
                 accounting_close,
                 raw_open,
@@ -135,7 +420,7 @@ def run_issue009_locked_test(
     ].index
     start_trim = _integer(sensitivity, "start_trim_sessions")
     end_trim = _integer(sensitivity, "end_trim_sessions")
-    start_trimmed = _one_fold(
+    start_trimmed = one_fold(
         accounting_open,
         accounting_close,
         raw_open,
@@ -150,7 +435,7 @@ def run_issue009_locked_test(
         1,
         benchmark_sessions,
     )
-    end_trimmed = _one_fold(
+    end_trimmed = one_fold(
         accounting_open,
         accounting_close,
         raw_open,
@@ -165,23 +450,33 @@ def run_issue009_locked_test(
         1,
         benchmark_sessions,
     )
-    registry_ids = _register_all_runs(
-        precommit,
-        experiment_path,
-        artifact_root / "experiment_registry",
-        walk_folds,
-        primary,
-        doubled,
-        delayed,
-        neighbors,
-        start_trimmed,
-        end_trimmed,
-    )
     outcome, evidence, diagnostics = _classify(
         experiment, walk_folds, primary, doubled, delayed, neighbors
     )
     oos_strategy, oos_benchmark = _concatenated_oos_curves(walk_folds)
     result: dict[str, object] = {
+        "schema_version": "3.0.0",
+        "evidence_scope": evidence_scope,
+        "holdout_status": precommit.holdout_status
+        if evidence_scope != "SYNTHETIC_ENGINEERING_ONLY"
+        else "NOT_APPLICABLE",
+        "issue_gate_status": (
+            "PENDING_CONTROLLED_RECOVERY"
+            if evidence_scope == "CONTROLLED_RECOVERY_RESEARCH"
+            else "SYNTHETIC_ENGINEERING_ONLY"
+            if evidence_scope == "SYNTHETIC_ENGINEERING_ONLY"
+            else "PENDING_RESEARCH"
+        ),
+        "fresh_holdout_status": (
+            "NOT_AVAILABLE"
+            if evidence_scope == "CONTROLLED_RECOVERY_RESEARCH"
+            else "NOT_APPLICABLE"
+            if evidence_scope == "SYNTHETIC_ENGINEERING_ONLY"
+            else "AVAILABLE"
+        ),
+        "live_trading_authorization": "FORBIDDEN",
+        "predecessor_precommit_id": precommit.predecessor_precommit_id,
+        "controlled_reproduction_sha256": None,
         "experiment_id": precommit.experiment_id,
         "precommit_id": precommit.precommit_id,
         "data_snapshot_id": precommit.data_snapshot_id,
@@ -212,12 +507,19 @@ def run_issue009_locked_test(
         "end_trimmed": _fold_payload(end_trimmed),
         "robustness_evidence": asdict(evidence),
         "diagnostics": diagnostics,
-        "experiment_registry_ids": registry_ids,
+        "experiment_registry_ids": [],
     }
-    result_id = _hash_json(result)
-    result["result_id"] = result_id
-    write_immutable(destination, _json_bytes(result) + b"\n")
-    return destination, result
+    digest = prepare_publication(
+        run_directory,
+        result,
+        config_hashes,
+        precommit.random_seed,
+    )
+    if not publish_result:
+        return run_directory / "prepared.json", result
+    return publish_prepared(
+        run_directory, artifact_root / "experiment_registry", expected_sha256=digest
+    )
 
 
 def _claim_locked_attempt(artifact_root: Path, precommit: LockedTestPrecommit) -> Path:
@@ -235,7 +537,11 @@ def _claim_locked_attempt(artifact_root: Path, precommit: LockedTestPrecommit) -
         "code_commit": precommit.code_commit,
         "data_snapshot_id": precommit.data_snapshot_id,
     }
-    write_immutable(run_directory / "attempt.json", _json_bytes(receipt) + b"\n")
+    try:
+        write_immutable(run_directory / "attempt.json", _json_bytes(receipt) + b"\n")
+    except BaseException as error:
+        save_failure(run_directory, error)
+        raise
     return run_directory
 
 
@@ -331,8 +637,10 @@ def _one_fold(
     costs: CostModel,
     delay: int,
     benchmark_sessions: tuple[pd.Timestamp, ...],
+    *,
+    on_fold: Callable[[FoldEvaluation], None] | None = None,
 ) -> FoldEvaluation:
-    return evaluate_walk_forward(
+    fold = evaluate_walk_forward(
         accounting_open,
         accounting_close,
         targets,
@@ -342,56 +650,9 @@ def _one_fold(
         raw_open,
         benchmark_sessions,
     )[0]
-
-
-def _register_all_runs(
-    precommit: LockedTestPrecommit,
-    experiment_path: Path,
-    registry_root: Path,
-    walk_folds: tuple[FoldEvaluation, ...],
-    primary: FoldEvaluation,
-    doubled: FoldEvaluation,
-    delayed: FoldEvaluation,
-    neighbors: list[dict[str, object]],
-    start_trimmed: FoldEvaluation,
-    end_trimmed: FoldEvaluation,
-) -> list[str]:
-    ids: list[str] = []
-    config_hashes = {
-        **precommit.config_hashes,
-        precommit.experiment_config_path: sha256(experiment_path.read_bytes()).hexdigest(),
-    }
-    runs: list[tuple[str, dict[str, object]]] = [
-        *(
-            (f"WALK_FORWARD_BASE_FOLD_{index}", _fold_payload(fold))
-            for index, fold in enumerate(walk_folds, 1)
-        ),
-        ("LOCKED_BASE_T1", _fold_payload(primary)),
-        ("LOCKED_DOUBLE_COST_T1", _fold_payload(doubled)),
-        ("LOCKED_BASE_T2", _fold_payload(delayed)),
-        ("LOCKED_START_TRIM_21", _fold_payload(start_trimmed)),
-        ("LOCKED_END_TRIM_21", _fold_payload(end_trimmed)),
-    ]
-    runs.extend(
-        (
-            f"LOCKED_NEIGHBOR_M{item['momentum_window_months']}_N{item['selection_count']}",
-            _fold_payload(cast(FoldEvaluation, item["fold"])),
-        )
-        for item in neighbors
-    )
-    for run_kind, payload in runs:
-        record_id, _ = register_experiment(
-            registry_root,
-            experiment_id=precommit.experiment_id,
-            run_kind=run_kind,
-            git_commit=precommit.code_commit,
-            data_snapshot_id=precommit.data_snapshot_id,
-            config_hashes=config_hashes,
-            random_seed=precommit.random_seed,
-            payload=payload,
-        )
-        ids.append(record_id)
-    return ids
+    if on_fold is not None:
+        on_fold(fold)
+    return fold
 
 
 def _classify(
@@ -477,9 +738,9 @@ def _concatenate(curves: list[pd.Series]) -> pd.Series:
 def _fold_payload(fold: FoldEvaluation) -> dict[str, object]:
     return {
         "split": asdict(fold.split),
-        "strategy_metrics": asdict(fold.strategy_metrics),
-        "benchmark_metrics": asdict(fold.benchmark_metrics),
-        "relative_metrics": asdict(fold.relative_metrics),
+        "strategy_metrics": _metric_payload(asdict(fold.strategy_metrics)),
+        "benchmark_metrics": _metric_payload(asdict(fold.benchmark_metrics)),
+        "relative_metrics": _metric_payload(asdict(fold.relative_metrics)),
         "strategy_trade_count": len(fold.strategy.trades),
         "benchmark_trade_count": len(fold.benchmark.trades),
         "strategy_trades": [_trade_payload(item) for item in fold.strategy.trades],
@@ -608,6 +869,89 @@ def _hash_json(value: object) -> str:
 
 
 def _json_bytes(value: object) -> bytes:
-    return json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
-    ).encode()
+    return canonical_json(value)
+
+
+def _metric_payload(values: dict[str, object]) -> dict[str, object]:
+    """Represent undefined ratios explicitly without changing metric calculations."""
+    return {
+        key: (
+            "UNDEFINED"
+            if math.isnan(value)
+            else "POSITIVE_INFINITY"
+            if value > 0
+            else "NEGATIVE_INFINITY"
+        )
+        if isinstance(value, float) and not math.isfinite(value)
+        else value
+        for key, value in values.items()
+    }
+
+
+def _expected_run_names(experiment: dict[str, object]) -> list[str]:
+    base = _mapping(experiment, "base_parameters")
+    grid = _mapping(experiment, "parameter_grid")
+    return [
+        *(f"WALK_FORWARD_BASE_FOLD_{i}" for i in range(1, len(_splits(experiment)) + 1)),
+        "LOCKED_BASE_T1",
+        "LOCKED_DOUBLE_COST_T1",
+        "LOCKED_BASE_T2",
+        *(
+            f"LOCKED_NEIGHBOR_M{m}_N{n}"
+            for m in _integer_list(grid, "momentum_windows_months")
+            for n in _integer_list(grid, "selection_counts")
+            if (m, n)
+            != (_integer(base, "momentum_window_months"), _integer(base, "selection_count"))
+        ),
+        "LOCKED_START_TRIM_21",
+        "LOCKED_END_TRIM_21",
+    ]
+
+
+def _freeze_execution_plan(
+    precommit: LockedTestPrecommit,
+    repository_root: Path,
+    directory: Path,
+    scope: EvidenceScope,
+) -> ExecutionPlan:
+    path = repository_root / precommit.experiment_config_path
+    experiment = load_preregistered_experiment(path)
+    run_names = _expected_run_names(experiment)
+    if scope == "CONTROLLED_RECOVERY_RESEARCH" and tuple(run_names) != precommit.run_plan_names:
+        raise ValueError("derived run plan differs from the controlled recovery authorization")
+    plan = ExecutionPlan(
+        precommit_id=precommit.precommit_id,
+        code_commit=precommit.code_commit,
+        data_snapshot_id=precommit.data_snapshot_id,
+        evidence_scope=scope,
+        run_names=run_names,
+        config_hashes={
+            **precommit.config_hashes,
+            precommit.experiment_config_path: sha256(path.read_bytes()).hexdigest(),
+        },
+        random_seed=precommit.random_seed,
+        runtime_environment=cast(dict[str, str], _mapping(experiment, "runtime_environment"))
+        if scope == "CONTROLLED_RECOVERY_RESEARCH"
+        else {},
+        parent_attempt_id=(
+            precommit.precommit_id if scope == "CONTROLLED_RECOVERY_RESEARCH" else None
+        ),
+        predecessor_precommit_id=(
+            precommit.predecessor_precommit_id if scope == "CONTROLLED_RECOVERY_RESEARCH" else None
+        ),
+        authorized_builds=list(precommit.authorized_builds),
+        holdout_status=precommit.holdout_status,
+    )
+    write_immutable(directory / "execution_plan.json", canonical_json(plan.model_dump()) + b"\n")
+    return plan
+
+
+def _declared_protocol_mode(path: Path) -> str:
+    """Read only the precommit mode needed to select an authorized entrypoint."""
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("locked-test precommit must be a JSON object")
+    mode = payload.get("protocol_mode", "fresh_holdout")
+    if not isinstance(mode, str):
+        raise ValueError("locked-test protocol mode must be a string")
+    return mode

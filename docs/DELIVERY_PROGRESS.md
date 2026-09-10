@@ -1,5 +1,44 @@
 # Delivery Progress
 
+## V3 controlled-recovery preflight
+
+The user authorized one transparent, no-tuning V3 controlled recomputation and
+a separate non-blocking 18-month prospective validation. The V3 contract and
+experiment config bind the exact failed V2 precommit/data/evidence, unchanged
+research definitions, 16 ordered runs, exact runtime, two fresh Python child
+processes, pending-before-comparison semantics, receipt-only publication, and
+the `NOT_FRESH_PREVIOUSLY_ACCESSED` label.
+
+Pre-authorization validation: Ruff, format and strict mypy PASS; **149 tests
+passed** with **71.54%** combined statement/branch coverage. This is only the
+preflight. No V3 authorization file or real controlled result existed when this
+entry was written; the historical V2 result remains invalid.
+
+## Prospective protocol preparation
+
+The former prospective draft is superseded as an execution source. The user
+authorized the bounded V3 controlled-recovery route on 2026-09-11 and retained
+2026-10 through 2028-03 as a separate, non-blocking prospective validation.
+The tracked V3 contract/config freeze exact V2 predecessor evidence, unchanged
+research definitions, two fresh-process builds, strict equality and publication
+rules. This authorization does not alter the historical V2 invalid result or
+claim that its interval is a fresh holdout.
+
+## 2026-09-11 runner-hardening addendum
+
+Branch `codex/issue009-runner-hardening`, baseline `d70e4da`:
+`PASS_SYNTHETIC_ONLY` for strict serialization/schema, immutable per-run checkpoints,
+failure receipts and computation-free synthetic publication recovery. Full validation:
+Ruff / format / strict mypy PASS; **144 tests passed**, coverage **73.21%**.
+Two independent synthetic 16-run builds have identical output bytes.
+
+See `docs/ISSUE_009_RUNNER_HARDENING.md` for exact local evidence paths, hashes,
+the bounded Decimal affordability correction, and the unapproved next-protocol decisions.
+This addendum supersedes the older test count below, not the historical Issue 009 result.
+At that hardening checkpoint, real Issue 009 remained `BLOCKED_CONTAMINATED` and
+V2 failure receipts were unchanged. The later V3 contract is a separately authorized
+controlled recomputation, not authorization from the engineering recovery command.
+
 ## Repository baseline
 
 - Baseline branch: `main`.

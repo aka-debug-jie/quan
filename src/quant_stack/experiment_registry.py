@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
 
 
@@ -21,6 +21,7 @@ def register_experiment(
     config_hashes: Mapping[str, str],
     random_seed: int,
     payload: Mapping[str, Any],
+    attempt_context: Mapping[str, str] | None = None,
 ) -> tuple[str, Path]:
     """Persist one immutable record so every executed configuration remains auditable."""
     if not all((experiment_id, run_kind, git_commit, data_snapshot_id)):
@@ -36,6 +37,8 @@ def register_experiment(
         "random_seed": random_seed,
         "payload": payload,
     }
+    if attempt_context is not None:
+        record["attempt_context"] = dict(attempt_context)
     content = _canonical_json(record)
     record_id = sha256(content).hexdigest()
     destination = registry_root / record_id / "record.json"
@@ -45,7 +48,4 @@ def register_experiment(
 
 def _canonical_json(record: Mapping[str, Any]) -> bytes:
     """Serialize a registry record deterministically without a mutable run-time timestamp."""
-    serialized = json.dumps(
-        record, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
-    )
-    return serialized.encode() + b"\n"
+    return canonical_json(record) + b"\n"

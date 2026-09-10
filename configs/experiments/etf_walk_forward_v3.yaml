@@ -1,0 +1,106 @@
+experiment_id: etf_walk_forward_v3_controlled_recovery
+status: preregistered_not_executed
+supplements_failed_experiment: etf_walk_forward_v2
+protocol_mode: controlled_recovery_after_persistence_failure
+evaluation_contract_sha256: c8525a8ccfdc6349abb0858bc85d91046afb1e4f445fd3c93cf33e933b8a53ab
+source_registry_path: configs/data_qualification/d0_sources_v1.yaml
+controlled_recovery:
+  predecessor_precommit_id: d1c3c371864885134f4a733cebdc09b0fedcd2ca69ad7a8a9c1898c4374fe7c6
+  predecessor_precommit_file_sha256: 0af4dc26b5f72e947830fa6aac3b1dbc3d826a6bc2eeeae5874dfe77329c34c1
+  predecessor_attempt_sha256: ee0a73f596b7dfc79892c919526f1fa5845c3e40325726d6804c35dc4af1195e
+  predecessor_failure_sha256: f363c065c07ed96e44b5136326c9b6773d6e5114d2ca5c4092af1ba3734a7820
+  predecessor_data_snapshot_id: 6f33e58c7681a3444d05933d7605672a22940ca5a5039b748d962c419fea4750
+  authorized_builds: [build_a, build_b]
+  require_prepared_bytes_equal: true
+  publish_build: build_a
+  parent_attempt_limit: 1
+  retry_count: 0
+  evidence_scope: CONTROLLED_RECOVERY_RESEARCH
+  holdout_status: NOT_FRESH_PREVIOUSLY_ACCESSED
+ordered_run_names:
+  - WALK_FORWARD_BASE_FOLD_1
+  - WALK_FORWARD_BASE_FOLD_2
+  - WALK_FORWARD_BASE_FOLD_3
+  - WALK_FORWARD_BASE_FOLD_4
+  - WALK_FORWARD_BASE_FOLD_5
+  - WALK_FORWARD_BASE_FOLD_6
+  - LOCKED_BASE_T1
+  - LOCKED_DOUBLE_COST_T1
+  - LOCKED_BASE_T2
+  - LOCKED_NEIGHBOR_M3_N1
+  - LOCKED_NEIGHBOR_M3_N2
+  - LOCKED_NEIGHBOR_M6_N1
+  - LOCKED_NEIGHBOR_M6_N2
+  - LOCKED_NEIGHBOR_M12_N1
+  - LOCKED_START_TRIM_21
+  - LOCKED_END_TRIM_21
+prospective_monitoring:
+  blocking_for_v3_acceptance: false
+  first_month: 2026-10
+  last_month: 2028-03
+  complete_calendar_months: 18
+  old_interval_role: feature_warmup_only
+  parameter_changes_after_observation: forbidden
+  first_eligible_signal: 2026-10-natural-month-end
+runtime_environment:
+  python: 3.11.15
+  pandas: 3.0.5
+  numpy: 2.4.6
+  pyarrow: 23.0.1
+  pythonhashseed: "0"
+  timezone: UTC
+  omp_num_threads: "1"
+  openblas_num_threads: "1"
+  mkl_num_threads: "1"
+  numexpr_num_threads: "1"
+frozen_config_sha256:
+  .python-version: 49a506dd32096b010d75205acf3430c9ae6c40351888129499e5a5e487126c93
+  pyproject.toml: f1ebf43c2bfe8aa7e492395192ced3507a561079065ec5b450d41c9a25887d8c
+  uv.lock: b0c0281339431293745f265cb4ca3d1bfbc157c0637fd68a2511b64ff5b31164
+  configs/assets/etf_universe_v2.yaml: 19fdc71b3c57e5368c8e1115b1e353a95fba7ba04e2ab07c46c982b8efab29cf
+  configs/strategies/etf_momentum_v2.yaml: 5ae3d737dd57142ad093d83ffe253f5593c554c142aaac4d3215182e1a89d08d
+  configs/benchmarks/same_universe_equal_weight_v2.yaml: d8aed5515fed86260a728cc1256a7885983c21a6f9468f9bf9beadcd891eb615
+  configs/execution/monthly_t1_open_v2.yaml: ba93c8723242c3e9c2a7f75623affdbdf9741016cbe6710f578241f421c4dde3
+  configs/costs/cn_etf_v1.yaml: c7b7cb083ab8b4164f5aa53c428dcdb0b6b70a75eaa3c484f6b3cec018983cb4
+  configs/data_qualification/d0_sources_v1.yaml: 8af9b0c43c06f9fa757d2376fe8c1584918f583e5dd9f378427183264cd550d4
+  docs/ISSUE_009_CONTROLLED_RECOVERY_CONTRACT_V3.md: c8525a8ccfdc6349abb0858bc85d91046afb1e4f445fd3c93cf33e933b8a53ab
+selection_period_end: 2023-12-29
+locked_test_start: 2024-01-02
+locked_test_end: 2026-09-09
+last_locked_signal_date: 2026-08-31
+walk_forward_splits:
+  - {train_start: 2015-01-05, train_end: 2017-12-29, test_start: 2018-01-02, test_end: 2018-12-28}
+  - {train_start: 2016-01-04, train_end: 2018-12-28, test_start: 2019-01-02, test_end: 2019-12-31}
+  - {train_start: 2017-01-03, train_end: 2019-12-31, test_start: 2020-01-02, test_end: 2020-12-31}
+  - {train_start: 2018-01-02, train_end: 2020-12-31, test_start: 2021-01-04, test_end: 2021-12-31}
+  - {train_start: 2019-01-02, train_end: 2021-12-31, test_start: 2022-01-04, test_end: 2022-12-30}
+  - {train_start: 2020-01-02, train_end: 2022-12-30, test_start: 2023-01-03, test_end: 2023-12-29}
+base_parameters:
+  trend_window: 200
+  momentum_window_months: 12
+  volatility_window: 60
+  selection_count: 2
+parameter_grid:
+  trend_windows: [200]
+  momentum_windows_months: [3, 6, 12]
+  volatility_windows: [60]
+  selection_counts: [1, 2]
+required_runs:
+  - base_cost_t1
+  - doubled_costs_t1
+  - base_cost_t2
+  - parameter_neighborhood
+  - locked_start_trim_21_sessions
+  - locked_end_trim_21_sessions
+start_end_sensitivity:
+  start_trim_sessions: 21
+  end_trim_sessions: 21
+parameter_neighborhood_rule:
+  minimum_nonnegative_neighbors: 3
+  median_neighbor_excess_cagr_minimum: 0
+isolated_observation_rule:
+  minimum_rebalances: 12
+  largest_positive_active_days: 3
+  maximum_positive_active_return_share: 0.5
+diagnostic_ablations: []
+random_seed: 0
