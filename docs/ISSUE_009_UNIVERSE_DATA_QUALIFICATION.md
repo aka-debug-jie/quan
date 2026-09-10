@@ -19,14 +19,16 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
 `510300` 的独立 Sina/AKShare raw reconciliation 已保存为
-`728ef1d5072e82ef1cd5c39d21677f903d28e7192e3fb880f90e8ff02bbd42a9`：
-2,841 个重叠会话中 8 个 OHLC 不一致。Sina shares-to-AKShare lots 的
+`f495551c61d1038754dec93fd961ede728f4ba87507c0dfb245c450b0c0f115c`：
+2,841 个重叠会话中 8 个 OHLC 不一致，最大绝对差 `0.002`、最大相对差
+`0.0005395198273536552468303210143`，且无公司行为边界差异。Sina shares-to-AKShare lots 的
 `2` 手容差只处理可复核的 JavaScript 浮点成交量精度，未放宽 OHLC 比较；
 所以该资产仍不能通过 D0 cross-provider gate。
 
 `510500` 的独立 Sina/AKShare raw reconciliation 已保存为
-`f623b95521be59c2c42708c16618054af6a76990ae100823cd76501d574bde81`：
-2,839 个重叠会话中 6 个 OHLC 不一致。相同的 volume precision 规则不能
+`284817f8cca5c90062cd72f35dd34cb20279c2120f0e32814eef44400e1f3bdc`：
+2,839 个重叠会话中 6 个 OHLC 不一致，最大绝对差 `0.002`、最大相对差
+`0.0002631578947368421052631578947`，且无公司行为边界差异。相同的 volume precision 规则不能
 覆盖价格差异，故该资产也保持 D0 cross-provider blocked。
 
 `159919` passed the D0 cross-provider and reproduction gates: report

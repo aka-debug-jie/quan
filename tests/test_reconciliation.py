@@ -56,16 +56,19 @@ def test_missing_independent_cross_check_is_a_blocked_report() -> None:
 
 
 def test_reconciliation_does_not_merge_series_and_detects_disagreement() -> None:
+    mismatched = _bar("2").model_copy(update={"high": Decimal("11"), "close": Decimal("11")})
     report = reconcile_raw_series(
         _manifest(ProviderId.SZSE_OFFICIAL, "c" * 64),
         [_bar()],
         _manifest(ProviderId.AKSHARE_EASTMONEY, "d" * 64),
-        [_bar("2")],
+        [mismatched],
     )
 
     assert report.status == "blocked"
     assert report.overlap_sessions == 1
     assert report.mismatched_sessions == 1
+    assert report.mismatch_dates == (date(2024, 1, 2),)
+    assert report.maximum_price_absolute_difference == "1"
 
 
 def test_reconciliation_accepts_explicit_shares_to_lots_volume_conversion() -> None:

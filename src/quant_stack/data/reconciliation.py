@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
@@ -27,6 +28,10 @@ class ReconciliationReport:
     mismatched_sessions: int
     source_to_cross_check_volume_multiplier: str | None
     cross_check_volume_tolerance: str | None
+    mismatch_dates: tuple[date, ...]
+    maximum_price_absolute_difference: str | None
+    maximum_price_relative_difference: str | None
+    corporate_action_boundary_mismatches: int
     reasons: tuple[str, ...]
 
     def as_dict(self) -> dict[str, object]:
@@ -41,6 +46,10 @@ class ReconciliationReport:
             "mismatched_sessions": self.mismatched_sessions,
             "source_to_cross_check_volume_multiplier": self.source_to_cross_check_volume_multiplier,
             "cross_check_volume_tolerance": self.cross_check_volume_tolerance,
+            "mismatch_dates": [value.isoformat() for value in self.mismatch_dates],
+            "maximum_price_absolute_difference": self.maximum_price_absolute_difference,
+            "maximum_price_relative_difference": self.maximum_price_relative_difference,
+            "corporate_action_boundary_mismatches": self.corporate_action_boundary_mismatches,
             "reasons": list(self.reasons),
         }
 
@@ -50,6 +59,7 @@ def reconcile_raw_series(
     source_bars: list[DailyBar],
     cross_check_manifest: ProviderSeriesManifest | None,
     cross_check_bars: list[DailyBar] | None,
+    corporate_action_boundary_dates: tuple[date, ...] = (),
 ) -> ReconciliationReport:
     """Compare full OHLCV records only on common dates; do not fill or concatenate gaps."""
     reasons: list[str] = []
@@ -57,6 +67,10 @@ def reconcile_raw_series(
     mismatches = 0
     volume_multiplier: Decimal | None = None
     volume_tolerance: Decimal | None = None
+    mismatch_dates: list[date] = []
+    maximum_price_absolute_difference: Decimal | None = None
+    maximum_price_relative_difference: Decimal | None = None
+    boundary_mismatches = 0
     if cross_check_manifest is None or cross_check_bars is None:
         reasons.append("no independently captured cross-check provider series is available")
     else:
@@ -74,12 +88,25 @@ def reconcile_raw_series(
             if other is None:
                 continue
             overlap += 1
-            if _price_tuple(left) != _price_tuple(other) or (
+            price_difference = _price_difference(left, other)
+            volume_mismatch = (
                 volume_multiplier is None
                 or volume_tolerance is None
                 or abs(left.volume * volume_multiplier - other.volume) > volume_tolerance
-            ):
+            )
+            if price_difference is not None or volume_mismatch:
                 mismatches += 1
+                mismatch_dates.append(left.trading_date)
+                if left.trading_date in corporate_action_boundary_dates:
+                    boundary_mismatches += 1
+            if price_difference is not None:
+                absolute, relative = price_difference
+                maximum_price_absolute_difference = max(
+                    maximum_price_absolute_difference or Decimal("0"), absolute
+                )
+                maximum_price_relative_difference = max(
+                    maximum_price_relative_difference or Decimal("0"), relative
+                )
         if overlap == 0:
             reasons.append("provider series have no common session for reconciliation")
         if mismatches:
@@ -102,6 +129,18 @@ def reconcile_raw_series(
         "cross_check_volume_tolerance": (
             str(volume_tolerance) if volume_tolerance is not None else None
         ),
+        "mismatch_dates": [value.isoformat() for value in mismatch_dates],
+        "maximum_price_absolute_difference": (
+            str(maximum_price_absolute_difference)
+            if maximum_price_absolute_difference is not None
+            else None
+        ),
+        "maximum_price_relative_difference": (
+            str(maximum_price_relative_difference)
+            if maximum_price_relative_difference is not None
+            else None
+        ),
+        "corporate_action_boundary_mismatches": boundary_mismatches,
         "reasons": reasons,
     }
     return ReconciliationReport(
@@ -119,6 +158,18 @@ def reconcile_raw_series(
         cross_check_volume_tolerance=(
             str(volume_tolerance) if volume_tolerance is not None else None
         ),
+        mismatch_dates=tuple(mismatch_dates),
+        maximum_price_absolute_difference=(
+            str(maximum_price_absolute_difference)
+            if maximum_price_absolute_difference is not None
+            else None
+        ),
+        maximum_price_relative_difference=(
+            str(maximum_price_relative_difference)
+            if maximum_price_relative_difference is not None
+            else None
+        ),
+        corporate_action_boundary_mismatches=boundary_mismatches,
         reasons=tuple(reasons),
     )
 
@@ -130,9 +181,22 @@ def persist_reconciliation_report(report: ReconciliationReport, data_root: Path)
     return path
 
 
-def _price_tuple(bar: DailyBar) -> tuple[object, ...]:
+def _price_tuple(bar: DailyBar) -> tuple[Decimal, Decimal, Decimal, Decimal]:
     """Return comparable raw price fields without silently converting a provider volume."""
     return (bar.open, bar.high, bar.low, bar.close)
+
+
+def _price_difference(left: DailyBar, right: DailyBar) -> tuple[Decimal, Decimal] | None:
+    """Return maximal absolute and relative OHLC difference, or None for an exact match."""
+    differences = [
+        abs(first - second)
+        for first, second in zip(_price_tuple(left), _price_tuple(right), strict=True)
+    ]
+    maximum = max(differences)
+    if maximum == 0:
+        return None
+    reference = min(value for value in (*_price_tuple(left), *_price_tuple(right)) if value > 0)
+    return maximum, maximum / reference
 
 
 def _volume_multiplier(
