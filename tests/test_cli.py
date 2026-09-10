@@ -18,6 +18,26 @@ def test_data_validate_command() -> None:
     assert "valid bars: 6" in result.stdout
 
 
+def test_universe_qualification_refuses_promotion_for_unqualified_assets(tmp_path: Path) -> None:
+    result = runner.invoke(
+        cli.app,
+        [
+            "data",
+            "qualify-universe",
+            "--universe",
+            "configs/assets/etf_universe_v1.yaml",
+            "--data-root",
+            str(tmp_path / "data"),
+            "--calendar-root",
+            str(CALENDARS),
+            "--artifact-root",
+            str(tmp_path / "artifacts"),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "510300: NOT_QUALIFIED" in result.stdout
+
+
 def test_backtest_is_explicit_placeholder() -> None:
     result = runner.invoke(cli.app, ["backtest", "run"])
     assert result.exit_code == 0

@@ -51,6 +51,7 @@ from quant_stack.data.szse_official import (
     persist_szse_daily_history,
     reattest_szse_daily_history,
 )
+from quant_stack.data_qualification import persist_qualification_report, qualify_frozen_universe
 from quant_stack.models import Exchange, PriceBasis
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
@@ -80,6 +81,30 @@ def validate_data(path: Path) -> None:
     """Validate a local daily-bar CSV against the M0 schema."""
     bars = load_daily_bars_csv(path)
     typer.echo(f"valid bars: {len(bars)}")
+
+
+@data_app.command("qualify-universe")
+def qualify_universe(
+    universe: UniverseOption,
+    data_root: DataRootOption = Path("data"),
+    ledger_root: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/corporate_actions"
+    ),
+    calendar_root: CalendarRootOption = Path("configs/calendars"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/data_qualification"),
+) -> None:
+    """Qualify every frozen-universe asset and refuse promotion when any D0 gate is unmet."""
+    try:
+        report = qualify_frozen_universe(universe, data_root, ledger_root, calendar_root)
+        path = persist_qualification_report(report, artifact_root)
+    except ValueError as error:
+        typer.echo(f"universe qualification failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"qualification report: {path}")
+    for asset in report.assets:
+        typer.echo(f"{asset.symbol}: {asset.result}; reasons={','.join(asset.reasons) or 'none'}")
+    if not report.all_qualified:
+        raise typer.Exit(code=1)
 
 
 @data_app.command("snapshot")
