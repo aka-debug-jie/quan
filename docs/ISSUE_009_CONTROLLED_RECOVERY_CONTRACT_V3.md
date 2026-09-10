@@ -1,7 +1,8 @@
 # Issue 009 Controlled Recovery Contract V3
 
-Status: `PREREGISTERED_CONTROLLED_RECOVERY`  
-Authorized: 2026-09-11, before the V3 recovery execution.  
+Status: `PREREGISTERED_CONTROLLED_RECOVERY`
+
+Authorized: 2026-09-11, before the V3 recovery execution.
 This supplement does not modify or erase the V2 contract, precommit, attempt, or failure.
 
 ## Why this is a recovery, not a fresh holdout
