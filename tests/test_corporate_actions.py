@@ -40,7 +40,10 @@ def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness
     assert ledger.events[0].retrospective_verification
     assert ledger.events[3].effective_date.isoformat() == "2018-01-22"
     assert str(ledger.events[3].cash_per_unit) == "0.046"
+    assert ledger.events[3].verification_status == "candidate"
+    assert ledger.events[4].verification_status == "official_evidence_chain_verified"
     assert ledger.events[5].effective_date.isoformat() == "2019-12-11"
+    assert ledger.events[5].verification_status == "official_evidence_chain_verified"
     assert ledger.events[6].effective_date.isoformat() == "2021-01-18"
     assert str(ledger.events[6].cash_per_unit) == "0.072"
     assert ledger.events[6].payment_date is not None

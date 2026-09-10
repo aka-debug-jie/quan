@@ -40,25 +40,32 @@ events:
     evidence: *prospectus2022
   - effective_date: 2019-01-16
     record_date: 2019-01-15
+    payment_date: 2019-01-21
     kind: cash_distribution
     cash_per_unit: "0.059"
     event_announcement_date: 2019-01-10
-    evidence_type: annual_report
-    retrospective_verification: true
-    verification_status: candidate
-    evidence: &annual2019
-      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2020-03-30/510300_2019_n.pdf
-      sha256: 0b9131c688b85e6981e6cf8caf5dc08f9028d43fdbd23acf65444d9cced6b202
-      published_on: 2020-03-30
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2018
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2019-01-10/510300_20190110_1.pdf
+      sha256: 39a65a900bc8f30e0d572cecad642d06fd7ddfd7317b3265f99a3146f483d7ea
+      published_on: 2019-01-10
+    availability_evidence: *value2018
+    value_evidence: *value2018
   - effective_date: 2019-12-11
     record_date: 2019-12-10
+    payment_date: 2019-12-16
     kind: cash_distribution
     cash_per_unit: "0.062"
     event_announcement_date: 2019-12-05
-    evidence_type: annual_report
-    retrospective_verification: true
-    verification_status: candidate
-    evidence: *annual2019
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2019
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2019-12-05/510300_20191205_1.pdf
+      sha256: c010184f267a231457103e8a3798c2fa91445033be875bdf6711162f419b26db
+      published_on: 2019-12-05
+    availability_evidence: *value2019
+    value_evidence: *value2019
   - effective_date: 2021-01-18
     record_date: 2021-01-15
     payment_date: 2021-01-21
