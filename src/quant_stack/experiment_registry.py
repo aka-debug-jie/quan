@@ -45,5 +45,7 @@ def register_experiment(
 
 def _canonical_json(record: Mapping[str, Any]) -> bytes:
     """Serialize a registry record deterministically without a mutable run-time timestamp."""
-    serialized = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    serialized = json.dumps(
+        record, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+    )
     return serialized.encode() + b"\n"
