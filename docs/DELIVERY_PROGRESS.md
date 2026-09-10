@@ -73,3 +73,6 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   2,839 sessions; 6 OHLC differences remain under the same frozen raw-price
   comparison, so reconciliation stays blocked and no provider is selected or
   merged.
+- Tushare D0 cross-check is unavailable in the current environment: its module
+  is not installed and no token is configured. This is recorded without reading
+  or storing a credential and does not weaken the Sina/AKShare mismatch gate.

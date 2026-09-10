@@ -31,6 +31,10 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 `0.0002631578947368421052631578947`，且无公司行为边界差异。相同的 volume precision 规则不能
 覆盖价格差异，故该资产也保持 D0 cross-provider blocked。
 
+Tushare 未安装且当前环境没有配置 `TUSHARE_TOKEN`；因此它不能作为第三个
+cross-check provider。该缺失未被用作放宽 Sina/AKShare 的 0.002 价格差异，
+也不要求在仓库或日志中提供任何凭据。
+
 `159919` passed the D0 cross-provider and reproduction gates: report
 `ab424736c7ffbd1e1dfe517e7cc2f02f85609c56da5d6ac30bfe067b8ca2d739`
 records 201 overlapping sessions with zero mismatch; reproduction artifact
