@@ -21,7 +21,7 @@ from quant_stack.snapshot import write_immutable
 from quant_stack.validation import reject_duplicate_bars
 
 SSE_HISTORY_URL_TEMPLATE = "https://yunhq.sse.com.cn:32042/v1/sh1/dayk/{symbol}"
-SSE_HISTORY_PARSER_VERSION = "1.0.0"
+SSE_HISTORY_PARSER_VERSION = "1.0.1"
 SSE_HISTORY_NORMALIZATION_VERSION = "1.0.0"
 
 
