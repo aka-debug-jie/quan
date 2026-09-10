@@ -29,6 +29,8 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert str(ledger.events[2].cash_per_unit) == "0.087"
     assert ledger.events[3].effective_date.isoformat() == "2025-01-16"
     assert str(ledger.events[3].cash_per_unit) == "0.091"
+    assert ledger.events[4].effective_date.isoformat() == "2026-01-16"
+    assert str(ledger.events[4].cash_per_unit) == "0.062"
 
 
 def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:
@@ -50,3 +52,5 @@ def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness
     assert str(ledger.events[9].cash_per_unit) == "0.069"
     assert ledger.events[10].effective_date.isoformat() == "2025-06-18"
     assert str(ledger.events[10].cash_per_unit) == "0.088"
+    assert ledger.events[11].effective_date.isoformat() == "2026-01-19"
+    assert str(ledger.events[11].cash_per_unit) == "0.123"

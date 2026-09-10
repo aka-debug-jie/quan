@@ -135,3 +135,17 @@ events:
       published_on: 2025-06-11
     availability_evidence: *value2025
     value_evidence: *value2025
+  - effective_date: 2026-01-19
+    record_date: 2026-01-16
+    payment_date: 2026-01-27
+    kind: cash_distribution
+    cash_per_unit: "0.123"
+    event_announcement_date: 2026-01-12
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2026
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-01-12/510300_20260112_VTCZ.pdf
+      sha256: c8ff747d02fa90db72320458c38249f73720b932d61b7e088f033583aab63992
+      published_on: 2026-01-12
+    availability_evidence: *value2026
+    value_evidence: *value2026

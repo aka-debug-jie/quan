@@ -67,3 +67,17 @@ events:
       published_on: 2025-01-09
     availability_evidence: *value2025
     value_evidence: *value2025
+  - effective_date: 2026-01-16
+    record_date: 2026-01-15
+    payment_date: 2026-01-21
+    kind: cash_distribution
+    cash_per_unit: "0.062"
+    event_announcement_date: 2026-01-09
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2026
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-01-09/510500_20260109_5K7U.pdf
+      sha256: bcc1662da519fff6464f728ffba4035662653c43a3e23c57feb87ced0c7e233f
+      published_on: 2026-01-09
+    availability_evidence: *value2026
+    value_evidence: *value2026
