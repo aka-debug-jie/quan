@@ -53,6 +53,7 @@ def test_qualification_reports_all_frozen_assets_not_only_known_missing_ones(
     assert report.assets[0].candidate_inventory.provider_factor_classification == "UNEXPLAINED"
     assert report.assets[0].candidate_inventory.unresolved_factor_change_points == 1
     assert "raw_coverage_missing" in report.assets[1].reasons
+    assert report.assets[0].ledger_sha256 is None
     first = persist_qualification_report(report, tmp_path / "artifacts")
     second = persist_qualification_report(report, tmp_path / "artifacts")
     assert first == second

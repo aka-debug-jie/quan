@@ -42,6 +42,7 @@ class AssetQualification:
     raw_manifest_id: str | None
     raw_manifest_sha256_valid: bool
     ledger_status: str
+    ledger_sha256: str | None
     ledger_evidence_archived: bool
     pit_causal_safe: bool
     causal_adjusted_available: bool
@@ -89,6 +90,9 @@ def qualify_frozen_universe(
         raw_manifest = _selected_raw_manifest(data_root / "manifests", symbol, exchange)
         ledger_path = ledger_root / f"{symbol}_v1.yaml"
         ledger_status, evidence_archived = _ledger_status(ledger_path, data_root)
+        ledger_sha256 = (
+            sha256(ledger_path.read_bytes()).hexdigest() if ledger_path.is_file() else None
+        )
         causal_input = causal_by_identity.get((symbol, exchange))
         inventory = _candidate_inventory(raw_manifest, data_root, ledger_path)
         expected_session_coverage = _expected_session_coverage(
@@ -118,6 +122,7 @@ def qualify_frozen_universe(
                 raw_manifest_id=_string(raw_manifest, "manifest_id"),
                 raw_manifest_sha256_valid=raw_valid,
                 ledger_status=ledger_status,
+                ledger_sha256=ledger_sha256,
                 ledger_evidence_archived=evidence_archived,
                 pit_causal_safe=pit_safe,
                 causal_adjusted_available=causal_available,
