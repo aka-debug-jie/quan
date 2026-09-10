@@ -24,6 +24,11 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 `2` 手容差只处理可复核的 JavaScript 浮点成交量精度，未放宽 OHLC 比较；
 所以该资产仍不能通过 D0 cross-provider gate。
 
+`510500` 的独立 Sina/AKShare raw reconciliation 已保存为
+`f623b95521be59c2c42708c16618054af6a76990ae100823cd76501d574bde81`：
+2,839 个重叠会话中 6 个 OHLC 不一致。相同的 volume precision 规则不能
+覆盖价格差异，故该资产也保持 D0 cross-provider blocked。
+
 `159919` passed the D0 cross-provider and reproduction gates: report
 `ab424736c7ffbd1e1dfe517e7cc2f02f85609c56da5d6ac30bfe067b8ca2d739`
 records 201 overlapping sessions with zero mismatch; reproduction artifact

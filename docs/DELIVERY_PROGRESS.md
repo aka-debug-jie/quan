@@ -69,3 +69,7 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   2,841 sessions; 8 OHLC differences remain after the fixed, parser-derived
   volume precision rule, so reconciliation stays blocked and no provider is
   selected or merged.
+- `510500` D0 raw cross-check: independent Sina and AKShare series overlap on
+  2,839 sessions; 6 OHLC differences remain under the same frozen raw-price
+  comparison, so reconciliation stays blocked and no provider is selected or
+  merged.
