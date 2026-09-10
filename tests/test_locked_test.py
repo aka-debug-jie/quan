@@ -1,4 +1,5 @@
 import subprocess
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from quant_stack.issue009_runner import _claim_locked_attempt
 from quant_stack.locked_test import (
     LockedAssetInput,
     LockedTestPrecommit,
+    _hash_json,
     _require_clean_tracked_tree,
     persist_locked_test_precommit,
 )
@@ -95,3 +97,7 @@ def test_locked_attempt_is_consumed_before_result_creation(tmp_path: Path) -> No
     assert (first / "attempt.json").is_file()
     with pytest.raises(ValueError, match="already been attempted"):
         _claim_locked_attempt(tmp_path, _precommit())
+
+
+def test_precommit_hash_serializes_frozen_dates_deterministically() -> None:
+    assert _hash_json({"end": date(2026, 9, 9)}) == _hash_json({"end": "2026-09-09"})
