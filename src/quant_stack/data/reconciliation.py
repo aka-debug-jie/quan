@@ -8,7 +8,7 @@ from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
 
-from quant_stack.data.models import ProviderSeriesManifest
+from quant_stack.data.models import ProviderId, ProviderSeriesManifest
 from quant_stack.models import DailyBar
 from quant_stack.snapshot import write_immutable
 
@@ -157,8 +157,12 @@ def _volume_tolerance(
     if source_manifest.volume_unit == cross_check_manifest.volume_unit:
         return Decimal("0")
     if source_manifest.volume_unit == "shares" and cross_check_manifest.volume_unit == "lots":
+        if cross_check_manifest.provider is ProviderId.AKSHARE_EASTMONEY:
+            return Decimal("2")
         return Decimal("0.5")
     if source_manifest.volume_unit == "lots" and cross_check_manifest.volume_unit == "shares":
+        if source_manifest.provider is ProviderId.AKSHARE_EASTMONEY:
+            return Decimal("200")
         return Decimal("50")
     return None
 

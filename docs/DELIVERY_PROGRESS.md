@@ -65,3 +65,7 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   `510500` has two verified share-split entries (2015 and 2022) plus one
   verified 2024, one verified 2025, and one verified 2026 cash distribution.
   Both ledgers are explicitly incomplete.
+- `510300` D0 raw cross-check: independent Sina and AKShare series overlap on
+  2,841 sessions; 8 OHLC differences remain after the fixed, parser-derived
+  volume precision rule, so reconciliation stays blocked and no provider is
+  selected or merged.

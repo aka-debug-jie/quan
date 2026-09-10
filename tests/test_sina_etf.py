@@ -87,6 +87,21 @@ def test_rejects_adjusted_sina_request() -> None:
         parse_sina_etf_history(request(PriceBasis.QFQ), payload(), decoded_rows)
 
 
+def test_maps_sse_raw_request_without_treating_it_as_adjusted() -> None:
+    sse_request = ETFHistoryRequest(
+        instrument=ETFUniverseInstrument(
+            symbol="510300", exchange=Exchange.SSE, effective_from=date(2015, 1, 1)
+        ),
+        universe_id="test-v2",
+        universe_version=2,
+        start_date=date(2024, 1, 2),
+        as_of_date=date(2024, 1, 4),
+        price_basis=PriceBasis.RAW,
+    )
+    bars = parse_sina_etf_history(sse_request, payload(), decoded_rows)
+    assert all(bar.exchange is Exchange.SSE and bar.price_basis is PriceBasis.RAW for bar in bars)
+
+
 def test_persists_hash_verified_provider_native_sina_artifacts(tmp_path: Path) -> None:
     manifest = persist_sina_etf_history(request(), payload(), tmp_path, decoded_rows)
 

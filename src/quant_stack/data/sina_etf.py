@@ -49,9 +49,9 @@ class SinaHistoryPayload:
     raw_bytes: bytes
 
 
-def fetch_sina_etf_history(symbol: str) -> SinaHistoryPayload:
+def fetch_sina_etf_history(symbol: str, exchange: Exchange = Exchange.SZSE) -> SinaHistoryPayload:
     """Fetch a Sina ETF history body with bounded retries and no provider blending."""
-    normalized_symbol = _sina_symbol(symbol)
+    normalized_symbol = _sina_symbol(symbol, exchange)
     source_url = SINA_HISTORY_URL_TEMPLATE.format(symbol=normalized_symbol)
     request = Request(source_url, headers={"User-Agent": "quant-stack-sina-provider/1.0"})
     last_error: OSError | None = None
@@ -75,9 +75,11 @@ def fetch_sina_etf_history(symbol: str) -> SinaHistoryPayload:
     raise SinaProviderError(f"unable to fetch Sina ETF history: {source_url}") from last_error
 
 
-def fetch_sina_adjustment_candidate(symbol: str) -> SinaHistoryPayload:
+def fetch_sina_adjustment_candidate(
+    symbol: str, exchange: Exchange = Exchange.SZSE
+) -> SinaHistoryPayload:
     """Capture Sina's adjustment-factor candidate as raw evidence, never as canonical prices."""
-    normalized_symbol = _sina_symbol(symbol)
+    normalized_symbol = _sina_symbol(symbol, exchange)
     source_url = SINA_ADJUSTMENT_URL_TEMPLATE.format(symbol=normalized_symbol)
     request = Request(source_url, headers={"User-Agent": "quant-stack-sina-provider/1.0"})
     try:
@@ -127,10 +129,8 @@ def parse_sina_etf_history(
     decoder: SinaDecoder | None = None,
 ) -> list[DailyBar]:
     """Map a full Sina raw response to raw OHLCV without applying provider adjustments."""
-    if request.instrument.exchange is not Exchange.SZSE:
-        raise SinaProviderError(
-            "Sina recovery provider is currently limited to the SZSE ETF target"
-        )
+    if request.instrument.exchange not in (Exchange.SSE, Exchange.SZSE):
+        raise SinaProviderError("Sina recovery provider supports SSE and SZSE ETFs only")
     if request.price_basis is not PriceBasis.RAW:
         raise SinaProviderError("Sina recovery provider supplies raw daily bars only")
     rows = (decoder or _decode_sina_payload)(payload.raw_bytes)
@@ -278,11 +278,15 @@ def _decode_sina_payload(raw_bytes: bytes) -> list[dict[str, Any]]:
     return decoded
 
 
-def _sina_symbol(symbol: str) -> str:
-    """Map a six-digit Shenzhen ETF code to Sina's provider-specific market symbol."""
+def _sina_symbol(symbol: str, exchange: Exchange) -> str:
+    """Map a six-digit ETF code to Sina's exchange-specific market symbol."""
     if len(symbol) != 6 or not symbol.isdigit():
         raise SinaProviderError("Sina ETF symbol must be a six-digit code")
-    return f"sz{symbol}"
+    if exchange is Exchange.SSE:
+        return f"sh{symbol}"
+    if exchange is Exchange.SZSE:
+        return f"sz{symbol}"
+    raise SinaProviderError("Sina ETF provider supports SSE and SZSE only")
 
 
 def _parse_date(value: Any) -> date:

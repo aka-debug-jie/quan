@@ -298,9 +298,7 @@ def audit_szse_history(
     }
     try:
         instrument = next(
-            item
-            for item in load_etf_universe(universe).instruments
-            if item.symbol == symbol and item.exchange is Exchange.SZSE
+            item for item in load_etf_universe(universe).instruments if item.symbol == symbol
         )
         request = ETFHistoryRequest(
             instrument=instrument,
@@ -418,7 +416,7 @@ def ingest_sina_raw(
         )
         manifest = persist_sina_etf_history(
             request,
-            fetch_sina_etf_history(instrument.symbol),
+            fetch_sina_etf_history(instrument.symbol, instrument.exchange),
             data_root,
         )
         bars = load_sina_provider_bars(manifest, data_root)

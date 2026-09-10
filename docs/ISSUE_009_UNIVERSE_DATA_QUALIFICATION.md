@@ -18,6 +18,12 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 | `510500` | PASS | incomplete; 5 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
+`510300` 的独立 Sina/AKShare raw reconciliation 已保存为
+`728ef1d5072e82ef1cd5c39d21677f903d28e7192e3fb880f90e8ff02bbd42a9`：
+2,841 个重叠会话中 8 个 OHLC 不一致。Sina shares-to-AKShare lots 的
+`2` 手容差只处理可复核的 JavaScript 浮点成交量精度，未放宽 OHLC 比较；
+所以该资产仍不能通过 D0 cross-provider gate。
+
 `159919` passed the D0 cross-provider and reproduction gates: report
 `ab424736c7ffbd1e1dfe517e7cc2f02f85609c56da5d6ac30bfe067b8ca2d739`
 records 201 overlapping sessions with zero mismatch; reproduction artifact

@@ -80,3 +80,14 @@ def test_reconciliation_accepts_explicit_shares_to_lots_volume_conversion() -> N
     assert report.mismatched_sessions == 0
     assert report.source_to_cross_check_volume_multiplier == "0.01"
     assert report.cross_check_volume_tolerance == "0.5"
+
+
+def test_sina_to_akshare_crosscheck_accounts_for_js_float_volume_precision() -> None:
+    report = reconcile_raw_series(
+        _manifest(ProviderId.SINA, "c" * 64, "shares"),
+        [_bar("10144")],
+        _manifest(ProviderId.AKSHARE_EASTMONEY, "d" * 64, "lots"),
+        [_bar("100")],
+    )
+    assert report.status == "pass"
+    assert report.cross_check_volume_tolerance == "2"
