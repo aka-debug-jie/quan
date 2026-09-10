@@ -1,0 +1,25 @@
+ledger_id: cn_etf_510500_official_actions
+version: 1
+instrument:
+  symbol: "510500"
+  exchange: SSE
+  currency: CNY
+  asset_class: etf
+completeness: incomplete
+events:
+  - effective_date: 2015-04-14
+    record_date: 2015-04-13
+    kind: share_split
+    split_ratio: "0.28032483"
+    event_announcement_date: 2015-04-15
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &result
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2015-04-15/510500_20150415_2.pdf
+      sha256: 06310b956450a62386b0ecf4b69eba21777ccf37eae8f3a98d0e3a9a53f2f2b5
+      published_on: 2015-04-15
+    value_evidence: *result
+    availability_evidence:
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2015-04-12/510500_20150413_1.pdf
+      sha256: 7dba021082eccf73641f67a632baace67dbbcf8f049314fb87f8cd176e1a54ce
+      published_on: 2015-04-13

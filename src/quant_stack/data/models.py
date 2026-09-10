@@ -221,6 +221,11 @@ class CorporateActionEvent(DomainModel):
     availability_evidence: OfficialEvidence | None = None
     value_evidence: OfficialEvidence | None = None
     event_announcement_date: date | None = None
+    record_date: date | None = None
+    payment_date: date | None = None
+    evidence_type: (
+        Literal["original_notice", "annual_report", "legally_published_original"] | None
+    ) = None
     retrospective_verification: bool = False
     verification_status: Literal["candidate", "official_evidence_chain_verified"] = "candidate"
 
@@ -241,6 +246,10 @@ class CorporateActionEvent(DomainModel):
             self.availability_evidence is None or self.value_evidence is None
         ):
             raise ValueError("verified action requires availability and value evidence")
+        if self.record_date is not None and self.record_date > self.effective_date:
+            raise ValueError("record_date must not follow effective_date")
+        if self.payment_date is not None and self.payment_date < self.effective_date:
+            raise ValueError("payment_date must not precede effective_date")
         return self
 
 
