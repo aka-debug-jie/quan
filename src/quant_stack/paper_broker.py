@@ -18,6 +18,7 @@ from quant_stack.paper_models import (
     PaperBrokerConfig,
     PaperFill,
     PaperOrder,
+    PaperRejection,
     PaperSnapshot,
     ReconciliationResult,
 )
@@ -170,6 +171,24 @@ class PaperBroker:
                     "SELECT event_id, payload FROM events "
                     "WHERE event_type = 'order' ORDER BY sequence"
                 )
+            )
+
+    def rejections(self) -> tuple[PaperRejection, ...]:
+        """Return rejected paper orders without treating them as fills."""
+        with self._connection() as connection:
+            self._require_initialized(connection)
+            return tuple(
+                PaperRejection(
+                    str(payload["order_id"]),
+                    date.fromisoformat(str(payload["trading_date"])),
+                    str(payload["symbol"]),
+                    str(payload["reason"]),
+                )
+                for row in connection.execute(
+                    "SELECT payload FROM events "
+                    "WHERE event_type = 'rejected_order' ORDER BY sequence"
+                )
+                for payload in (json.loads(row[0]),)
             )
 
     def reconcile(self) -> ReconciliationResult:
@@ -349,6 +368,18 @@ class PaperBroker:
                 affordable = self._affordable_quantity(cash, raw_price)
                 quantity = min(requested, affordable)
                 if quantity <= 0:
+                    self._append_event(
+                        connection,
+                        self._stable_id(f"reject:{order_id}:{trading_date.isoformat()}"),
+                        "rejected_order",
+                        trading_date,
+                        {
+                            "order_id": str(order_id),
+                            "trading_date": trading_date.isoformat(),
+                            "symbol": symbol,
+                            "reason": "insufficient_cash",
+                        },
+                    )
                     continue
                 fill_price, commission, spread, slippage = self._fill_terms(
                     raw_price, quantity, side

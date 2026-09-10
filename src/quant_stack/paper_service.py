@@ -390,7 +390,7 @@ def _report_payload(
         ],
         "fills": [asdict(fill) for fill in strategy.fills()],
         "orders": [asdict(order) for order in strategy.orders()],
-        "rejected_orders": [],
+        "rejected_orders": [asdict(item) for item in strategy.rejections()],
         "corporate_actions": [],
         "data_anomalies": [],
         "nav_history": [

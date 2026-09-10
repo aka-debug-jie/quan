@@ -50,6 +50,16 @@ class PaperFill:
 
 
 @dataclass(frozen=True)
+class PaperRejection:
+    """An order not filled on a paper session, with an auditable reason."""
+
+    order_id: str
+    trading_date: date
+    symbol: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class PaperSnapshot:
     """A reconstructed raw-close account state for one exchange-local date."""
 

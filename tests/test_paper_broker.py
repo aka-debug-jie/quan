@@ -150,3 +150,21 @@ def test_held_dividend_without_payment_date_stops_before_snapshot(tmp_path: Path
             "a" * 64,
             {"ETF": (unknown_payment,)},
         )
+
+
+def test_unaffordable_order_is_recorded_as_rejection(tmp_path: Path) -> None:
+    broker = _broker(tmp_path)
+    broker.initialize()
+    broker.place_order(
+        PaperOrder(
+            "consume-cash", "ETF", Side.BUY, Decimal("1000000"), date(2026, 1, 2), date(2026, 1, 5)
+        )
+    )
+    broker.place_order(
+        PaperOrder("too-large", "ETF", Side.BUY, Decimal("1"), date(2026, 1, 2), date(2026, 1, 5))
+    )
+    broker.run_daily(
+        "rejected", date(2026, 1, 5), {"ETF": Decimal("10")}, {"ETF": Decimal("10")}, "d" * 64
+    )
+    assert broker.rejections()[0].reason == "insufficient_cash"
+    assert len(broker.fills()) == 1
