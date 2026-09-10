@@ -36,3 +36,20 @@ events:
       published_on: 2022-08-23
     availability_evidence: *split2022
     value_evidence: *split2022
+  - effective_date: 2024-05-17
+    record_date: 2024-05-16
+    payment_date: 2024-05-22
+    kind: cash_distribution
+    cash_per_unit: "0.087"
+    event_announcement_date: 2024-05-10
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2024
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2024-05-10/510500_20240510_LM77.pdf
+      sha256: fd5097c1f298d22c5605a4116f57ff8d747392d51c6e0ff85da36102eeb67e45
+      published_on: 2024-05-10
+    value_evidence: *value2024
+    availability_evidence:
+      url: https://www.sse.com.cn/assortment/options/disclo/update/c/c_20240510_10754204.shtml
+      sha256: 727dfdfe05cf93f5dfd11fe9ce5db88e49b6c492d79be5e546de72abfe071599
+      published_on: 2024-05-10

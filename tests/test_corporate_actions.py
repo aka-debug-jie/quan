@@ -25,6 +25,8 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert ledger.events[0].record_date is not None
     assert ledger.events[1].effective_date.isoformat() == "2022-08-26"
     assert str(ledger.events[1].split_ratio) == "1.14539"
+    assert ledger.events[2].effective_date.isoformat() == "2024-05-17"
+    assert str(ledger.events[2].cash_per_unit) == "0.087"
 
 
 def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:

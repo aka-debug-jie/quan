@@ -61,4 +61,5 @@ ignored; the dependency set is synchronized from the checked-in `uv.lock`.
   raw/qfq artifact or treating an adjusted provider export as a PIT-safe series.
 - D0 evidence progress: `510300` currently has four verified cash-distribution
   entries (2021--2024 effective dates); `510500` has two verified share-split
-  entries (2015 and 2022). Both ledgers are explicitly incomplete.
+  entries (2015 and 2022) plus one verified 2024 cash distribution. Both ledgers
+  are explicitly incomplete.

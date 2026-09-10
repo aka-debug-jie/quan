@@ -15,7 +15,7 @@ Artifact: `artifacts/data_qualification/53c083a70c62b47cef29549081ef5f801e4fd3c2
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | `510300` | PASS | incomplete; 4 verified dividends | FAIL | missing | PASS | NOT_QUALIFIED |
-| `510500` | PASS | incomplete; 2 verified splits | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510500` | PASS | incomplete; 3 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
 `159919` passed the D0 cross-provider and reproduction gates: report
