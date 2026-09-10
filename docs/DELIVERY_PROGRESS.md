@@ -1,5 +1,23 @@
 # Delivery Progress
 
+## V3 controlled-recovery result
+
+Authorization `f44f878b...` executed once under code `d865221` and authorization
+commit `cc98d5f`. Both preauthorized fresh Python child builds retained all 16
+runs and produced byte-identical prepared output; strict publication and readback
+passed with no failure receipt.
+
+- Issue 009 gate: `PASS_CONTROLLED_RECOVERY`.
+- Frozen research outcome: `NO_EVIDENCE_OF_EDGE`.
+- Holdout: `NOT_FRESH_PREVIOUSLY_ACCESSED`; fresh confirmation is not available.
+- V2 remains `INVALID_RESEARCH_RESULT`; its receipt hashes are unchanged.
+- Live trading remains forbidden; no result-dependent tuning is authorized.
+- The 2026-10 through 2028-03 prospective validation is separate and non-blocking.
+- Issue 010 paper-platform engineering is now permitted but has not started.
+
+See `docs/ISSUE_009_CONTROLLED_RECOVERY_RESULT_V3.md` for metrics, hashes,
+reproduction evidence, limitations and the formal conclusion.
+
 ## V3 controlled-recovery preflight
 
 The user authorized one transparent, no-tuning V3 controlled recomputation and
@@ -59,8 +77,8 @@ controlled recomputation, not authorization from the engineering recovery comman
 | 006 | `issue/006-vectorbt-t1` | accepted `05c2a0d` | PASS | VectorBT T+1 order-timestamp test | Issue 007 accepted as descendant |
 | 007 | `issue/007-cost-model` | accepted `59d4226` | PASS | Commission, minimum commission, spread, slippage and doubled-cost tests | Issue 008 accepted as descendant |
 | 008 | `issue/008-no-lookahead` | accepted `85561e7` | PASS | T+1, ordering and causal-adjustment PIT tests | Issue 009 branch is a descendant |
-| 009 | `issue/009-walk-forward` | precommit `a9b96c0` | BLOCKED_CONTAMINATED | D0 PASS; V2 precommit frozen; single locked attempt failed during registry serialization | INVALID_RESEARCH_RESULT; current holdout consumed |
-| 010 | not created | — | NOT_STARTED | — | Forbidden before Issue 009 PASS |
+| 009 | `codex/issue009-runner-hardening` | code `d865221`; authorization `cc98d5f` | PASS_CONTROLLED_RECOVERY | D0 PASS; two V3 builds identical; frozen result `NO_EVIDENCE_OF_EDGE` | Accepted for platform engineering; not a fresh holdout or edge claim |
+| 010 | not created | — | NOT_STARTED | — | Permitted after V3 controlled-recovery acceptance |
 | 011 | not created | — | NOT_STARTED | — | Forbidden before Issue 010 PASS |
 | 012 | not created | — | NOT_STARTED | — | Forbidden before Issue 011 PASS |
 
