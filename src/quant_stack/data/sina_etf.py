@@ -49,6 +49,15 @@ class SinaHistoryPayload:
     raw_bytes: bytes
 
 
+@dataclass(frozen=True)
+class SinaAdjustmentChange:
+    """One discrete provider adjustment candidate, retained for cross-check only."""
+
+    candidate_date: date
+    split_ratio: Decimal | None
+    cash_per_unit: Decimal | None
+
+
 def fetch_sina_etf_history(symbol: str, exchange: Exchange = Exchange.SZSE) -> SinaHistoryPayload:
     """Fetch a Sina ETF history body with bounded retries and no provider blending."""
     normalized_symbol = _sina_symbol(symbol, exchange)
@@ -121,6 +130,46 @@ def persist_sina_adjustment_candidate(payload: SinaHistoryPayload, data_root: Pa
             + b"\n",
         )
     return path
+
+
+def parse_sina_adjustment_candidate(raw_bytes: bytes) -> tuple[SinaAdjustmentChange, ...]:
+    """Parse discrete changes from Sina cumulative factors without deriving adjusted prices."""
+    try:
+        assignment = raw_bytes.decode("utf-8").split("=", maxsplit=1)[1]
+        payload, _ = json.JSONDecoder().raw_decode(assignment.lstrip())
+        rows = payload["data"]
+    except (IndexError, KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise SinaProviderError("Sina adjustment candidate has an unexpected shape") from error
+    if not isinstance(rows, list):
+        raise SinaProviderError("Sina adjustment candidate data must be a list")
+    parsed: list[tuple[date, Decimal, Decimal]] = []
+    try:
+        for row in rows:
+            if not isinstance(row, dict):
+                raise TypeError
+            candidate_date = date.fromisoformat(str(row["d"]))
+            if candidate_date.year == 1900:
+                continue
+            parsed.append((candidate_date, Decimal(str(row["s"])), Decimal(str(row["u"]))))
+    except (KeyError, TypeError, ValueError, InvalidOperation) as error:
+        raise SinaProviderError("Sina adjustment candidate contains invalid values") from error
+    changes: list[SinaAdjustmentChange] = []
+    previous_split = Decimal("1")
+    previous_cash = Decimal("0")
+    for candidate_date, split, cash in sorted(parsed):
+        split_ratio = split / previous_split if split != previous_split else None
+        cash_per_unit = cash - previous_cash if cash != previous_cash else None
+        if split_ratio is not None or cash_per_unit is not None:
+            changes.append(
+                SinaAdjustmentChange(
+                    candidate_date=candidate_date,
+                    split_ratio=split_ratio,
+                    cash_per_unit=cash_per_unit,
+                )
+            )
+        previous_split = split
+        previous_cash = cash
+    return tuple(changes)
 
 
 def parse_sina_etf_history(

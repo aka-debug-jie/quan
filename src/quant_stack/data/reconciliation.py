@@ -13,7 +13,7 @@ from quant_stack.data.models import ProviderId, ProviderSeriesManifest
 from quant_stack.models import DailyBar
 from quant_stack.snapshot import write_immutable
 
-RECONCILIATION_VERSION = "1.0.0"
+RECONCILIATION_VERSION = "2.0.0"
 
 
 @dataclass(frozen=True)
@@ -24,8 +24,12 @@ class ReconciliationReport:
     status: str
     source_manifest_id: str
     cross_check_manifest_id: str | None
+    adjudicator_manifest_id: str | None
     overlap_sessions: int
     mismatched_sessions: int
+    adjudicated_sessions: int
+    source_rejected_sessions: int
+    unexplained_mismatches: int
     source_to_cross_check_volume_multiplier: str | None
     cross_check_volume_tolerance: str | None
     mismatch_dates: tuple[date, ...]
@@ -42,8 +46,12 @@ class ReconciliationReport:
             "status": self.status,
             "source_manifest_id": self.source_manifest_id,
             "cross_check_manifest_id": self.cross_check_manifest_id,
+            "adjudicator_manifest_id": self.adjudicator_manifest_id,
             "overlap_sessions": self.overlap_sessions,
             "mismatched_sessions": self.mismatched_sessions,
+            "adjudicated_sessions": self.adjudicated_sessions,
+            "source_rejected_sessions": self.source_rejected_sessions,
+            "unexplained_mismatches": self.unexplained_mismatches,
             "source_to_cross_check_volume_multiplier": self.source_to_cross_check_volume_multiplier,
             "cross_check_volume_tolerance": self.cross_check_volume_tolerance,
             "mismatch_dates": [value.isoformat() for value in self.mismatch_dates],
@@ -60,11 +68,16 @@ def reconcile_raw_series(
     cross_check_manifest: ProviderSeriesManifest | None,
     cross_check_bars: list[DailyBar] | None,
     corporate_action_boundary_dates: tuple[date, ...] = (),
+    adjudicator_manifest: ProviderSeriesManifest | None = None,
+    adjudicator_bars: list[DailyBar] | None = None,
 ) -> ReconciliationReport:
     """Compare full OHLCV records only on common dates; do not fill or concatenate gaps."""
     reasons: list[str] = []
     overlap = 0
     mismatches = 0
+    adjudicated = 0
+    source_rejected = 0
+    unexplained = 0
     volume_multiplier: Decimal | None = None
     volume_tolerance: Decimal | None = None
     mismatch_dates: list[date] = []
@@ -76,8 +89,24 @@ def reconcile_raw_series(
     else:
         if source_manifest.instrument != cross_check_manifest.instrument:
             raise ValueError("cross-provider reconciliation requires the same instrument")
+        if source_manifest.provider is cross_check_manifest.provider:
+            raise ValueError("cross-provider reconciliation requires independent providers")
         if source_manifest.price_basis != cross_check_manifest.price_basis:
             raise ValueError("cross-provider reconciliation requires the same price basis")
+        adjudicator_by_date: dict[date, DailyBar] = {}
+        if adjudicator_manifest is not None or adjudicator_bars is not None:
+            if adjudicator_manifest is None or adjudicator_bars is None:
+                raise ValueError("adjudicator manifest and bars must be supplied together")
+            if adjudicator_manifest.instrument != source_manifest.instrument:
+                raise ValueError("adjudicator requires the same instrument")
+            if adjudicator_manifest.price_basis != source_manifest.price_basis:
+                raise ValueError("adjudicator requires the same price basis")
+            if adjudicator_manifest.provider in {
+                source_manifest.provider,
+                cross_check_manifest.provider,
+            }:
+                raise ValueError("adjudicator requires a third independent provider")
+            adjudicator_by_date = {bar.trading_date: bar for bar in adjudicator_bars}
         volume_multiplier = _volume_multiplier(source_manifest, cross_check_manifest)
         volume_tolerance = _volume_tolerance(source_manifest, cross_check_manifest)
         if volume_multiplier is None:
@@ -99,6 +128,18 @@ def reconcile_raw_series(
                 mismatch_dates.append(left.trading_date)
                 if left.trading_date in corporate_action_boundary_dates:
                     boundary_mismatches += 1
+                adjudicator = adjudicator_by_date.get(left.trading_date)
+                if price_difference is not None and adjudicator is not None:
+                    source_matches = _price_difference(left, adjudicator) is None
+                    cross_check_matches = _price_difference(other, adjudicator) is None
+                    if source_matches and not cross_check_matches and not volume_mismatch:
+                        adjudicated += 1
+                    elif cross_check_matches and not source_matches:
+                        source_rejected += 1
+                    else:
+                        unexplained += 1
+                else:
+                    unexplained += 1
             if price_difference is not None:
                 absolute, relative = price_difference
                 maximum_price_absolute_difference = max(
@@ -109,8 +150,10 @@ def reconcile_raw_series(
                 )
         if overlap == 0:
             reasons.append("provider series have no common session for reconciliation")
-        if mismatches:
-            reasons.append("one or more overlapping OHLCV records disagree")
+        if source_rejected:
+            reasons.append("official adjudicator rejects one or more source records")
+        if unexplained:
+            reasons.append("one or more overlapping OHLCV disagreements remain unexplained")
     if source_manifest.row_count == 0:
         reasons.append("source provider series is empty")
     status = "pass" if not reasons else "blocked"
@@ -121,8 +164,14 @@ def reconcile_raw_series(
         "cross_check_manifest_id": (
             cross_check_manifest.manifest_id if cross_check_manifest is not None else None
         ),
+        "adjudicator_manifest_id": (
+            adjudicator_manifest.manifest_id if adjudicator_manifest is not None else None
+        ),
         "overlap_sessions": overlap,
         "mismatched_sessions": mismatches,
+        "adjudicated_sessions": adjudicated,
+        "source_rejected_sessions": source_rejected,
+        "unexplained_mismatches": unexplained,
         "source_to_cross_check_volume_multiplier": (
             str(volume_multiplier) if volume_multiplier is not None else None
         ),
@@ -150,8 +199,14 @@ def reconcile_raw_series(
         cross_check_manifest_id=(
             cross_check_manifest.manifest_id if cross_check_manifest is not None else None
         ),
+        adjudicator_manifest_id=(
+            adjudicator_manifest.manifest_id if adjudicator_manifest is not None else None
+        ),
         overlap_sessions=overlap,
         mismatched_sessions=mismatches,
+        adjudicated_sessions=adjudicated,
+        source_rejected_sessions=source_rejected,
+        unexplained_mismatches=unexplained,
         source_to_cross_check_volume_multiplier=(
             str(volume_multiplier) if volume_multiplier is not None else None
         ),

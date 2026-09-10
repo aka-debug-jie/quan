@@ -20,9 +20,9 @@ def test_159919_official_action_ledger_has_complete_verified_event_chain() -> No
     assert ledger.events[2].verification_status == "official_evidence_chain_verified"
 
 
-def test_510500_ledger_preserves_verified_split_without_claiming_completeness() -> None:
+def test_510500_ledger_is_complete_with_verified_splits_and_dividends() -> None:
     ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510500_v1.yaml"))
-    assert ledger.completeness == "incomplete"
+    assert ledger.completeness == "complete"
     assert ledger.events[0].effective_date.isoformat() == "2015-04-14"
     assert str(ledger.events[0].split_ratio) == "0.28032483"
     assert ledger.events[0].record_date is not None
@@ -36,14 +36,17 @@ def test_510500_ledger_preserves_verified_split_without_claiming_completeness() 
     assert str(ledger.events[4].cash_per_unit) == "0.062"
     assert ledger.events[5].effective_date.isoformat() == "2026-07-15"
     assert str(ledger.events[5].cash_per_unit) == "0.149"
-    assert ledger.events[5].retrospective_verification
+    assert ledger.events[5].payment_date is not None
+    assert not ledger.events[5].retrospective_verification
 
 
-def test_510300_ledger_preserves_verified_dividend_without_claiming_completeness() -> None:
+def test_510300_ledger_is_complete_with_verified_dividends() -> None:
     ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510300_v1.yaml"))
-    assert ledger.completeness == "incomplete"
-    assert ledger.events[0].verification_status == "candidate"
-    assert ledger.events[0].retrospective_verification
+    assert ledger.completeness == "complete"
+    assert ledger.events[0].effective_date.isoformat() == "2015-01-20"
+    assert ledger.events[0].record_date is not None
+    assert ledger.events[0].payment_date is not None
+    assert ledger.events[0].verification_status == "official_evidence_chain_verified"
     assert ledger.events[1].effective_date.isoformat() == "2016-01-20"
     assert ledger.events[1].verification_status == "official_evidence_chain_verified"
     assert ledger.events[2].effective_date.isoformat() == "2017-01-23"
@@ -73,5 +76,8 @@ def test_complete_ledger_rejects_any_remaining_candidate_event() -> None:
     ledger = load_corporate_action_ledger(Path("configs/corporate_actions/510300_v1.yaml"))
     payload = ledger.model_dump()
     payload["completeness"] = "complete"
+    payload["events"][0]["verification_status"] = "candidate"
+    payload["events"][0]["availability_evidence"] = None
+    payload["events"][0]["value_evidence"] = None
     with pytest.raises(ValueError, match="cannot retain candidate"):
         CorporateActionLedger.model_validate(payload)

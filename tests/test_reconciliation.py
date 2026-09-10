@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from quant_stack.data.models import ProviderId, ProviderSeriesManifest
 from quant_stack.data.reconciliation import reconcile_raw_series
 from quant_stack.models import DailyBar, Exchange, Instrument, ManifestFile, PriceBasis
@@ -94,3 +96,33 @@ def test_sina_to_akshare_crosscheck_accounts_for_js_float_volume_precision() -> 
     )
     assert report.status == "pass"
     assert report.cross_check_volume_tolerance == "2"
+
+
+def test_reconciliation_rejects_two_manifests_from_the_same_provider() -> None:
+    with pytest.raises(ValueError, match="independent providers"):
+        reconcile_raw_series(
+            _manifest(ProviderId.SINA, "c" * 64),
+            [_bar()],
+            _manifest(ProviderId.SINA, "d" * 64),
+            [_bar()],
+        )
+
+
+def test_official_source_can_adjudicate_a_cross_provider_disagreement() -> None:
+    official = _bar()
+    cross_check = _bar().model_copy(update={"close": Decimal("10.001")})
+    corroborating = _bar()
+
+    report = reconcile_raw_series(
+        _manifest(ProviderId.SSE_OFFICIAL, "a" * 64),
+        [official],
+        _manifest(ProviderId.AKSHARE_EASTMONEY, "b" * 64),
+        [cross_check],
+        adjudicator_manifest=_manifest(ProviderId.SINA, "c" * 64),
+        adjudicator_bars=[corroborating],
+    )
+
+    assert report.status == "pass"
+    assert report.mismatched_sessions == 1
+    assert report.adjudicated_sessions == 1
+    assert report.unexplained_mismatches == 0

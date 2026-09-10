@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -20,7 +20,9 @@ from quant_stack.data.models import (
     ProviderId,
     ProviderSeriesManifest,
 )
+from quant_stack.features import calculate_features
 from quant_stack.models import DailyBar, Exchange, ManifestFile, PriceBasis
+from quant_stack.strategy import etf_momentum_weights
 
 
 def instrument() -> ETFUniverseInstrument:
@@ -127,6 +129,53 @@ def test_future_action_does_not_rewrite_prior_causal_adjusted_input() -> None:
     assert before[0].close == after[0].close == bars[0].close
     assert after[0].price_basis is PriceBasis.CAUSAL_ADJUSTED
     assert bars[0].price_basis is PriceBasis.RAW
+
+
+def test_future_action_does_not_change_prior_feature_or_signal() -> None:
+    bars = [
+        DailyBar(
+            symbol="159919",
+            exchange=Exchange.SZSE,
+            price_basis=PriceBasis.RAW,
+            trading_date=date(2024, 1, 1) + timedelta(days=index),
+            open=Decimal("10") + Decimal(index) / 100,
+            high=Decimal("10.1") + Decimal(index) / 100,
+            low=Decimal("9.9") + Decimal(index) / 100,
+            close=Decimal("10") + Decimal(index) / 100,
+            volume=Decimal("100"),
+        )
+        for index in range(260)
+    ]
+    baseline = CorporateActionLedger(
+        ledger_id="baseline", version=1, instrument=instrument(), completeness="complete"
+    )
+    future = CorporateActionLedger(
+        ledger_id="future",
+        version=1,
+        instrument=instrument(),
+        completeness="complete",
+        events=(
+            CorporateActionEvent(
+                effective_date=bars[-1].trading_date,
+                kind=CorporateActionKind.CASH_DISTRIBUTION,
+                cash_per_unit=Decimal("0.1"),
+                evidence=evidence(),
+                availability_evidence=evidence(),
+                value_evidence=evidence(),
+                verification_status="official_evidence_chain_verified",
+            ),
+        ),
+    )
+
+    before = calculate_features(derive_causal_adjusted_bars(bars, baseline))
+    after = calculate_features(derive_causal_adjusted_bars(bars, future))
+    frozen_index = 252
+
+    assert before[frozen_index] == after[frozen_index]
+    assert etf_momentum_weights([before[frozen_index]]) == etf_momentum_weights(
+        [after[frozen_index]]
+    )
+    assert all(bar.price_basis is PriceBasis.RAW for bar in bars)
 
 
 def test_raw_canonical_publication_does_not_require_qfq_ledger(tmp_path) -> None:

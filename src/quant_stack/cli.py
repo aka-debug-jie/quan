@@ -44,6 +44,16 @@ from quant_stack.data.sina_etf import (
     persist_sina_adjustment_candidate,
     persist_sina_etf_history,
 )
+from quant_stack.data.sse_fund_inventory import (
+    SSEFundInventoryError,
+    fetch_sse_fund_inventory,
+    persist_sse_fund_inventory,
+)
+from quant_stack.data.sse_official import (
+    SSEProviderError,
+    fetch_sse_daily_history,
+    persist_sse_daily_history,
+)
 from quant_stack.data.szse_official import (
     SZSEProviderError,
     fetch_szse_daily_history,
@@ -92,11 +102,19 @@ def qualify_universe(
     ),
     calendar_root: CalendarRootOption = Path("configs/calendars"),
     artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/data_qualification"),
+    source_registry: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/data_qualification/d0_sources_v1.yaml"
+    ),
 ) -> None:
     """Qualify every frozen-universe asset and refuse promotion when any D0 gate is unmet."""
     try:
         report = qualify_frozen_universe(
-            universe, data_root, ledger_root, calendar_root, artifact_root
+            universe,
+            data_root,
+            ledger_root,
+            calendar_root,
+            artifact_root,
+            source_registry,
         )
         path = persist_qualification_report(report, artifact_root)
     except ValueError as error:
@@ -371,6 +389,7 @@ def reattest_szse_raw(
 @data_app.command("capture-sina-adjustment-candidate")
 def capture_sina_adjustment_candidate(
     symbol: Annotated[str, typer.Option()] = "159919",
+    exchange: Annotated[Exchange, typer.Option()] = Exchange.SZSE,
     data_root: DataRootOption = Path("data"),
     allow_network: AllowNetworkOption = False,
 ) -> None:
@@ -378,11 +397,68 @@ def capture_sina_adjustment_candidate(
     if not allow_network:
         raise typer.BadParameter("--allow-network is required for Sina adjustment capture")
     try:
-        path = persist_sina_adjustment_candidate(fetch_sina_adjustment_candidate(symbol), data_root)
+        path = persist_sina_adjustment_candidate(
+            fetch_sina_adjustment_candidate(symbol, exchange), data_root
+        )
     except SinaProviderError as error:
         typer.echo(f"Sina adjustment candidate failed: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo(f"candidate path: {path}")
+
+
+@data_app.command("capture-sse-fund-inventory")
+def capture_sse_fund_inventory(
+    symbol: Annotated[str, typer.Option(...)],
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture a complete official SSE announcement directory for one fund."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for SSE inventory capture")
+    try:
+        payload = fetch_sse_fund_inventory(
+            symbol, _parse_cli_date(start, "start"), _parse_cli_date(as_of, "as-of")
+        )
+        path = persist_sse_fund_inventory(payload, data_root)
+    except SSEFundInventoryError as error:
+        typer.echo(f"SSE fund inventory capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"SSE fund inventory: {path}")
+
+
+@data_app.command("ingest-sse-raw")
+def ingest_sse_raw(
+    universe: UniverseOption,
+    start: RequiredDateOption,
+    as_of: RequiredDateOption,
+    symbol: Annotated[str, typer.Option(...)],
+    data_root: DataRootOption = Path("data"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture an independent SSE official raw series for D0 adjudication."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for SSE raw ingestion")
+    start_date = _parse_cli_date(start, "start")
+    as_of_date = _parse_cli_date(as_of, "as-of")
+    try:
+        instrument = next(
+            item
+            for item in load_etf_universe(universe).instruments
+            if item.symbol == symbol and item.exchange is Exchange.SSE
+        )
+        request = ETFHistoryRequest(
+            instrument=instrument,
+            start_date=max(start_date, instrument.effective_from),
+            as_of_date=as_of_date,
+            price_basis=PriceBasis.RAW,
+        )
+        manifest = persist_sse_daily_history(request, fetch_sse_daily_history(symbol), data_root)
+    except (SSEProviderError, StopIteration, ValueError) as error:
+        typer.echo(f"SSE raw ingestion failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"provider manifest: {manifest.manifest_id}")
 
 
 @data_app.command("ingest-sina-raw")

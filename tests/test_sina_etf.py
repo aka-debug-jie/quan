@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from quant_stack.data.sina_etf import (
     SinaHistoryPayload,
     SinaProviderError,
     load_sina_provider_bars,
+    parse_sina_adjustment_candidate,
     parse_sina_etf_history,
     persist_sina_etf_history,
 )
@@ -117,3 +119,20 @@ def test_reuses_stable_manifest_for_identical_sina_content(tmp_path: Path) -> No
 
     assert retry.manifest_id == first.manifest_id
     assert retry.retrieved_at == first.retrieved_at
+
+
+def test_parses_only_discrete_sina_adjustment_changes() -> None:
+    body = (
+        b'var sh510500hfq={"data":['
+        b'{"d":"2024-01-03","s":"2","u":"0.1"},'
+        b'{"d":"2024-01-02","s":"2","u":"0"},'
+        b'{"d":"1900-01-01","s":"1","u":"0"}]};'
+    )
+
+    changes = parse_sina_adjustment_candidate(body)
+
+    assert [item.candidate_date for item in changes] == [date(2024, 1, 2), date(2024, 1, 3)]
+    assert changes[0].split_ratio == 2
+    assert changes[0].cash_per_unit is None
+    assert changes[1].split_ratio is None
+    assert changes[1].cash_per_unit == Decimal("0.1")

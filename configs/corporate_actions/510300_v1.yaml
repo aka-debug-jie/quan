@@ -5,18 +5,22 @@ instrument:
   exchange: SSE
   currency: CNY
   asset_class: etf
-completeness: incomplete
+completeness: complete
 events:
-  - effective_date: 2015-01-19
+  - effective_date: 2015-01-20
+    record_date: 2015-01-19
+    payment_date: 2015-01-23
     kind: cash_distribution
     cash_per_unit: "0.035"
-    evidence_type: annual_report
-    retrospective_verification: true
-    verification_status: candidate
-    evidence: &prospectus2022
-      url: https://www.sse.com.cn/disclosure/fund/announcement/c/new/2022-06-11/510300_20220611_1_i59GRWtC.pdf
-      sha256: 10d591e8c88ec3c197b7bb4a93994bccba0009301a88bd74891d97516812190f
-      published_on: 2022-06-11
+    event_announcement_date: 2015-01-14
+    evidence_type: original_notice
+    verification_status: official_evidence_chain_verified
+    evidence: &value2014
+      url: https://www.sse.com.cn/disclosure/fund/announcement/c/2015-01-13/510300_20150114_1.pdf
+      sha256: 1edb820f5efe41a0f28f7bd05dfdaf454e0dde97894a4101f6b9570c1b2bf3db
+      published_on: 2015-01-14
+    availability_evidence: *value2014
+    value_evidence: *value2014
   - effective_date: 2016-01-20
     record_date: 2016-01-19
     payment_date: 2016-01-25

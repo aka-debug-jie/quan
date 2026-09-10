@@ -25,7 +25,7 @@ def test_universe_qualification_refuses_promotion_for_unqualified_assets(tmp_pat
             "data",
             "qualify-universe",
             "--universe",
-            "configs/assets/etf_universe_v1.yaml",
+            "configs/assets/etf_universe_v2.yaml",
             "--data-root",
             str(tmp_path / "data"),
             "--calendar-root",

@@ -1,0 +1,30 @@
+registry_id: issue_009_d0_sources
+version: 1
+universe_sha256: 19fdc71b3c57e5368c8e1115b1e353a95fba7ba04e2ab07c46c982b8efab29cf
+assets:
+  - symbol: "510300"
+    exchange: SSE
+    canonical_raw_manifest_id: 8ccc4e34637b5cb9a0862705e64c286882793b01a102fee15b9aeceac52ff5ef
+    cross_check_manifest_id: bc598085f9c848e345b3bf2a2c70d76bb66a69679bed9af1f503e39c3d1bac58
+    adjudicator_manifest_id: 284845eb6739061d6ef4a1992a3f1ec6e8890fb68cbd57e56c551dac393c830e
+    adjustment_candidate_sha256: a6b5081db14000155c5c507e6890a186c22b4e6e77a5e1589710fc9e23988155
+    official_inventory_complete: true
+    official_inventory_sha256: 7b794075cc462873da1b04eaa01a0561241696cb074bb9f8609bb44d0069d4e8
+    official_inventory_receipt_sha256: bf7e70b384f7cf653b96e48fb710227fcb64f4220c4ae822f8d56456ceb5fcb4
+  - symbol: "510500"
+    exchange: SSE
+    canonical_raw_manifest_id: 349f5dc1bbfc4bf7d511e4984eb8eda4df0f6d6020b5d5f5e353e2372d840835
+    cross_check_manifest_id: c530249b449f4b755aa67413de06af252ba2a8fb58d730673919cd3bc00ba32c
+    adjudicator_manifest_id: 688c7061c2f90b2ce4f1dc83974b66a3135dedbd087433be087034e29190cf52
+    adjustment_candidate_sha256: e0fd24a36ef170bc71fce96cc425cde8c0b8098517721cb686ea9d3d5b5c7278
+    official_inventory_complete: true
+    official_inventory_sha256: c43c3ce9f43ea48efb4e4b25bfb35edeb796238d1b22f117e231fa9d97de76f9
+    official_inventory_receipt_sha256: 176d921f6c7da6f419a0fb8f888e67bfb58b05d2731908fdf7eb321af3d52eb4
+  - symbol: "159919"
+    exchange: SZSE
+    canonical_raw_manifest_id: 08a5902f92d0f2c78cc900742bba88886057339dc440c5c0c580f5cffd983f6d
+    cross_check_manifest_id: 872438ea1de0592745bbcf9b54bee29d80d47986dc32ffdbae2f3d561e319d3e
+    adjustment_candidate_sha256: 3c6933a67452292b58fa994377ef4611dbfddd4a48f01f78861ec2db52cf08e8
+    official_inventory_complete: true
+    reconciliation_scope: fixed_audit_window
+    minimum_overlap_sessions: 201

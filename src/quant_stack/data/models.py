@@ -162,9 +162,74 @@ class ProviderId(StrEnum):
     """Provider identities kept separate until a canonicalization decision is audited."""
 
     AKSHARE_EASTMONEY = "akshare_eastmoney"
+    SSE_OFFICIAL = "sse_official"
     SZSE_OFFICIAL = "szse_official"
     SINA = "sina"
     TUSHARE = "tushare"
+
+
+class D0CandidateClassification(StrEnum):
+    """Closed vocabulary for one Issue 009-D0 event-inventory row."""
+
+    VERIFIED_DIVIDEND = "VERIFIED_DIVIDEND"
+    VERIFIED_SPLIT_OR_CONVERSION = "VERIFIED_SPLIT_OR_CONVERSION"
+    VERIFIED_OTHER_CORPORATE_ACTION = "VERIFIED_OTHER_CORPORATE_ACTION"
+    PROVIDER_ARTIFACT_WITH_EVIDENCE = "PROVIDER_ARTIFACT_WITH_EVIDENCE"
+    UNEXPLAINED = "UNEXPLAINED"
+
+
+class D0SourceSelection(DomainModel):
+    """Frozen provider identities and inventory attestation for one D0 asset."""
+
+    symbol: Annotated[str, Field(min_length=1)]
+    exchange: Exchange
+    canonical_raw_manifest_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    cross_check_manifest_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    adjudicator_manifest_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    adjustment_candidate_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    official_inventory_complete: bool
+    official_inventory_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
+    official_inventory_receipt_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = (
+        None
+    )
+    reconciliation_scope: Literal["full_source", "fixed_audit_window"] = "full_source"
+    minimum_overlap_sessions: Annotated[int, Field(gt=0)] | None = None
+
+    @model_validator(mode="after")
+    def require_independent_manifests(self) -> D0SourceSelection:
+        """Reject a registry that names one artifact as both source and cross-check."""
+        if self.canonical_raw_manifest_id == self.cross_check_manifest_id:
+            raise ValueError("canonical and cross-check manifest IDs must differ")
+        identities = {
+            self.canonical_raw_manifest_id,
+            self.cross_check_manifest_id,
+            self.adjudicator_manifest_id,
+        }
+        if self.adjudicator_manifest_id is not None and len(identities) != 3:
+            raise ValueError("D0 adjudicator manifest must be independent")
+        if (
+            self.reconciliation_scope == "fixed_audit_window"
+            and self.minimum_overlap_sessions is None
+        ):
+            raise ValueError("fixed reconciliation audit requires a minimum overlap")
+        return self
+
+
+class D0SourceRegistry(DomainModel):
+    """Versioned D0 source selection bound to one frozen-universe file."""
+
+    registry_id: Annotated[str, Field(min_length=1)]
+    version: Annotated[int, Field(ge=1)]
+    universe_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    assets: tuple[D0SourceSelection, ...]
+
+    @model_validator(mode="after")
+    def require_unique_assets(self) -> D0SourceRegistry:
+        """Require one explicit selection for each symbol/exchange identity."""
+        identities = tuple((item.symbol, item.exchange) for item in self.assets)
+        if len(identities) != len(set(identities)):
+            raise ValueError("D0 source registry contains duplicate asset identities")
+        return self
 
 
 class ProviderSeriesManifest(DomainModel):
