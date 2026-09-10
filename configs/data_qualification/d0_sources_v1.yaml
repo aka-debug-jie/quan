@@ -4,7 +4,7 @@ universe_sha256: 19fdc71b3c57e5368c8e1115b1e353a95fba7ba04e2ab07c46c982b8efab29c
 assets:
   - symbol: "510300"
     exchange: SSE
-    canonical_raw_manifest_id: 8ccc4e34637b5cb9a0862705e64c286882793b01a102fee15b9aeceac52ff5ef
+    canonical_raw_manifest_id: 349e754a21899eb567c1377795ba721c870032511a51db7c26cc5808e82a3ea3
     cross_check_manifest_id: bc598085f9c848e345b3bf2a2c70d76bb66a69679bed9af1f503e39c3d1bac58
     adjudicator_manifest_id: 284845eb6739061d6ef4a1992a3f1ec6e8890fb68cbd57e56c551dac393c830e
     adjustment_candidate_sha256: a6b5081db14000155c5c507e6890a186c22b4e6e77a5e1589710fc9e23988155
@@ -13,7 +13,7 @@ assets:
     official_inventory_receipt_sha256: bf7e70b384f7cf653b96e48fb710227fcb64f4220c4ae822f8d56456ceb5fcb4
   - symbol: "510500"
     exchange: SSE
-    canonical_raw_manifest_id: 349f5dc1bbfc4bf7d511e4984eb8eda4df0f6d6020b5d5f5e353e2372d840835
+    canonical_raw_manifest_id: 8348d3c445b7464d6ebbc01f27e9ffa35967a3d0c18584e40d9f8e2d615c9c4d
     cross_check_manifest_id: c530249b449f4b755aa67413de06af252ba2a8fb58d730673919cd3bc00ba32c
     adjudicator_manifest_id: 688c7061c2f90b2ce4f1dc83974b66a3135dedbd087433be087034e29190cf52
     adjustment_candidate_sha256: e0fd24a36ef170bc71fce96cc425cde8c0b8098517721cb686ea9d3d5b5c7278
