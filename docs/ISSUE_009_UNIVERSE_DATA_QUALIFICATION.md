@@ -14,7 +14,7 @@ Artifact: `artifacts/data_qualification/931fee31624d99f297d8a43e16c72c2534ce0499
 
 | Symbol | Raw / sessions | Ledger | PIT causal | Adjusted | Execution raw | Result |
 | --- | --- | --- | --- | --- | --- | --- |
-| `510300` | PASS | incomplete; 10 verified + 2 retrospective candidates | FAIL | missing | PASS | NOT_QUALIFIED |
+| `510300` | PASS | incomplete; 11 verified + 1 retrospective candidate | FAIL | missing | PASS | NOT_QUALIFIED |
 | `510500` | PASS | incomplete; 6 verified events | FAIL | missing | PASS | NOT_QUALIFIED |
 | `159919` | PASS | complete + archived | PASS | available | PASS | QUALIFIED |
 
@@ -49,6 +49,19 @@ records 201 overlapping sessions with zero mismatch; reproduction artifact
 `8ac4974e31a59b401444fc3dc00e6fff05f8837492dff982c7246e9623ad5938`
 recreates the same causal manifest and output SHA-256. This does not alter its
 accepted Issue 003 history.
+
+## Candidate inventories
+
+| Symbol | Ledger events captured | Verified | Candidate | Provider factor classification | Raw discontinuities | Unresolved |
+| --- | ---: | ---: | ---: | --- | --- | ---: |
+| `510300` | 12 | 11 | 1 | `PROVIDER_ARTIFACT` | none | 1 |
+| `510500` | 6 | 6 | 0 | `PROVIDER_ARTIFACT` | 2015-04-15, mapped to the verified 2015-04-14 split | 0 official / inventory reconciliation still open |
+
+The sole `510300` candidate is the 2014 distribution implemented in January
+2015: the 2022 official prospectus retrospectively records 0.35 CNY per 10
+units, while the candidate lacks an approved contemporaneous SSE, Huatai
+PineBridge, CNINFO, or EID source body that establishes an eligible event date.
+It remains `candidate`, not `PROVIDER_ARTIFACT_WITH_EVIDENCE`.
 
 ## Candidate inventory
 
