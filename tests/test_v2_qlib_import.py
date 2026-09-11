@@ -15,7 +15,13 @@ from quant_stack_v2.pit import build_pit_universe, qualify_pit_universe
 from quant_stack_v2.qlib_import import QlibImportError, QlibInstrumentInterval, import_qlib_archive
 
 
-def _archive(path: Path, *, missing_factor: bool = False, unsafe: bool = False) -> None:
+def _archive(
+    path: Path,
+    *,
+    missing_factor: bool = False,
+    missing_directory: bool = False,
+    unsafe: bool = False,
+) -> None:
     files = {
         "fixture/calendars/day.txt": b"2020-01-01\n2020-01-02\n",
         "fixture/instruments/csi300.txt": b"sh000001\t2020-01-01\t2020-01-02\n",
@@ -29,6 +35,10 @@ def _archive(path: Path, *, missing_factor: bool = False, unsafe: bool = False) 
     }
     if missing_factor:
         files.pop("fixture/features/sz000002/factor.day.bin")
+    if missing_directory:
+        files = {
+            name: content for name, content in files.items() if "features/sz000002/" not in name
+        }
     if unsafe:
         files["../escape.txt"] = b"unsafe"
     with tarfile.open(path, "w:gz") as archive:
@@ -102,6 +112,21 @@ def test_import_reports_missing_factor_as_blocked_data(tmp_path: Path) -> None:
         expected_manifest_sha256=sha256(manifest.read_bytes()).hexdigest(),
     )
     assert report_path.is_file()
+    assert report.status == "BLOCKED_DATA"
+    assert report.missing_price_or_factor_symbols == ("sz000002",)
+
+
+def test_import_reports_missing_feature_directory_instead_of_crashing(tmp_path: Path) -> None:
+    archive, manifest = tmp_path / "qlib.tar.gz", tmp_path / "manifest.json"
+    _archive(archive, missing_directory=True)
+    _manifest(manifest)
+    _, report = import_qlib_archive(
+        archive,
+        manifest,
+        tmp_path / "out",
+        expected_archive_sha256=sha256(archive.read_bytes()).hexdigest(),
+        expected_manifest_sha256=sha256(manifest.read_bytes()).hexdigest(),
+    )
     assert report.status == "BLOCKED_DATA"
     assert report.missing_price_or_factor_symbols == ("sz000002",)
 

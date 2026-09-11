@@ -216,17 +216,13 @@ def _load_intervals(path: Path) -> tuple[QlibInstrumentInterval, ...]:
 
 
 def _has_price_factor(root: Path, symbol: str) -> bool:
-    feature_directory = _single_feature_directory(root, symbol)
+    matches = tuple(root.rglob(f"features/{symbol}"))
+    if len(matches) != 1:
+        return False
+    feature_directory = matches[0]
     return all(
         (feature_directory / f"{field}.day.bin").is_file() for field in ("open", "close", "factor")
     )
-
-
-def _single_feature_directory(root: Path, symbol: str) -> Path:
-    matches = tuple(root.rglob(f"features/{symbol}"))
-    if len(matches) != 1:
-        raise QlibImportError(f"Qlib feature directory is ambiguous or missing: {symbol}")
-    return matches[0]
 
 
 def tree_sha256(root: Path) -> str:
