@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "codex/**", "issue/**"]
+    branches: [main, "codex/**", "issue/**", "research/**"]
 
 permissions:
   contents: read

@@ -16,7 +16,7 @@ relative-momentum strategy. This repository must not send live orders.
 6. Backtests must be deterministic under a fixed seed and data snapshot.
 7. Every reported strategy must include CAGR, volatility, Sharpe ratio, maximum drawdown, turnover, trade count, and a benchmark comparison.
 8. Parameter sweeps must retain every attempted configuration, not only winners.
-9. V1 must not contain a live brokerage adapter or real-order submission.
+9. No V1, V2, research branch or automation may add or invoke a live brokerage adapter or real-order submission unless a future separately approved contract explicitly authorizes it.
 10. Never commit secrets, tokens, cookies, broker credentials, or account identifiers.
 
 ## Engineering rules

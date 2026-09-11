@@ -30,11 +30,19 @@ The project requires Python 3.11. Dependencies are resolved in `uv.lock`.
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
-uv run pytest --cov=quant_stack
+uv run pytest --cov=quant_stack --cov=quant_stack_v2
 ```
 
 Tests use only the synthetic CSV under `tests/fixtures`; they never access the
 network.
+
+## Quant V2 research
+
+`research/quant-v2` is an isolated, fail-closed research foundation. Its
+external data, Qlib/PIT qualification, model evaluation, LEAN reconciliation,
+Champion selection and V2 paper-account gates remain separate from V1. A
+blocked gate is not a strategy result, and no V2 component can submit a real
+order.
 
 ## CLI
 
