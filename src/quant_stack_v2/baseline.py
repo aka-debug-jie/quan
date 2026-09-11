@@ -14,7 +14,7 @@ from pathlib import Path
 from quant_stack.snapshot import write_immutable
 
 SEEDS = tuple(range(20))
-ALLOWED_MODELS = frozenset({"linear", "lightgbm", "xgboost"})
+ALLOWED_MODELS = frozenset({"linear", "lightgbm"})
 ALLOWED_TRACKS = frozenset({"qlib_compat", "project_20_session"})
 SEALED_ROOT = Path("/srv/quant-v2/sealed_holdout")
 RESULT_ROOT = Path("/srv/quant-v2/results")
@@ -81,7 +81,7 @@ def create_baseline_precommit(
         pit_universe_sha256=pit_universe_sha256,
         code_commit=code_commit,
         config_sha256=config_sha256,
-        models=("linear", "lightgbm", "xgboost"),
+        models=("linear", "lightgbm"),
         tracks=("qlib_compat", "project_20_session"),
         seeds=SEEDS,
         execution_delay_sessions=1,

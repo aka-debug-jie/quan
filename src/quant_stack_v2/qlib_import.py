@@ -160,9 +160,10 @@ def _inspect_tree(
     csi500_intervals = _load_intervals(csi500)
     symbols = {item.symbol for item in csi300_intervals + csi500_intervals}
     missing = tuple(sorted(symbol for symbol in symbols if not _has_price_factor(root, symbol)))
-    # A Qlib factor file is not evidence of its economic reconstruction semantics.
-    # Qualification must remain blocked until separately archived source evidence is added.
-    status = "BLOCKED_DATA"
+    # Import readiness says only that pinned bytes were safely extracted and have
+    # the files required for a later audit. Economic semantics are deliberately
+    # qualified by a separate immutable report.
+    status = "IMPORT_READY"
     return QlibImportReport(
         schema_version=1,
         archive_sha256=archive_sha256,

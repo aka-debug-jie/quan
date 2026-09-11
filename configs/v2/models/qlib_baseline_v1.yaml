@@ -2,7 +2,7 @@ schema_version: 1
 status: preregistered_not_executed
 dataset_id: qlib_cn_community_v1
 feature_set: Alpha158
-models: [linear, lightgbm, xgboost]
+models: [linear, lightgbm]
 tracks: [qlib_compat, project_20_session]
 seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
 execution_delay_sessions: 1

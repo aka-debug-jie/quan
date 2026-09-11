@@ -4,8 +4,8 @@
 | --- | --- | --- |
 | V2-000 Research charter | COMPLETE | Charter, dataset and experiment contracts frozen before capture |
 | V2-001 Dataset registry | COMPLETE | Five pinned records, strict model, content-addressed capture and offline CLI |
-| V2-002 Qlib/community import | BLOCKED_SYSTEM_ACCESS | Offline importer and capture command implemented; `/srv` sealed root is not yet administrator-provisioned, so the 565 MB archive has not been captured. Even after capture, Qlib factor files remain insufficient until their reconstruction semantics have archived evidence. |
-| V2-003 PIT membership qualification | BLOCKED_DATA | Research range is frozen at 2015-01-01 through the 2026-09-10 snapshot before model execution. Historical `sht00018` remains preserved and is classified `pre_research_range`; factor semantics evidence is still required. |
+| V2-002 Qlib/community import | IMPORT_READY | The pinned 565 MB archive, release manifest and extraction tree were captured in the sealed store. The immutable legacy import report remains `BLOCKED_DATA`; newer imports distinguish structural readiness from semantic qualification. |
+| V2-003 PIT membership qualification | BLOCKED_DATA | Research range is frozen at 2015-01-01 through the 2026-09-10 snapshot before model execution. Historical `sht00018` remains preserved and is classified `pre_research_range`. A complete member-session binary audit is implemented, but factor-production evidence, CSI official membership reconciliation, official trading-state evidence and authorised-professional raw-price reconciliation are still absent. |
 | V2-004 Qlib Linear/LightGBM baseline | BLOCKED_DATA | Frozen 20-seed precommit and sealed aggregate-result gate implemented; no model has run before V2-003 qualification. The pinned V2 dependency installation also remains incomplete after two PyPI transport timeouts. |
 | V2-005 Global ETF research dataset | CAPTURED_RESEARCH_ADJUSTED_ONLY | Seven Yahoo snapshots share 3,884 daily sessions; report `7d2022ca…` is locally archived. |
 | V2-006 V2-A trend / dual momentum | IMPLEMENTED_RESEARCH_SIGNAL_ONLY | Frozen monthly 12-1 signal contract produced 175 signals from Yahoo report `7d2022ca…`, output `7b5ca5ff…`; it cannot produce an execution backtest or candidate claim. |
@@ -30,7 +30,8 @@ Current external metadata pins:
 - `QuantConnect/Lean` release `v2.4.0.1`, commit `8ee075a...`;
 - `datasets/finance-vix` commit snapshot `07b0768...`.
 
-No full external market archive has been downloaded or qualified.
+The Qlib community archive has been captured only inside the sealed store. It remains
+unqualified for V2 research until its independent evidence gates pass.
 
 Acceptance: 27 focused offline registry tests pass with 81% branch-aware module
 coverage. Formal dataset validation
@@ -38,5 +39,6 @@ remains fail-closed until each non-fixture dataset has captured bytes, verified
 coverage and an explicit `QUALIFIED` status through a later reviewed change.
 
 V2-002--V2-004 require the administrator-run `scripts/v2/setup_sealed_holdout.sh`.
-The current user has no non-interactive sudo permission, so this repository does
-not silently downgrade CSI500 sealed evaluation to an ordinary local directory.
+The sealed directory has been provisioned. Its data remain visible only to the
+evaluator identity; this repository does not downgrade CSI500 evaluation to an
+ordinary local directory.

@@ -92,6 +92,7 @@ from quant_stack_v2.external_validation import (
     persist_external_qualification,
     qualify_external_market,
 )
+from quant_stack_v2.foundation_gate import GateEvidence, persist_qualification, qualify_foundation
 from quant_stack_v2.paper import initialize_v2_paper_account
 from quant_stack_v2.pit import (
     build_pit_universe,
@@ -105,6 +106,12 @@ from quant_stack_v2.qlib_import import (
     load_qlib_import_report,
     tree_sha256,
 )
+from quant_stack_v2.qlib_qualification import (
+    audit_qlib_member_sessions,
+    persist_daily_audit,
+)
+from quant_stack_v2.qlib_semantics import capture_factor_semantics
+from quant_stack_v2.tushare_pro import capture_tushare_response
 from quant_stack_v2.yahoo_etf import (
     load_yahoo_universe_report,
     persist_yahoo_universe_report,
@@ -125,6 +132,7 @@ v2_strategy_app = typer.Typer(help="V2 research strategy signals and blocked res
 v2_baseline_app = typer.Typer(help="Frozen Qlib baseline precommits and sealed evidence.")
 v2_external_app = typer.Typer(help="Fail-closed V2 external-history qualification.")
 v2_paper_app = typer.Typer(help="Isolated V2 Champion paper-account commands.")
+v2_tushare_app = typer.Typer(help="Tushare Pro raw-response capture for V2 qualification.")
 
 app.add_typer(data_app, name="data")
 app.add_typer(calendar_app, name="calendar")
@@ -139,6 +147,7 @@ v2_app.add_typer(v2_strategy_app, name="strategy")
 v2_app.add_typer(v2_baseline_app, name="baseline")
 v2_app.add_typer(v2_external_app, name="external")
 v2_app.add_typer(v2_paper_app, name="paper")
+v2_app.add_typer(v2_tushare_app, name="tushare")
 
 UniverseOption = Annotated[Path, typer.Option(..., exists=True, readable=True)]
 RequiredDateOption = Annotated[str, typer.Option(...)]
@@ -333,6 +342,192 @@ def inspect_v2_qlib(
     """Print an already-created Qlib import report without reading market data."""
     loaded = load_qlib_import_report(report)
     typer.echo(json.dumps(loaded.__dict__, default=str, sort_keys=True))
+
+
+@v2_qlib_app.command("archive-factor-semantics")
+def archive_v2_qlib_factor_semantics(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    data_root: Annotated[Path, typer.Option()] = SEALED_EXTERNAL_ROOT,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Archive the pinned build sources proving Qlib factor and binary semantics."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for factor semantics capture")
+    sealed_qlib_root = SEALED_ARTIFACT_ROOT / "qlib_import"
+    qlib_root = (
+        sealed_qlib_root
+        if report.resolve().is_relative_to(sealed_qlib_root)
+        else _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    )
+    loaded = _verified_qlib_report(report, qlib_root)
+    try:
+        path, semantics = capture_factor_semantics(
+            _v2_external_root(data_root),
+            archive_sha256=loaded.archive_sha256,
+            allow_network=True,
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 Qlib factor semantics capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps({"report_path": str(path), "status": semantics.status}, sort_keys=True))
+
+
+@v2_tushare_app.command("capture")
+def capture_v2_tushare(
+    api_name: Annotated[str, typer.Option()],
+    parameters: Annotated[str, typer.Option(help="JSON object of API parameters")],
+    data_root: Annotated[Path, typer.Option()] = SEALED_EXTERNAL_ROOT,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture one Tushare response under explicit network and runtime-token authority."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for Tushare capture")
+    try:
+        parsed = json.loads(parameters)
+        if not isinstance(parsed, dict) or not all(
+            isinstance(key, str) and isinstance(value, str) for key, value in parsed.items()
+        ):
+            raise ValueError("parameters must be a JSON object of strings")
+        path, manifest = capture_tushare_response(
+            _v2_external_root(data_root),
+            api_name=api_name,
+            parameters=parsed,
+            allow_network=True,
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 Tushare capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps({"manifest_path": str(path), "status": manifest.status}, sort_keys=True))
+
+
+@v2_qlib_app.command("audit-daily")
+def audit_v2_qlib_daily(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    universe: Annotated[str, typer.Option()] = "csi300",
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/evaluations/qlib_csi300_csi500_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/qlib_daily_audit"),
+) -> None:
+    """Audit every active PIT member/session and retain all data-quality failures."""
+    sealed_qlib_root = SEALED_ARTIFACT_ROOT / "qlib_import"
+    qlib_root = (
+        sealed_qlib_root
+        if report.resolve().is_relative_to(sealed_qlib_root)
+        else _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    )
+    loaded = _verified_qlib_report(report, qlib_root)
+    if universe not in {"csi300", "csi500"}:
+        raise typer.BadParameter("universe must be csi300 or csi500")
+    config_payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if not isinstance(config_payload, dict):
+        raise typer.BadParameter("V2 evaluation configuration must be a mapping")
+    effective_from = date.fromisoformat(str(config_payload["research_effective_from"]))
+    effective_to = date.fromisoformat(str(config_payload["research_snapshot_as_of"]))
+    intervals = loaded.csi300_intervals if universe == "csi300" else loaded.csi500_intervals
+    tree = qlib_root / loaded.archive_sha256 / "trees" / loaded.extracted_tree_sha256
+    try:
+        audit = audit_qlib_member_sessions(
+            tree / "qlib_bin",
+            universe=universe,
+            intervals=intervals,
+            sessions=tuple(date.fromisoformat(item) for item in loaded.sessions),
+            import_report_sha256=loaded.identity_sha256,
+            research_effective_from=effective_from,
+            research_effective_to=effective_to,
+        )
+        path = persist_daily_audit(audit, _v2_artifact_root(artifact_root))
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 Qlib daily audit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report_path": str(path),
+                "status": audit.status,
+                "member_sessions_checked": audit.member_sessions_checked,
+                "issue_count": len(audit.issues),
+            },
+            sort_keys=True,
+        )
+    )
+    if audit.status != "QUALIFIED":
+        raise typer.Exit(code=1)
+
+
+@v2_qlib_app.command("qualify-foundation")
+def qualify_v2_foundation(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    evidence: Annotated[
+        list[str] | None, typer.Option(help="gate_name=/absolute/path/to/report")
+    ] = None,
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/evaluations/qlib_csi300_csi500_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/foundation_gate"),
+) -> None:
+    """Join independent qualification evidence into the only V2-003 promotion report."""
+    sealed_qlib_root = SEALED_ARTIFACT_ROOT / "qlib_import"
+    qlib_root = (
+        sealed_qlib_root
+        if report.resolve().is_relative_to(sealed_qlib_root)
+        else _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    )
+    loaded = _verified_qlib_report(report, qlib_root)
+    config_bytes = config.read_bytes()
+    config_payload = yaml.safe_load(config_bytes)
+    if not isinstance(config_payload, dict):
+        raise typer.BadParameter("V2 evaluation configuration must be a mapping")
+    parsed: list[GateEvidence] = []
+    for value in evidence or []:
+        name, separator, raw_path = value.partition("=")
+        path = Path(raw_path)
+        if not separator or not path.is_file():
+            raise typer.BadParameter("evidence must be gate_name=/existing/report.json")
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            status = str(payload["status"])
+        except (UnicodeDecodeError, json.JSONDecodeError, KeyError) as error:
+            raise typer.BadParameter("evidence report must be JSON with a status") from error
+        parsed.append(
+            GateEvidence(
+                name=name,
+                path=str(path.resolve()),
+                sha256=sha256(path.read_bytes()).hexdigest(),
+                status="QUALIFIED"
+                if status in {"QUALIFIED", "VERIFIED_FACTOR_SEMANTICS"}
+                else status,
+            )
+        )
+    try:
+        code_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, cwd=Path.cwd()
+        ).strip()
+        qualification = qualify_foundation(
+            universe="csi300",
+            research_effective_from=str(config_payload["research_effective_from"]),
+            research_effective_to=str(config_payload["research_snapshot_as_of"]),
+            import_report_sha256=loaded.identity_sha256,
+            config_sha256=sha256(config_bytes).hexdigest(),
+            code_commit=code_commit,
+            evidence=tuple(parsed),
+        )
+        path = persist_qualification(qualification, _v2_artifact_root(artifact_root))
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 Foundation Gate failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report_path": str(path),
+                "status": qualification.status,
+                "reasons": qualification.reasons,
+            },
+            sort_keys=True,
+        )
+    )
+    if qualification.status != "QUALIFIED":
+        raise typer.Exit(code=1)
 
 
 @v2_qlib_app.command("qualify-pit")
@@ -546,7 +741,7 @@ def precommit_v2_baseline(
         raise typer.BadParameter("PIT report is outside its content-addressed authority")
     config_payload = yaml.safe_load(config.read_text(encoding="utf-8"))
     if not isinstance(config_payload, dict) or (
-        config_payload.get("models") != ["linear", "lightgbm", "xgboost"]
+        config_payload.get("models") != ["linear", "lightgbm"]
         or config_payload.get("tracks") != ["qlib_compat", "project_20_session"]
         or config_payload.get("seeds") != list(range(20))
         or config_payload.get("execution_delay_sessions") != 1

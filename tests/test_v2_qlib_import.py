@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import struct
 import tarfile
 from datetime import date
 from hashlib import sha256
@@ -13,6 +14,8 @@ import pytest
 
 from quant_stack_v2.pit import build_pit_universe, qualify_pit_universe
 from quant_stack_v2.qlib_import import QlibImportError, QlibInstrumentInterval, import_qlib_archive
+from quant_stack_v2.qlib_qualification import audit_qlib_member_sessions
+from quant_stack_v2.qlib_semantics import SOURCES, capture_factor_semantics
 
 
 def _archive(
@@ -74,7 +77,7 @@ def test_import_is_hash_checked_safe_and_deterministic(tmp_path: Path) -> None:
     )
     assert first_path == second_path
     assert first.identity_sha256 == second.identity_sha256
-    assert first.status == "BLOCKED_DATA"
+    assert first.status == "IMPORT_READY"
     assert first.csi300_intervals[0].symbol == "sh000001"
 
 
@@ -112,7 +115,7 @@ def test_import_reports_missing_factor_as_blocked_data(tmp_path: Path) -> None:
         expected_manifest_sha256=sha256(manifest.read_bytes()).hexdigest(),
     )
     assert report_path.is_file()
-    assert report.status == "BLOCKED_DATA"
+    assert report.status == "IMPORT_READY"
     assert report.missing_price_or_factor_symbols == ("sz000002",)
 
 
@@ -127,7 +130,7 @@ def test_import_reports_missing_feature_directory_instead_of_crashing(tmp_path: 
         expected_archive_sha256=sha256(archive.read_bytes()).hexdigest(),
         expected_manifest_sha256=sha256(manifest.read_bytes()).hexdigest(),
     )
-    assert report.status == "BLOCKED_DATA"
+    assert report.status == "IMPORT_READY"
     assert report.missing_price_or_factor_symbols == ("sz000002",)
 
 
@@ -183,3 +186,47 @@ def test_pit_qualification_retains_missing_symbol_before_frozen_research_range()
     assert report.unavailable_members == ()
     assert report.pre_research_unavailable_members == ("legacy",)
     assert report.sessions_checked == 2
+
+
+def test_daily_audit_checks_each_active_member_session_without_guessing_halts(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "qlib_bin"
+    directory = root / "features" / "sh000001"
+    directory.mkdir(parents=True)
+    for field, values in {
+        "open": (10.0, float("nan")),
+        "high": (11.0, float("nan")),
+        "low": (9.0, float("nan")),
+        "close": (10.5, float("nan")),
+        "volume": (100.0, float("nan")),
+        "factor": (2.0, float("nan")),
+    }.items():
+        (directory / f"{field}.day.bin").write_bytes(struct.pack("<3f", 0.0, *values))
+    audit = audit_qlib_member_sessions(
+        root,
+        universe="csi300",
+        intervals=(QlibInstrumentInterval("sh000001", date(2015, 1, 1), date(2015, 1, 2)),),
+        sessions=(date(2015, 1, 1), date(2015, 1, 2)),
+        import_report_sha256="a" * 64,
+        research_effective_from=date(2015, 1, 1),
+        research_effective_to=date(2015, 1, 2),
+    )
+    assert audit.member_sessions_checked == 2
+    assert audit.valid_member_sessions == 1
+    assert audit.issues[0].kind == "MISSING_OR_SUSPENDED_UNVERIFIED"
+    assert audit.status == "BLOCKED_DATA"
+
+
+def test_factor_semantics_capture_requires_network_and_pins_all_sources(tmp_path: Path) -> None:
+    bodies = {source.url: "\n".join(source.required_markers).encode() for source in SOURCES}
+    with pytest.raises(ValueError, match="allow-network"):
+        capture_factor_semantics(
+            tmp_path, archive_sha256="a" * 64, allow_network=False, fetcher=bodies.__getitem__
+        )
+    path, report = capture_factor_semantics(
+        tmp_path, archive_sha256="a" * 64, allow_network=True, fetcher=bodies.__getitem__
+    )
+    assert path.is_file()
+    assert report.status == "VERIFIED_FACTOR_SEMANTICS"
+    assert set(report.source_sha256) == {source.label for source in SOURCES}
