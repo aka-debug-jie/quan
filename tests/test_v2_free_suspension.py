@@ -9,7 +9,11 @@ import pytest
 
 from quant_stack_v2.baostock_provider import BaoStockRow, capture_baostock_history
 from quant_stack_v2.qlib_qualification import QlibDailyIssue
-from quant_stack_v2.suspension_audit import MissingClass, classify_missing_sessions
+from quant_stack_v2.suspension_audit import (
+    MissingClass,
+    classify_missing_sessions,
+    compress_missing_candidates,
+)
 
 
 def _row(session: date, status: int) -> BaoStockRow:
@@ -62,3 +66,6 @@ def test_free_audit_compresses_adjacent_market_sessions_and_blocks_conflict() ->
     assert report.unique_suspension_intervals_count == 1
     assert report.suspension_intervals[0].session_count == 2
     assert report.status == "BLOCKED_DATA"
+    candidates = compress_missing_candidates(issues, sessions)
+    assert len(candidates) == 1
+    assert candidates[0].session_count == 3

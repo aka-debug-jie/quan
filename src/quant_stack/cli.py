@@ -74,7 +74,7 @@ from quant_stack.models import Exchange, PriceBasis
 from quant_stack.paper_broker import PaperLedgerError
 from quant_stack.paper_service import PaperDailyError, initialize_paper_account, run_paper_catchup
 from quant_stack.research_result import recover_controlled_publication, recover_publication
-from quant_stack.snapshot import create_raw_snapshot
+from quant_stack.snapshot import create_raw_snapshot, write_immutable
 from quant_stack.validation import load_daily_bars_csv
 from quant_stack_v2.baostock_provider import capture_baostock_history
 from quant_stack_v2.baseline import create_baseline_precommit
@@ -109,10 +109,12 @@ from quant_stack_v2.qlib_import import (
     tree_sha256,
 )
 from quant_stack_v2.qlib_qualification import (
+    QlibDailyIssue,
     audit_qlib_member_sessions,
     persist_daily_audit,
 )
 from quant_stack_v2.qlib_semantics import capture_factor_semantics
+from quant_stack_v2.suspension_audit import compress_missing_candidates
 from quant_stack_v2.tushare_pro import capture_tushare_response
 from quant_stack_v2.yahoo_etf import (
     load_yahoo_universe_report,
@@ -485,6 +487,68 @@ def capture_v2_baostock_audit(
                 "audit_sha256": sha256(audit.read_bytes()).hexdigest(),
                 "captured_symbols": len(symbols),
                 "manifest_sha256s": manifests,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+@v2_baostock_app.command("plan-official")
+def plan_v2_official_suspensions(
+    audit: Annotated[Path, typer.Option(exists=True, readable=True)],
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/free_suspension"),
+) -> None:
+    """Compress daily gaps into immutable SSE/SZSE evidence tasks offline."""
+    sealed_qlib_root = SEALED_ARTIFACT_ROOT / "qlib_import"
+    qlib_root = (
+        sealed_qlib_root
+        if report.resolve().is_relative_to(sealed_qlib_root)
+        else _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    )
+    imported = _verified_qlib_report(report, qlib_root)
+    try:
+        payload = json.loads(audit.read_text(encoding="utf-8"))
+        issues = tuple(QlibDailyIssue(**item) for item in payload["issues"])
+        intervals = compress_missing_candidates(
+            issues, tuple(date.fromisoformat(item) for item in imported.sessions)
+        )
+        body = (
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "audit_sha256": sha256(audit.read_bytes()).hexdigest(),
+                    "initial_missing_sessions": len(issues),
+                    "unique_candidate_intervals": len(intervals),
+                    "intervals": [
+                        {
+                            **item.__dict__,
+                            "start_session": item.start_session.isoformat(),
+                            "end_session": item.end_session.isoformat(),
+                        }
+                        for item in intervals
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            + b"\n"
+        )
+        output = (
+            _v2_artifact_root(artifact_root)
+            / "official_suspension_plans"
+            / f"{sha256(body).hexdigest()}.json"
+        )
+        write_immutable(output, body)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        typer.echo(f"V2 suspension planning failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "plan_path": str(output),
+                "initial_missing_sessions": len(issues),
+                "unique_candidate_intervals": len(intervals),
             },
             sort_keys=True,
         )

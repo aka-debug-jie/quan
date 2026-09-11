@@ -72,6 +72,17 @@ class SuspensionInterval:
 
 
 @dataclass(frozen=True)
+class MissingCandidateInterval:
+    """Consecutive missing market sessions to investigate as one evidence task."""
+
+    symbol: str
+    exchange: str
+    start_session: date
+    end_session: date
+    session_count: int
+
+
+@dataclass(frozen=True)
 class FreeEvidenceAudit:
     """Complete free-evidence funnel and remaining blocking observations."""
 
@@ -167,6 +178,39 @@ def persist_free_evidence_audit(report: FreeEvidenceAudit, artifact_root: Path) 
     path = artifact_root / "free_suspension_audit" / f"{report.identity_sha256}.json"
     write_immutable(path, _json(asdict(report)) + b"\n")
     return path
+
+
+def compress_missing_candidates(
+    issues: tuple[QlibDailyIssue, ...], market_sessions: tuple[date, ...]
+) -> tuple[MissingCandidateInterval, ...]:
+    """Compress consecutive Qlib missing sessions before any provider lookup."""
+    positions = {session: index for index, session in enumerate(market_sessions)}
+    rows = sorted(issues, key=lambda item: (item.symbol, item.session))
+    result: list[MissingCandidateInterval] = []
+    for issue in rows:
+        session = date.fromisoformat(issue.session)
+        if session not in positions:
+            continue
+        if (
+            result
+            and result[-1].symbol == issue.symbol
+            and positions[session] == positions[result[-1].end_session] + 1
+        ):
+            prior = result[-1]
+            result[-1] = MissingCandidateInterval(
+                prior.symbol,
+                prior.exchange,
+                prior.start_session,
+                session,
+                prior.session_count + 1,
+            )
+        else:
+            result.append(
+                MissingCandidateInterval(
+                    issue.symbol, issue.symbol[:2].upper(), session, session, 1
+                )
+            )
+    return tuple(result)
 
 
 def _compress_suspensions(
