@@ -1,8 +1,8 @@
 # Quant Stack V1 Release Audit
 
-Status: `RC_01_LOCAL_ACCEPTANCE_PASS_CI_PENDING`
+Status: `RC_01_ACCEPTANCE_PASS_READY_FOR_RELEASE_DECISION`
 
-Release candidate commit: `60d67c8`
+Release candidate commit: `16f6399`
 
 ## Engineering acceptance
 
@@ -40,7 +40,12 @@ Release candidate commit: `60d67c8`
 - Automatic network task active: no.
 - GitHub CI workflow now runs for pull requests plus pushes to `main`, `codex/**`
   and `issue/**`.
-- Remote CI result for this release candidate: pending push.
+- Remote CI result: PASS, GitHub Actions run
+  `34562043209` on `codex/issue009-runner-hardening`.
+- Two earlier branch CI runs exposed non-portable local-artifact test fixtures
+  and brittle CLI error-text assertions. Commit `385ef7a` made the fixtures
+  self-contained and pinned Python 3.11.15; commit `16f6399` retained fail-closed
+  CLI behavior without depending on Rich formatting text.
 - Merge to default branch: not performed.
 - V1 tag: not created.
 
@@ -58,6 +63,6 @@ natural month-end close.
 
 ## Remaining release steps
 
-Push this commit to run actual GitHub CI. After CI passes, the release remains a
-paper-only V1 candidate until installation is reviewed and the planned 15-day
-operations observation is completed. No real-order adapter is present or allowed.
+RC-01 is ready for the separate merge/default-branch/tag decision. The release
+remains a paper-only V1 candidate until installation is reviewed and the planned
+15-day operations observation is completed. No real-order adapter is present or allowed.

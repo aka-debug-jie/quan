@@ -10,6 +10,9 @@ and CI coverage for `codex/**` and `issue/**` pushes. Issue 009 remains
 `PASS_CONTROLLED_RECOVERY` with `NO_EVIDENCE_OF_EDGE`; no strategy parameter or
 locked-test evidence changed.
 
+RC-01 local acceptance and GitHub CI run `34562043209` both pass. Merge,
+default-branch change, V1 tag and timer enablement remain intentionally unperformed.
+
 ## V3 controlled-recovery result
 
 Authorization `f44f878b...` executed once under code `d865221` and authorization
