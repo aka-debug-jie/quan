@@ -114,6 +114,7 @@ from quant_stack_v2.qlib_qualification import (
     persist_daily_audit,
 )
 from quant_stack_v2.qlib_semantics import capture_factor_semantics
+from quant_stack_v2.sse_suspension import capture_sse_suspensions
 from quant_stack_v2.suspension_audit import compress_missing_candidates
 from quant_stack_v2.tushare_pro import capture_tushare_response
 from quant_stack_v2.yahoo_etf import (
@@ -138,6 +139,7 @@ v2_external_app = typer.Typer(help="Fail-closed V2 external-history qualificatio
 v2_paper_app = typer.Typer(help="Isolated V2 Champion paper-account commands.")
 v2_tushare_app = typer.Typer(help="Tushare Pro raw-response capture for V2 qualification.")
 v2_baostock_app = typer.Typer(help="Free BaoStock evidence capture for V2 qualification.")
+v2_sse_suspension_app = typer.Typer(help="SSE official suspension evidence capture.")
 
 app.add_typer(data_app, name="data")
 app.add_typer(calendar_app, name="calendar")
@@ -154,6 +156,7 @@ v2_app.add_typer(v2_external_app, name="external")
 v2_app.add_typer(v2_paper_app, name="paper")
 v2_app.add_typer(v2_tushare_app, name="tushare")
 v2_app.add_typer(v2_baostock_app, name="baostock")
+v2_app.add_typer(v2_sse_suspension_app, name="sse-suspension")
 
 UniverseOption = Annotated[Path, typer.Option(..., exists=True, readable=True)]
 RequiredDateOption = Annotated[str, typer.Option(...)]
@@ -553,6 +556,49 @@ def plan_v2_official_suspensions(
             sort_keys=True,
         )
     )
+
+
+@v2_sse_suspension_app.command("capture-plan")
+def capture_v2_sse_suspension_plan(
+    plan: Annotated[Path, typer.Option(exists=True, readable=True)],
+    data_root: Annotated[Path, typer.Option()] = SEALED_EXTERNAL_ROOT,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture every SSE interval in one immutable missing-session plan."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for SSE suspension capture")
+    try:
+        payload = json.loads(plan.read_text(encoding="utf-8"))
+        tasks = [item for item in payload["intervals"] if item["exchange"] == "SH"]
+        manifests: list[str] = []
+        for item in tasks:
+            _, manifest, _ = capture_sse_suspensions(
+                _v2_external_root(data_root),
+                symbol=str(item["symbol"]),
+                start=date.fromisoformat(str(item["start_session"])),
+                end=date.fromisoformat(str(item["end_session"])),
+                allow_network=True,
+            )
+            manifests.append(manifest.identity_sha256)
+        index = {
+            "schema_version": 1,
+            "plan_sha256": sha256(plan.read_bytes()).hexdigest(),
+            "exchange": "SSE",
+            "task_count": len(tasks),
+            "manifest_sha256s": manifests,
+        }
+        body = json.dumps(index, sort_keys=True, separators=(",", ":")).encode() + b"\n"
+        output = (
+            _v2_external_root(data_root)
+            / "sse_suspension_batches"
+            / sha256(body).hexdigest()
+            / "index.json"
+        )
+        write_immutable(output, body)
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        typer.echo(f"V2 SSE suspension batch failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps({"index_path": str(output), "task_count": len(tasks)}, sort_keys=True))
 
 
 @v2_qlib_app.command("audit-daily")
