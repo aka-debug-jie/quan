@@ -2,13 +2,13 @@
 
 Status: `RC_01_LOCAL_ACCEPTANCE_PASS_CI_PENDING`
 
-Release candidate commit: `34ee71d`
+Release candidate commit: `60d67c8`
 
 ## Engineering acceptance
 
 - Python 3.11.15 with dependencies pinned by `uv.lock`.
 - `ruff check`, `ruff format --check` and strict `mypy src`: PASS.
-- Full offline pytest with coverage: 166 passed in 78.43 seconds.
+- Full offline pytest with coverage: 166 passed in 77.78 seconds.
 - Combined statement/branch coverage: 73%.
 - User systemd service, timer and failure unit: `systemd-analyze verify` PASS.
 - The host check emitted an unrelated warning about
@@ -25,6 +25,9 @@ Release candidate commit: `34ee71d`
 - Strategy, benchmark, monthly orders and HTML report must all complete before
   the account-level day-complete receipt is published. Catch-up advances only
   through those receipts.
+- A pending receipt preserves every attempted date. After input validation, a
+  prepared receipt freezes every per-symbol provider manifest before either
+  account is written. Partial recovery reloads those exact inputs.
 - Every catch-up snapshot records its actual UTC generation time and an explicit
   historical-backfill flag; it is not represented as contemporaneously generated.
 - systemd preview and installation do not enable or start the timer. Enabling is
