@@ -201,7 +201,7 @@ def _v2_artifact_root(artifact_root: Path) -> Path:
 def _verified_qlib_report(report_path: Path, artifact_root: Path) -> QlibImportReport:
     """Bind a Qlib report to the pinned V2 registry and its content-addressed location."""
     registry = load_dataset_registry(
-        _v2_dataset_path("qlib_cn_community_v1", Path("configs/v2/datasets"))
+        _v2_dataset_path("qlib_cn_community_v1", REPOSITORY_ROOT / "configs/v2/datasets")
     )
     if registry.artifacts.archive_sha256 is None or registry.artifacts.manifest_sha256 is None:
         raise typer.BadParameter("Qlib registry lacks immutable artifact identities")
