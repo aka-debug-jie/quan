@@ -86,6 +86,7 @@ def test_daily_paper_run_writes_report_and_fills_prior_order(
         ]
         for symbol, exchange in symbols.items()
     }
+    coverage_ok = [False]
 
     class Calendar:
         def is_session(self, _exchange: Exchange, _day: date) -> bool:
@@ -95,7 +96,7 @@ def test_daily_paper_run_writes_report_and_fills_prior_order(
             return (pd.Timestamp(day) + pd.offsets.BDay(1)).date()
 
         def coverage_report(self, *_args: object, **_kwargs: object) -> SimpleNamespace:
-            return SimpleNamespace(is_complete=True)
+            return SimpleNamespace(is_complete=coverage_ok[0])
 
     environment = tmp_path / "paper.yaml"
     environment.write_text(
@@ -116,13 +117,53 @@ def test_daily_paper_run_writes_report_and_fills_prior_order(
         encoding="utf-8",
     )
     monkeypatch.setattr(paper_service, "ExchangeCalendarStore", lambda _path: Calendar())
+    refresh_calls: list[date] = []
+
+    def refresh(*_args: object) -> tuple[dict[str, object], dict[str, list[DailyBar]]]:
+        refresh_calls.append(_args[2])
+        return (
+            {
+                symbol: SimpleNamespace(
+                    manifest_id=symbol, instrument=SimpleNamespace(symbol=symbol)
+                )
+                for symbol in raw
+            },
+            raw,
+        )
+
+    monkeypatch.setattr(paper_service, "_refresh_primary_raw", refresh)
     monkeypatch.setattr(
         paper_service,
-        "_refresh_primary_raw",
-        lambda *_args: ({symbol: SimpleNamespace(manifest_id=symbol) for symbol in raw}, raw),
+        "load_provider_series",
+        lambda manifest_id, _root: (
+            SimpleNamespace(
+                manifest_id=manifest_id,
+                instrument=SimpleNamespace(symbol=manifest_id),
+            ),
+            raw[manifest_id],
+        ),
     )
     monkeypatch.setattr(paper_service, "_causal_for_paper", lambda bars, _ledger: bars)
     monkeypatch.setattr(paper_service, "require_corporate_action_evidence", lambda *_: None)
+    with pytest.raises(PaperDailyError, match="unresolved expected sessions"):
+        run_paper_daily(
+            environment,
+            tmp_path / "data",
+            tmp_path / "artifacts",
+            date(2026, 1, 28),
+            allow_network=True,
+        )
+    assert not (tmp_path / "artifacts/test-paper/prepared/2026-01-28.json").exists()
+    coverage_ok[0] = True
+    recovered_input = run_paper_daily(
+        environment,
+        tmp_path / "data",
+        tmp_path / "artifacts",
+        date(2026, 1, 28),
+        allow_network=True,
+    )
+    assert recovered_input.is_file()
+    assert (tmp_path / "artifacts/test-paper/prepared/2026-01-28.json").is_file()
     mid_month = run_paper_daily(
         environment,
         tmp_path / "data",
@@ -156,6 +197,7 @@ def test_daily_paper_run_writes_report_and_fills_prior_order(
         date(2026, 1, 30),
         allow_network=True,
     )
+    assert refresh_calls.count(date(2026, 1, 30)) == 1
     second = run_paper_daily(
         environment, tmp_path / "data", tmp_path / "artifacts", date(2026, 2, 2), allow_network=True
     )
@@ -178,8 +220,9 @@ def test_catchup_marks_historical_sessions_without_backdating_generation(
     instrument = SimpleNamespace(exchange=Exchange.SSE)
 
     class Calendar:
-        def sessions_between(self, *_args: object) -> tuple[date, ...]:
-            return (date(2026, 1, 29), date(2026, 1, 30), date(2026, 2, 2))
+        def sessions_between(self, _exchange: Exchange, start: date, end: date) -> tuple[date, ...]:
+            values = (date(2026, 1, 29), date(2026, 1, 30), date(2026, 2, 2))
+            return tuple(item for item in values if start <= item <= end)
 
         def is_session(self, *_args: object) -> bool:
             return True
@@ -196,9 +239,9 @@ def test_catchup_marks_historical_sessions_without_backdating_generation(
     monkeypatch.setattr(paper_service, "_universe", lambda *_: (instrument,))
     monkeypatch.setattr(paper_service, "ExchangeCalendarStore", lambda *_: Calendar())
     monkeypatch.setattr(paper_service, "run_paper_daily", record)
-    completed = tmp_path / "artifacts/test-paper/completed"
-    completed.mkdir(parents=True)
-    (completed / "2026-01-29.json").write_text("{}", encoding="utf-8")
+    pending = tmp_path / "artifacts/test-paper/pending"
+    pending.mkdir(parents=True)
+    (pending / "2026-01-30.json").write_text("{}", encoding="utf-8")
     run_paper_catchup(
         environment,
         tmp_path / "data",

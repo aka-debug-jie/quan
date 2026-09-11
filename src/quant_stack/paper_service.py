@@ -28,6 +28,7 @@ from quant_stack.data.models import (
     ETFUniverseInstrument,
     ProviderSeriesManifest,
 )
+from quant_stack.data.provider_series import load_provider_series
 from quant_stack.data.sina_etf import fetch_sina_etf_history, persist_sina_etf_history
 from quant_stack.data.sse_official import fetch_sse_daily_history, persist_sse_daily_history
 from quant_stack.features import calculate_features
@@ -129,15 +130,17 @@ def run_paper_catchup(
     universe = _universe(Path(str(environment["universe"])))
     calendar = ExchangeCalendarStore(Path(str(environment["calendar_root"])))
     completed = _completed_dates(artifact_root, str(environment["account_id"]))
+    pending = _pending_dates(artifact_root, str(environment["account_id"])) - completed
     start = max(completed) if completed else as_of
-    dates = [
+    dates = {
         session
         for session in calendar.sessions_between(universe[0].exchange, start, as_of)
         if (not completed or session > start)
         and all(calendar.is_session(item.exchange, session) for item in universe)
-    ]
+    }
+    dates.update(session for session in pending if session <= as_of)
     if not completed and calendar.is_session(universe[0].exchange, as_of):
-        dates = [as_of]
+        dates.add(as_of)
     generated_at = datetime.now(UTC)
     return tuple(
         run_paper_daily(
@@ -149,7 +152,7 @@ def run_paper_catchup(
             generated_at=generated_at,
             is_backfill=session < as_of,
         )
-        for session in dates
+        for session in sorted(dates)
     )
 
 
@@ -184,8 +187,41 @@ def _run_paper_daily_locked(
         return noop
     if sessions != {True}:
         raise PaperDailyError("paper universe exchanges disagree on session status")
+    account = str(environment["account_id"])
+    pending_path = artifact_root / account / "pending" / f"{trading_date.isoformat()}.json"
+    if pending_path.is_file():
+        pending = json.loads(pending_path.read_bytes())
+        generated_at = datetime.fromisoformat(str(pending["generated_at"]))
+        is_backfill = bool(pending["is_backfill"])
+    else:
+        write_immutable(
+            pending_path,
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "account_id": account,
+                    "trading_date": trading_date.isoformat(),
+                    "generated_at": generated_at.isoformat(),
+                    "is_backfill": is_backfill,
+                    "status": "PENDING",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            + b"\n",
+        )
     registry = load_d0_source_registry(registry_path, universe_path)
-    manifests, raw = _refresh_primary_raw(universe, registry, trading_date, data_root)
+    prepared_path = artifact_root / account / "prepared" / f"{trading_date.isoformat()}.json"
+    prepared_is_new = not prepared_path.is_file()
+    if prepared_path.is_file():
+        prepared = json.loads(prepared_path.read_bytes())
+        manifests, raw = _load_prepared_raw(prepared, data_root)
+        source_id = _manifest_identity(manifests)
+        if prepared.get("source_manifest_id") != source_id:
+            raise PaperDailyError("prepared paper input identity mismatch")
+    else:
+        manifests, raw = _refresh_primary_raw(universe, registry, trading_date, data_root)
+        source_id = _manifest_identity(manifests)
     for item in universe:
         dates = {bar.trading_date for bar in raw[item.symbol]}
         coverage = calendar.coverage_report(
@@ -209,7 +245,25 @@ def _run_paper_daily_locked(
     causal = {symbol: _causal_for_paper(bars, ledgers[symbol]) for symbol, bars in raw.items()}
     opens = {symbol: _bar_on(bars, trading_date).open for symbol, bars in raw.items()}
     closes = {symbol: _bar_on(bars, trading_date).close for symbol, bars in raw.items()}
-    account = str(environment["account_id"])
+    if prepared_is_new:
+        write_immutable(
+            prepared_path,
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "account_id": account,
+                    "trading_date": trading_date.isoformat(),
+                    "source_manifest_id": source_id,
+                    "manifests": {
+                        symbol: manifest.manifest_id
+                        for symbol, manifest in sorted(manifests.items())
+                    },
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            + b"\n",
+        )
     costs = _costs(Path(str(environment["cost_config"])))
     strategy = PaperBroker(
         artifact_root / account / "strategy.sqlite3",
@@ -221,7 +275,6 @@ def _run_paper_daily_locked(
     )
     strategy.initialize()
     benchmark.initialize()
-    source_id = _manifest_identity(manifests)
     actions = {symbol: ledger.events for symbol, ledger in ledgers.items()}
     strategy_snapshot = strategy.run_daily(
         _run_id(account, "strategy", trading_date, source_id),
@@ -319,9 +372,26 @@ def _refresh_primary_raw(
                 request, fetch_sina_etf_history(item.symbol, item.exchange), data_root
             )
         manifests[item.symbol] = manifest
-        from quant_stack.data.provider_series import load_provider_series
-
         _, bars[item.symbol] = load_provider_series(manifest.manifest_id, data_root)
+    return manifests, bars
+
+
+def _load_prepared_raw(
+    prepared: object, data_root: Path
+) -> tuple[dict[str, ProviderSeriesManifest], dict[str, list[DailyBar]]]:
+    """Reload only the provider manifests frozen before the first ledger write."""
+    if not isinstance(prepared, dict) or not isinstance(prepared.get("manifests"), dict):
+        raise PaperDailyError("prepared paper input receipt is invalid")
+    manifests: dict[str, ProviderSeriesManifest] = {}
+    bars: dict[str, list[DailyBar]] = {}
+    for symbol, manifest_id in prepared["manifests"].items():
+        if not isinstance(symbol, str) or not isinstance(manifest_id, str):
+            raise PaperDailyError("prepared paper manifest identity is invalid")
+        manifest, series = load_provider_series(manifest_id, data_root)
+        if manifest.instrument.symbol != symbol:
+            raise PaperDailyError("prepared paper manifest symbol mismatch")
+        manifests[symbol] = manifest
+        bars[symbol] = series
     return manifests, bars
 
 
@@ -520,3 +590,9 @@ def _completed_dates(artifact_root: Path, account_id: str) -> set[date]:
     """Return only dates with a complete account-level strategy/benchmark/report receipt."""
     completed = artifact_root / account_id / "completed"
     return {date.fromisoformat(path.stem) for path in completed.glob("*.json") if path.is_file()}
+
+
+def _pending_dates(artifact_root: Path, account_id: str) -> set[date]:
+    """Return attempted dates that may require idempotent account-level recovery."""
+    pending = artifact_root / account_id / "pending"
+    return {date.fromisoformat(path.stem) for path in pending.glob("*.json") if path.is_file()}
