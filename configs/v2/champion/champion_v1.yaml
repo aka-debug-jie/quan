@@ -1,0 +1,7 @@
+schema_version: 1
+maximum_champions: 2
+primary_rank: external_cost_adjusted_sharpe_descending
+hard_gates: [data_qualified, pit_qualified, external_test_passed, reproducible, lean_reconciled]
+relative_benchmark: {net_return: strictly_above, sharpe: strictly_above, max_drawdown: no_more_than_0.05_worse}
+promotion_status: PAPER_CANDIDATE
+rejection_status: REJECTED_NO_EDGE

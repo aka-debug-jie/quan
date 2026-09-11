@@ -1,0 +1,13 @@
+schema_version: 1
+strategy_family: v2_b_deterministic_factor
+status: blocked_pending_pit_fundamentals
+development_universe: csi300
+factor_groups: [value, quality, momentum]
+fields: [book_to_price, return_on_equity, momentum_12_1]
+group_weights: {value: 1, quality: 1, momentum: 1}
+normalization: industry_zscore
+rebalance: month_end
+selection_count: 30
+max_weight: 0.05
+execution_delay_sessions: 1
+required_gates: [v2_003_pit_qualified, pit_fundamentals_qualified]

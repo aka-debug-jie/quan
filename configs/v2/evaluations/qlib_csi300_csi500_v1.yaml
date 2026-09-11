@@ -1,0 +1,8 @@
+schema_version: 1
+status: preregistered_not_executed
+development_universe: csi300
+sealed_external_universe: csi500
+external_result_label: PROJECT_FRESH_EXTERNAL_RETROSPECTIVE
+sealed_account: quant-eval
+result_policy: aggregate_metrics_only
+forbidden_uses: [live_order, fresh_holdout_claim, raw_csi500_export]

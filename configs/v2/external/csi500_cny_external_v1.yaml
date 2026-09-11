@@ -1,0 +1,7 @@
+schema_version: 1
+dataset_id: csi500_cny_external_v1
+market: CSI500_CNY
+currency: CNY
+source_approval: PENDING_SOURCE_APPROVAL
+required_evidence: [raw_ohlc, calendar, corporate_actions, pit_membership, cost_model, reproducibility]
+forbidden_uses: [network_capture, execution, live_order, currency_mixing, adjusted_price_execution]

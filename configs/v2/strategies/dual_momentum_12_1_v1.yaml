@@ -1,0 +1,13 @@
+schema_version: 1
+strategy_family: v2_a_dual_momentum
+status: frozen_research_signal_only
+dataset_id: yahoo_global_etf_research_v1
+usage_level: RESEARCH_ADJUSTED_ONLY
+risk_symbols: [MCHI, SPY, EFA, IEF, GLD, DBC]
+defensive_symbol: BIL
+lookback_sessions: 252
+skip_recent_sessions: 21
+rebalance: month_end
+selection_count: 3
+allocation: equal_weight_selected_else_bil
+forbidden_uses: [execution, backtest, paper_broker, performance, paper_candidate]

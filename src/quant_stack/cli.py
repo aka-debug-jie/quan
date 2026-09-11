@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from datetime import date, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
 import typer
+import yaml
 
 from quant_stack.data.akshare_etf import AKShareETFAdapter, DataFetchError
 from quant_stack.data.calendar import (
@@ -72,12 +75,40 @@ from quant_stack.paper_service import PaperDailyError, initialize_paper_account,
 from quant_stack.research_result import recover_controlled_publication, recover_publication
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
+from quant_stack_v2.baseline import create_baseline_precommit
+from quant_stack_v2.champion import load_champion_registry
 from quant_stack_v2.dataset_registry import (
     DatasetRegistryError,
     capture_dataset,
     list_dataset_registries,
     load_dataset_registry,
     validate_dataset,
+)
+from quant_stack_v2.dual_momentum import (
+    build_dual_momentum_report,
+    persist_dual_momentum_report,
+)
+from quant_stack_v2.external_validation import (
+    persist_external_qualification,
+    qualify_external_market,
+)
+from quant_stack_v2.paper import initialize_v2_paper_account
+from quant_stack_v2.pit import (
+    build_pit_universe,
+    load_pit_qualification,
+    persist_pit_qualification,
+    qualify_pit_universe,
+)
+from quant_stack_v2.qlib_import import (
+    QlibImportReport,
+    import_qlib_archive,
+    load_qlib_import_report,
+    tree_sha256,
+)
+from quant_stack_v2.yahoo_etf import (
+    load_yahoo_universe_report,
+    persist_yahoo_universe_report,
+    snapshot_yahoo_universe,
 )
 
 app = typer.Typer(help="Offline-first quantitative research commands.")
@@ -88,6 +119,12 @@ signal_app = typer.Typer(help="Signal commands (M0 placeholders).")
 paper_app = typer.Typer(help="Paper-trading commands (M0 placeholders).")
 v2_app = typer.Typer(help="Isolated Quant V2 research-factory commands.")
 v2_dataset_app = typer.Typer(help="Inspect and capture registered V2 datasets.")
+v2_qlib_app = typer.Typer(help="Offline Qlib archive import and PIT qualification.")
+v2_etf_app = typer.Typer(help="Research-only global ETF provider snapshots.")
+v2_strategy_app = typer.Typer(help="V2 research strategy signals and blocked research gates.")
+v2_baseline_app = typer.Typer(help="Frozen Qlib baseline precommits and sealed evidence.")
+v2_external_app = typer.Typer(help="Fail-closed V2 external-history qualification.")
+v2_paper_app = typer.Typer(help="Isolated V2 Champion paper-account commands.")
 
 app.add_typer(data_app, name="data")
 app.add_typer(calendar_app, name="calendar")
@@ -96,6 +133,12 @@ app.add_typer(signal_app, name="signal")
 app.add_typer(paper_app, name="paper")
 app.add_typer(v2_app, name="v2")
 v2_app.add_typer(v2_dataset_app, name="dataset")
+v2_app.add_typer(v2_qlib_app, name="qlib")
+v2_app.add_typer(v2_etf_app, name="etf")
+v2_app.add_typer(v2_strategy_app, name="strategy")
+v2_app.add_typer(v2_baseline_app, name="baseline")
+v2_app.add_typer(v2_external_app, name="external")
+v2_app.add_typer(v2_paper_app, name="paper")
 
 UniverseOption = Annotated[Path, typer.Option(..., exists=True, readable=True)]
 RequiredDateOption = Annotated[str, typer.Option(...)]
@@ -103,6 +146,9 @@ DataRootOption = Annotated[Path, typer.Option()]
 CalendarRootOption = Annotated[Path, typer.Option(exists=True, readable=True)]
 AllowNetworkOption = Annotated[bool, typer.Option()]
 V2DatasetRootOption = Annotated[Path, typer.Option(exists=True, readable=True)]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SEALED_EXTERNAL_ROOT = Path("/srv/quant-v2/sealed_holdout/data/external")
+SEALED_ARTIFACT_ROOT = Path("/srv/quant-v2/sealed_holdout/artifacts/v2")
 
 
 def _v2_dataset_path(dataset_id: str, registry_root: Path) -> Path:
@@ -121,6 +167,55 @@ def _v2_registry_root(registry_root: Path) -> Path:
     if tuple(resolved.parts[-3:]) != ("configs", "v2", "datasets"):
         raise typer.BadParameter("V2 registry root must end with configs/v2/datasets")
     return resolved
+
+
+def _v2_external_root(data_root: Path) -> Path:
+    """Reject V2 data reads redirected into V1 authorities or arbitrary directories."""
+    resolved = data_root.resolve()
+    accepted = (REPOSITORY_ROOT / "data" / "external", SEALED_EXTERNAL_ROOT)
+    if resolved not in accepted:
+        raise typer.BadParameter("V2 data root must be the repository or sealed data/external root")
+    return resolved
+
+
+def _v2_artifact_root(artifact_root: Path) -> Path:
+    """Keep V2 derived reports outside V1 artifact and locked-run authorities."""
+    resolved = artifact_root.resolve()
+    accepted = (REPOSITORY_ROOT / "artifacts" / "v2", SEALED_ARTIFACT_ROOT)
+    if not any(resolved.is_relative_to(root) for root in accepted):
+        raise typer.BadParameter(
+            "V2 artifact root must be below a repository or sealed artifacts/v2 root"
+        )
+    return resolved
+
+
+def _verified_qlib_report(report_path: Path, artifact_root: Path) -> QlibImportReport:
+    """Bind a Qlib report to the pinned V2 registry and its content-addressed location."""
+    registry = load_dataset_registry(
+        _v2_dataset_path("qlib_cn_community_v1", Path("configs/v2/datasets"))
+    )
+    if registry.artifacts.archive_sha256 is None or registry.artifacts.manifest_sha256 is None:
+        raise typer.BadParameter("Qlib registry lacks immutable artifact identities")
+    report = load_qlib_import_report(report_path)
+    expected = (
+        artifact_root
+        / registry.artifacts.archive_sha256
+        / "reports"
+        / f"{report.identity_sha256}.json"
+    )
+    if report_path.resolve() != expected.resolve():
+        raise typer.BadParameter("Qlib import report is outside its content-addressed authority")
+    if (
+        report.archive_sha256 != registry.artifacts.archive_sha256
+        or report.manifest_sha256 != registry.artifacts.manifest_sha256
+    ):
+        raise typer.BadParameter("Qlib import report differs from the pinned registry")
+    tree_path = (
+        artifact_root / registry.artifacts.archive_sha256 / "trees" / report.extracted_tree_sha256
+    )
+    if not tree_path.is_dir() or tree_sha256(tree_path) != report.extracted_tree_sha256:
+        raise typer.BadParameter("Qlib extraction tree differs from import evidence")
+    return report
 
 
 @v2_dataset_app.command("list")
@@ -156,7 +251,9 @@ def validate_v2_dataset(
     data_root: DataRootOption = Path("data/external"),
 ) -> None:
     """Validate one captured dataset locally and fail closed while qualification is pending."""
-    result = validate_dataset(_v2_dataset_path(dataset_id, registry_root), data_root)
+    result = validate_dataset(
+        _v2_dataset_path(dataset_id, registry_root), _v2_external_root(data_root)
+    )
     typer.echo(json.dumps(result.model_dump(mode="json"), sort_keys=True))
     if not result.qualified:
         raise typer.Exit(code=1)
@@ -173,7 +270,7 @@ def capture_v2_dataset(
     try:
         paths = capture_dataset(
             _v2_dataset_path(dataset_id, registry_root),
-            data_root,
+            _v2_external_root(data_root),
             allow_network=allow_network,
         )
     except DatasetRegistryError as error:
@@ -181,6 +278,298 @@ def capture_v2_dataset(
         raise typer.Exit(code=1) from error
     for path in paths:
         typer.echo(f"captured: {path}")
+
+
+@v2_qlib_app.command("import")
+def import_v2_qlib(
+    registry_root: V2DatasetRootOption = Path("configs/v2/datasets"),
+    data_root: DataRootOption = Path("data/external"),
+    output_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/qlib_import"),
+) -> None:
+    """Safely import only the locally captured and hash-pinned Qlib community archive."""
+    external_root = _v2_external_root(data_root)
+    registry = load_dataset_registry(_v2_dataset_path("qlib_cn_community_v1", registry_root))
+    if (
+        registry.artifacts.archive_url is None
+        or registry.artifacts.archive_sha256 is None
+        or registry.artifacts.manifest_url is None
+        or registry.artifacts.manifest_sha256 is None
+    ):
+        raise typer.BadParameter("Qlib registry lacks a pinned archive or manifest")
+    archive = (
+        external_root
+        / registry.dataset_id
+        / registry.artifacts.archive_sha256
+        / Path(registry.artifacts.archive_url.path or "qlib_bin.tar.gz").name
+    )
+    manifest = (
+        external_root
+        / registry.dataset_id
+        / registry.artifacts.manifest_sha256
+        / Path(registry.artifacts.manifest_url.path or "qlib_bin.manifest.json").name
+    )
+    try:
+        report_path, report = import_qlib_archive(
+            archive,
+            manifest,
+            _v2_artifact_root(output_root),
+            expected_archive_sha256=registry.artifacts.archive_sha256,
+            expected_manifest_sha256=registry.artifacts.manifest_sha256,
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 Qlib import failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps({"report_path": str(report_path), "status": report.status}, sort_keys=True)
+    )
+    if report.status != "IMPORT_READY":
+        raise typer.Exit(code=1)
+
+
+@v2_qlib_app.command("inspect")
+def inspect_v2_qlib(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+) -> None:
+    """Print an already-created Qlib import report without reading market data."""
+    loaded = load_qlib_import_report(report)
+    typer.echo(json.dumps(loaded.__dict__, default=str, sort_keys=True))
+
+
+@v2_qlib_app.command("qualify-pit")
+def qualify_v2_qlib_pit(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    universe: Annotated[str, typer.Option()] = "csi300",
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/pit_qualification"),
+) -> None:
+    """Audit source PIT membership from an immutable Qlib import report."""
+    qlib_root = _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    loaded = _verified_qlib_report(report, qlib_root)
+    if (
+        loaded.status != "IMPORT_READY"
+        or loaded.factor_reconstruction_status != "VERIFIED_FACTOR_SEMANTICS"
+    ):
+        typer.echo("V2 PIT qualification requires verified Qlib factor semantics", err=True)
+        raise typer.Exit(code=1)
+    intervals = loaded.csi300_intervals if universe == "csi300" else loaded.csi500_intervals
+    if universe not in {"csi300", "csi500"}:
+        raise typer.BadParameter("universe must be csi300 or csi500")
+    sessions = tuple(date.fromisoformat(item) for item in loaded.sessions)
+    declared = {item.symbol for item in intervals}
+    available = declared - set(loaded.missing_price_or_factor_symbols)
+    try:
+        qualification = qualify_pit_universe(
+            build_pit_universe(universe, intervals),
+            sessions,
+            available,
+            loaded.identity_sha256,
+        )
+        path = persist_pit_qualification(qualification, _v2_artifact_root(artifact_root))
+    except ValueError as error:
+        typer.echo(f"V2 PIT qualification failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps({"report_path": str(path), "status": qualification.status}, sort_keys=True)
+    )
+    if qualification.status != "QUALIFIED":
+        raise typer.Exit(code=1)
+
+
+@v2_qlib_app.command("report")
+def report_v2_qlib(
+    report: Annotated[Path, typer.Option(exists=True, readable=True)],
+) -> None:
+    """Emit the stable identity and status of an immutable Qlib import report."""
+    loaded = load_qlib_import_report(report)
+    typer.echo(json.dumps({"report_id": loaded.identity_sha256, "status": loaded.status}))
+
+
+@v2_etf_app.command("snapshot-yahoo")
+def snapshot_v2_yahoo_etfs(
+    data_root: DataRootOption = Path("data/external"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture the fixed global ETF universe as research-only adjusted-price snapshots."""
+    try:
+        external_root = _v2_external_root(data_root)
+        report = snapshot_yahoo_universe(external_root, allow_network=allow_network)
+        report_path = persist_yahoo_universe_report(report, external_root)
+    except ValueError as error:
+        typer.echo(f"V2 Yahoo snapshot failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "usage_level": "RESEARCH_ADJUSTED_ONLY",
+                "report_path": str(report_path),
+                "symbols": [item.manifest.symbol for item in report.symbol_snapshots],
+                "common_dates": len(report.common_trading_dates),
+                "anomalies": [item.__dict__ for item in report.anomalies],
+            },
+            default=str,
+            sort_keys=True,
+        )
+    )
+    if report.anomalies:
+        raise typer.Exit(code=1)
+
+
+@v2_strategy_app.command("dual-momentum")
+def build_v2_dual_momentum(
+    yahoo_report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/strategies/dual_momentum_12_1_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/strategies"),
+) -> None:
+    """Build research-only V2-A adjusted-price signals; no execution or performance occurs."""
+    external_root = _v2_external_root(Path("data/external"))
+    if not yahoo_report.resolve().is_relative_to(external_root.resolve()):
+        raise typer.BadParameter("Yahoo report is outside the V2 external-data authority")
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("status") != "frozen_research_signal_only":
+        raise typer.BadParameter("V2-A configuration is not the frozen research-only contract")
+    try:
+        snapshot = load_yahoo_universe_report(yahoo_report)
+        report = build_dual_momentum_report(
+            snapshot,
+            dataset_report_sha256=sha256(yahoo_report.read_bytes()).hexdigest(),
+            config_sha256=sha256(config.read_bytes()).hexdigest(),
+        )
+        path = persist_dual_momentum_report(report, _v2_artifact_root(artifact_root))
+    except ValueError as error:
+        typer.echo(f"V2 dual-momentum signal build failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report_path": str(path),
+                "status": report.status,
+                "usage_level": report.usage_level,
+                "signals": len(report.signals),
+                "forbidden": ["execution", "backtest", "paper_broker", "performance"],
+            },
+            sort_keys=True,
+        )
+    )
+
+
+@v2_external_app.command("qualify")
+def qualify_v2_external_market(
+    config: Annotated[Path, typer.Option(exists=True, readable=True)],
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/external"),
+) -> None:
+    """Write a blocked-or-qualified V2-010 report without a provider fetch or backtest."""
+    expected_root = (REPOSITORY_ROOT / "configs" / "v2" / "external").resolve()
+    if not config.resolve().is_relative_to(expected_root):
+        raise typer.BadParameter("V2 external configuration must be below configs/v2/external")
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise typer.BadParameter("V2 external configuration must be a mapping")
+    try:
+        report = qualify_external_market(
+            dataset_id=str(payload["dataset_id"]),
+            market=str(payload["market"]),
+            currency=str(payload["currency"]),
+            source_approval=str(payload["source_approval"]),
+        )
+        path = persist_external_qualification(report, _v2_artifact_root(artifact_root))
+    except (KeyError, ValueError) as error:
+        typer.echo(f"V2 external qualification failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps({"report_path": str(path), "status": report.status}, sort_keys=True))
+    if report.status != "QUALIFIED":
+        raise typer.Exit(code=1)
+
+
+@v2_paper_app.command("initialize")
+def initialize_v2_paper(
+    champion_registry: Annotated[Path, typer.Option(exists=True, readable=True)],
+    candidate_id: Annotated[str, typer.Option()],
+    currency: Annotated[str, typer.Option()],
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/paper"),
+) -> None:
+    """Create one isolated V2 Champion ledger; non-Champions are rejected before any write."""
+    try:
+        registry = load_champion_registry(champion_registry)
+        account = initialize_v2_paper_account(
+            registry,
+            candidate_id=candidate_id,
+            currency=currency,
+            artifact_root=_v2_artifact_root(artifact_root),
+        )
+    except ValueError as error:
+        typer.echo(f"V2 paper initialization failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "candidate_id": account.candidate_id,
+                "currency": account.currency,
+                "ledger": str(account.database_path),
+            },
+            sort_keys=True,
+        )
+    )
+
+
+@v2_baseline_app.command("precommit")
+def precommit_v2_baseline(
+    qlib_report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    pit_report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/models/qlib_baseline_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/baseline_precommits"),
+) -> None:
+    """Freeze V2-004 only after import and PIT qualification reports have both passed."""
+    qlib_root = _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    pit_root = _v2_artifact_root(Path("artifacts/v2/pit_qualification"))
+    imported = _verified_qlib_report(qlib_report, qlib_root)
+    qualified_pit = load_pit_qualification(pit_report)
+    expected_pit = pit_root / "csi300" / f"{qualified_pit.identity_sha256}.json"
+    if pit_report.resolve() != expected_pit.resolve():
+        raise typer.BadParameter("PIT report is outside its content-addressed authority")
+    config_payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if not isinstance(config_payload, dict) or (
+        config_payload.get("models") != ["linear", "lightgbm", "xgboost"]
+        or config_payload.get("tracks") != ["qlib_compat", "project_20_session"]
+        or config_payload.get("seeds") != list(range(20))
+        or config_payload.get("execution_delay_sessions") != 1
+        or config_payload.get("project_horizon_sessions") != 20
+        or config_payload.get("purge_sessions") != 20
+        or config_payload.get("embargo_sessions") != 20
+    ):
+        raise typer.BadParameter("V2 baseline configuration differs from the frozen contract")
+    if (
+        imported.status != "IMPORT_READY"
+        or imported.factor_reconstruction_status != "VERIFIED_FACTOR_SEMANTICS"
+        or qualified_pit.status != "QUALIFIED"
+        or qualified_pit.unexplained_sessions
+        or qualified_pit.source_import_report_sha256 != imported.identity_sha256
+    ):
+        typer.echo(
+            "V2 baseline precommit requires IMPORT_READY and QUALIFIED PIT evidence", err=True
+        )
+        raise typer.Exit(code=1)
+    try:
+        if subprocess.check_output(
+            ["git", "status", "--porcelain", "--untracked-files=no"], text=True, cwd=Path.cwd()
+        ):
+            raise ValueError("baseline precommit requires a clean tracked worktree")
+        code_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True, cwd=Path.cwd()
+        ).strip()
+        path, precommit = create_baseline_precommit(
+            _v2_artifact_root(artifact_root),
+            dataset_snapshot_sha256=imported.identity_sha256,
+            pit_universe_sha256=sha256(pit_report.read_bytes()).hexdigest(),
+            code_commit=code_commit,
+            config_sha256=sha256(config.read_bytes()).hexdigest(),
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 baseline precommit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps({"precommit_path": str(path), "precommit_id": precommit.identity_sha256}))
 
 
 @data_app.command("validate")

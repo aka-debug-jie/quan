@@ -1,0 +1,7 @@
+schema_version: 1
+dataset_id: global_etf_usd_external_v1
+market: GLOBAL_ETF_USD
+currency: USD
+source_approval: PENDING_SOURCE_APPROVAL
+required_evidence: [raw_ohlc, calendar, corporate_actions, pit_membership, cost_model, reproducibility]
+forbidden_uses: [network_capture, execution, live_order, currency_mixing, adjusted_price_execution]

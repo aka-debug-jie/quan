@@ -1,0 +1,11 @@
+schema_version: 1
+strategy_family: v2_c_residual_alpha
+status: blocked_pending_v2_b_and_models
+baseline_strategy: v2_b_deterministic_factor
+label: residual_to_deterministic_prediction
+execution_delay_sessions: 1
+project_horizon_sessions: 20
+purge_sessions: 20
+embargo_sessions: 20
+primary_test: positive_cost_adjusted_net_return_increment
+required_gates: [v2_007_complete, v2_008_external_replication]

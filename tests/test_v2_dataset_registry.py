@@ -7,6 +7,7 @@ from hashlib import sha256
 from pathlib import Path
 
 import pytest
+import typer
 import yaml
 from pydantic import ValidationError
 from typer.testing import CliRunner
@@ -83,6 +84,14 @@ def test_checked_in_registries_load_without_network() -> None:
     )
     assert len(records) == 5
     assert all("live_order" in record.forbidden_uses for record in records)
+
+
+def test_v2_cli_roots_cannot_be_nested_inside_v1_authorities(tmp_path: Path) -> None:
+    assert cli._v2_external_root(ROOT / "data" / "external") == (ROOT / "data" / "external")
+    with pytest.raises(typer.BadParameter, match="repository or sealed"):
+        cli._v2_external_root(tmp_path / "data" / "raw" / "data" / "external")
+    with pytest.raises(typer.BadParameter, match="repository or sealed"):
+        cli._v2_artifact_root(tmp_path / "artifacts" / "data_qualification" / "v2")
 
 
 @pytest.mark.parametrize("field", ["source_commit", "source_release"])

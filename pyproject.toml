@@ -32,6 +32,11 @@ dev = [
   "ruff>=0.6,<1",
   "types-PyYAML>=6.0,<7",
 ]
+v2 = [
+  "lightgbm==4.5.0",
+  "pyqlib==0.9.7",
+  "xgboost==2.1.4",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quant_stack", "src/quant_stack_v2"]

@@ -214,6 +214,8 @@ class DatasetValidation(_StrictModel):
 
 
 Fetcher = Callable[[str], bytes]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+SEALED_EXTERNAL_ROOT = Path("/srv/quant-v2/sealed_holdout/data/external")
 
 
 def load_dataset_registry(path: Path) -> DatasetRegistry:
@@ -420,9 +422,12 @@ def _manifest_binding_reasons(registry: DatasetRegistry, content: bytes) -> list
 def _require_v2_data_root(path: Path) -> None:
     """Prevent V2 capture and validation from being redirected into V1 authorities."""
     resolved = path.resolve()
-    if (
-        resolved.name != "external"
-        or resolved.parent.name != "data"
-        or any(part in {"artifacts", "issue009", "locked_runs"} for part in resolved.parts)
-    ):
+    repository_data = REPOSITORY_ROOT / "data"
+    if resolved.is_relative_to(repository_data) and resolved != repository_data / "external":
+        raise DatasetRegistryError("V2 dataset root must not be nested in a V1 data namespace")
+    if resolved.is_relative_to(REPOSITORY_ROOT) and resolved != repository_data / "external":
+        raise DatasetRegistryError("V2 dataset root must be the repository data/external root")
+    if resolved == SEALED_EXTERNAL_ROOT:
+        return
+    if resolved.name != "external" or resolved.parent.name != "data":
         raise DatasetRegistryError("V2 dataset root must end with data/external")

@@ -1,0 +1,16 @@
+schema_version: 1
+provider: yahoo_chart_v8
+usage_level: RESEARCH_ADJUSTED_ONLY
+symbols: [MCHI, SPY, EFA, IEF, GLD, DBC, BIL]
+request:
+  interval: 1d
+  period1: 0
+  period2: end_of_explicit_snapshot_date
+  events: div,split
+  includeAdjustedClose: true
+forbidden_uses:
+  - execution
+  - paper_broker
+  - live_order
+  - fresh_holdout_claim
+  - profitability_claim
