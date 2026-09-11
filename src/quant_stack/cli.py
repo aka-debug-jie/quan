@@ -76,6 +76,7 @@ from quant_stack.paper_service import PaperDailyError, initialize_paper_account,
 from quant_stack.research_result import recover_controlled_publication, recover_publication
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
+from quant_stack_v2.baostock_provider import capture_baostock_history
 from quant_stack_v2.baseline import create_baseline_precommit
 from quant_stack_v2.champion import load_champion_registry
 from quant_stack_v2.dataset_registry import (
@@ -134,6 +135,7 @@ v2_baseline_app = typer.Typer(help="Frozen Qlib baseline precommits and sealed e
 v2_external_app = typer.Typer(help="Fail-closed V2 external-history qualification.")
 v2_paper_app = typer.Typer(help="Isolated V2 Champion paper-account commands.")
 v2_tushare_app = typer.Typer(help="Tushare Pro raw-response capture for V2 qualification.")
+v2_baostock_app = typer.Typer(help="Free BaoStock evidence capture for V2 qualification.")
 
 app.add_typer(data_app, name="data")
 app.add_typer(calendar_app, name="calendar")
@@ -149,6 +151,7 @@ v2_app.add_typer(v2_baseline_app, name="baseline")
 v2_app.add_typer(v2_external_app, name="external")
 v2_app.add_typer(v2_paper_app, name="paper")
 v2_app.add_typer(v2_tushare_app, name="tushare")
+v2_app.add_typer(v2_baostock_app, name="baostock")
 
 UniverseOption = Annotated[Path, typer.Option(..., exists=True, readable=True)]
 RequiredDateOption = Annotated[str, typer.Option(...)]
@@ -410,6 +413,82 @@ def capture_v2_tushare(
         typer.echo(f"V2 Tushare capture failed: {error}", err=True)
         raise typer.Exit(code=1) from error
     typer.echo(json.dumps({"manifest_path": str(path), "status": manifest.status}, sort_keys=True))
+
+
+@v2_baostock_app.command("capture")
+def capture_v2_baostock(
+    symbol: Annotated[str, typer.Option()],
+    start: Annotated[str, typer.Option()],
+    end: Annotated[str, typer.Option()],
+    data_root: Annotated[Path, typer.Option()] = SEALED_EXTERNAL_ROOT,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture one BaoStock raw daily/status series with no paid credential."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for BaoStock capture")
+    try:
+        path, manifest, _ = capture_baostock_history(
+            _v2_external_root(data_root),
+            symbol=symbol,
+            start_date=date.fromisoformat(start),
+            end_date=date.fromisoformat(end),
+            allow_network=True,
+        )
+    except (OSError, ValueError) as error:
+        typer.echo(f"V2 BaoStock capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "manifest_path": str(path),
+                "manifest_sha256": manifest.identity_sha256,
+                "row_count": manifest.row_count,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+@v2_baostock_app.command("capture-audit")
+def capture_v2_baostock_audit(
+    audit: Annotated[Path, typer.Option(exists=True, readable=True)],
+    data_root: Annotated[Path, typer.Option()] = SEALED_EXTERNAL_ROOT,
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Capture one full BaoStock raw series for every symbol in a Qlib audit."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for BaoStock capture")
+    try:
+        payload = json.loads(audit.read_text(encoding="utf-8"))
+        issues = payload["issues"]
+        start = date.fromisoformat(str(payload["research_effective_from"]))
+        end = date.fromisoformat(str(payload["research_effective_to"]))
+        symbols = sorted({str(item["symbol"]) for item in issues if item["symbol"]})
+        if not symbols:
+            raise ValueError("Qlib audit contains no missing symbols")
+        manifests: list[str] = []
+        for symbol in symbols:
+            _, manifest, _ = capture_baostock_history(
+                _v2_external_root(data_root),
+                symbol=symbol,
+                start_date=start,
+                end_date=end,
+                allow_network=True,
+            )
+            manifests.append(manifest.identity_sha256)
+    except (KeyError, OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+        typer.echo(f"V2 BaoStock audit capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "audit_sha256": sha256(audit.read_bytes()).hexdigest(),
+                "captured_symbols": len(symbols),
+                "manifest_sha256s": manifests,
+            },
+            sort_keys=True,
+        )
+    )
 
 
 @v2_qlib_app.command("audit-daily")

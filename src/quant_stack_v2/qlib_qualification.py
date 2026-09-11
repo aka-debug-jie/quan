@@ -179,12 +179,15 @@ def _validate_bar(
     symbol: str, session: date, fields: dict[str, dict[date, float]]
 ) -> QlibDailyIssue | None:
     values = {field: fields[field].get(session) for field in REQUIRED_FIELDS}
-    if any(value is None or not math.isfinite(value) for value in values.values()):
+    missing_fields = tuple(
+        field for field, value in values.items() if value is None or not math.isfinite(value)
+    )
+    if missing_fields:
         return QlibDailyIssue(
             symbol,
             session.isoformat(),
             "MISSING_OR_SUSPENDED_UNVERIFIED",
-            "non-finite or absent feature",
+            f"non-finite or absent fields: {','.join(missing_fields)}",
         )
     factor = values["factor"]
     assert factor is not None

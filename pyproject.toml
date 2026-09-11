@@ -37,6 +37,9 @@ v2 = [
   "pyqlib==0.9.7",
   "xgboost==2.1.4",
 ]
+v2-free-data = [
+  "baostock==0.8.9",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quant_stack", "src/quant_stack_v2"]
