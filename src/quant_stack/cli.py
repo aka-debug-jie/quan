@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from datetime import date, datetime
@@ -171,6 +172,17 @@ def _v2_dataset_path(dataset_id: str, registry_root: Path) -> Path:
     return path
 
 
+def _v2_repository_root() -> Path:
+    """Resolve the source repository explicitly when the CLI is installed from a wheel."""
+    configured = os.environ.get("QUANT_V2_REPOSITORY_ROOT")
+    if configured is None:
+        return REPOSITORY_ROOT
+    root = Path(configured).resolve()
+    if not (root / "configs/v2/datasets").is_dir():
+        raise typer.BadParameter("QUANT_V2_REPOSITORY_ROOT lacks configs/v2/datasets")
+    return root
+
+
 def _v2_registry_root(registry_root: Path) -> Path:
     resolved = registry_root.resolve()
     if tuple(resolved.parts[-3:]) != ("configs", "v2", "datasets"):
@@ -201,7 +213,7 @@ def _v2_artifact_root(artifact_root: Path) -> Path:
 def _verified_qlib_report(report_path: Path, artifact_root: Path) -> QlibImportReport:
     """Bind a Qlib report to the pinned V2 registry and its content-addressed location."""
     registry = load_dataset_registry(
-        _v2_dataset_path("qlib_cn_community_v1", REPOSITORY_ROOT / "configs/v2/datasets")
+        _v2_dataset_path("qlib_cn_community_v1", _v2_repository_root() / "configs/v2/datasets")
     )
     if registry.artifacts.archive_sha256 is None or registry.artifacts.manifest_sha256 is None:
         raise typer.BadParameter("Qlib registry lacks immutable artifact identities")
