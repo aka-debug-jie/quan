@@ -161,3 +161,25 @@ def test_pit_qualification_blocks_missing_source_symbol() -> None:
     )
     assert report.status == "BLOCKED_DATA"
     assert report.unexplained_sessions == ("missing_symbol:a",)
+
+
+def test_pit_qualification_retains_missing_symbol_before_frozen_research_range() -> None:
+    universe = build_pit_universe(
+        "csi300",
+        (
+            QlibInstrumentInterval("legacy", date(2005, 1, 1), date(2007, 1, 3)),
+            QlibInstrumentInterval("current", date(2015, 1, 1), date(2020, 1, 2)),
+        ),
+    )
+    report = qualify_pit_universe(
+        universe,
+        (date(2005, 1, 1), date(2015, 1, 1), date(2020, 1, 2)),
+        available_symbols={"current"},
+        source_import_report_sha256="a" * 64,
+        research_effective_from=date(2015, 1, 1),
+        research_effective_to=date(2020, 1, 2),
+    )
+    assert report.status == "QUALIFIED"
+    assert report.unavailable_members == ()
+    assert report.pre_research_unavailable_members == ("legacy",)
+    assert report.sessions_checked == 2

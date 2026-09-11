@@ -339,10 +339,18 @@ def inspect_v2_qlib(
 def qualify_v2_qlib_pit(
     report: Annotated[Path, typer.Option(exists=True, readable=True)],
     universe: Annotated[str, typer.Option()] = "csi300",
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/evaluations/qlib_csi300_csi500_v1.yaml"
+    ),
     artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/pit_qualification"),
 ) -> None:
     """Audit source PIT membership from an immutable Qlib import report."""
-    qlib_root = _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    sealed_qlib_root = SEALED_ARTIFACT_ROOT / "qlib_import"
+    qlib_root = (
+        sealed_qlib_root
+        if report.resolve().is_relative_to(sealed_qlib_root)
+        else _v2_artifact_root(Path("artifacts/v2/qlib_import"))
+    )
     loaded = _verified_qlib_report(report, qlib_root)
     if (
         loaded.status != "IMPORT_READY"
@@ -354,6 +362,11 @@ def qualify_v2_qlib_pit(
     if universe not in {"csi300", "csi500"}:
         raise typer.BadParameter("universe must be csi300 or csi500")
     sessions = tuple(date.fromisoformat(item) for item in loaded.sessions)
+    config_payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if not isinstance(config_payload, dict):
+        raise typer.BadParameter("V2 evaluation configuration must be a mapping")
+    effective_from = date.fromisoformat(str(config_payload["research_effective_from"]))
+    effective_to = date.fromisoformat(str(config_payload["research_snapshot_as_of"]))
     declared = {item.symbol for item in intervals}
     available = declared - set(loaded.missing_price_or_factor_symbols)
     try:
@@ -362,6 +375,8 @@ def qualify_v2_qlib_pit(
             sessions,
             available,
             loaded.identity_sha256,
+            effective_from,
+            effective_to,
         )
         path = persist_pit_qualification(qualification, _v2_artifact_root(artifact_root))
     except ValueError as error:

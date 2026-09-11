@@ -5,7 +5,7 @@
 | V2-000 Research charter | COMPLETE | Charter, dataset and experiment contracts frozen before capture |
 | V2-001 Dataset registry | COMPLETE | Five pinned records, strict model, content-addressed capture and offline CLI |
 | V2-002 Qlib/community import | BLOCKED_SYSTEM_ACCESS | Offline importer and capture command implemented; `/srv` sealed root is not yet administrator-provisioned, so the 565 MB archive has not been captured. Even after capture, Qlib factor files remain insufficient until their reconstruction semantics have archived evidence. |
-| V2-003 PIT membership qualification | BLOCKED_DATA | PIT resolver and audit gate implemented; awaits a verified V2-002 import report. |
+| V2-003 PIT membership qualification | BLOCKED_DATA | Research range is frozen at 2015-01-01 through the 2026-09-10 snapshot before model execution. Historical `sht00018` remains preserved and is classified `pre_research_range`; factor semantics evidence is still required. |
 | V2-004 Qlib Linear/LightGBM baseline | BLOCKED_DATA | Frozen 20-seed precommit and sealed aggregate-result gate implemented; no model has run before V2-003 qualification. The pinned V2 dependency installation also remains incomplete after two PyPI transport timeouts. |
 | V2-005 Global ETF research dataset | CAPTURED_RESEARCH_ADJUSTED_ONLY | Seven Yahoo snapshots share 3,884 daily sessions; report `7d2022ca…` is locally archived. |
 | V2-006 V2-A trend / dual momentum | IMPLEMENTED_RESEARCH_SIGNAL_ONLY | Frozen monthly 12-1 signal contract produced 175 signals from Yahoo report `7d2022ca…`, output `7b5ca5ff…`; it cannot produce an execution backtest or candidate claim. |

@@ -39,7 +39,10 @@ class PITQualificationReport:
 
     universe: str
     source_import_report_sha256: str
+    research_effective_from: str
+    research_effective_to: str
     sessions_checked: int
+    pre_research_unavailable_members: tuple[str, ...]
     empty_membership_sessions: tuple[str, ...]
     unavailable_members: tuple[str, ...]
     unexplained_sessions: tuple[str, ...]
@@ -72,20 +75,42 @@ def qualify_pit_universe(
     sessions: tuple[date, ...],
     available_symbols: set[str],
     source_import_report_sha256: str,
+    research_effective_from: date | None = None,
+    research_effective_to: date | None = None,
 ) -> PITQualificationReport:
     """Reject missing source membership or non-tradable members without synthesizing bars."""
     if not source_import_report_sha256 or len(source_import_report_sha256) != 64:
         raise QlibImportError("qualification requires its source import report identity")
     if not sessions or sessions != tuple(sorted(set(sessions))):
         raise QlibImportError("qualification requires unique ascending trading sessions")
-    empty = tuple(session.isoformat() for session in sessions if not universe.members_on(session))
+    effective_from = research_effective_from or sessions[0]
+    effective_to = research_effective_to or sessions[-1]
+    if effective_from > effective_to:
+        raise QlibImportError("qualification research range is reversed")
+    research_sessions = tuple(
+        session for session in sessions if effective_from <= session <= effective_to
+    )
+    if not research_sessions:
+        raise QlibImportError("qualification research range has no source sessions")
+    empty = tuple(
+        session.isoformat() for session in research_sessions if not universe.members_on(session)
+    )
+    relevant = {
+        item.symbol
+        for item in universe.intervals
+        if item.effective_from <= effective_to and item.effective_to >= effective_from
+    }
     declared = {item.symbol for item in universe.intervals}
-    unavailable = tuple(sorted(declared - available_symbols))
+    unavailable = tuple(sorted(relevant - available_symbols))
+    pre_research_unavailable = tuple(sorted((declared - relevant) - available_symbols))
     unexplained = (*empty, *(f"missing_symbol:{symbol}" for symbol in unavailable))
     return PITQualificationReport(
         universe=universe.name,
         source_import_report_sha256=source_import_report_sha256,
-        sessions_checked=len(sessions),
+        research_effective_from=effective_from.isoformat(),
+        research_effective_to=effective_to.isoformat(),
+        sessions_checked=len(research_sessions),
+        pre_research_unavailable_members=pre_research_unavailable,
         empty_membership_sessions=empty,
         unavailable_members=unavailable,
         unexplained_sessions=unexplained,
@@ -107,7 +132,10 @@ def load_pit_qualification(path: Path) -> PITQualificationReport:
     report = PITQualificationReport(
         universe=str(payload["universe"]),
         source_import_report_sha256=str(payload["source_import_report_sha256"]),
+        research_effective_from=str(payload["research_effective_from"]),
+        research_effective_to=str(payload["research_effective_to"]),
         sessions_checked=int(payload["sessions_checked"]),
+        pre_research_unavailable_members=tuple(payload["pre_research_unavailable_members"]),
         empty_membership_sessions=tuple(payload["empty_membership_sessions"]),
         unavailable_members=tuple(payload["unavailable_members"]),
         unexplained_sessions=tuple(payload["unexplained_sessions"]),

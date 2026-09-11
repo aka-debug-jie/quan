@@ -1,5 +1,8 @@
 schema_version: 1
 status: preregistered_not_executed
+research_effective_from: 2015-01-01
+research_snapshot_as_of: 2026-09-10
+pre_research_missing_policy: retain_and_classify_pre_research_range
 development_universe: csi300
 sealed_external_universe: csi500
 external_result_label: PROJECT_FRESH_EXTERNAL_RETROSPECTIVE
