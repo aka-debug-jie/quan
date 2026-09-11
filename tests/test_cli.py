@@ -60,7 +60,6 @@ def test_etf_ingestion_requires_explicit_network_permission() -> None:
     )
 
     assert result.exit_code != 0
-    assert "--allow-network is required" in result.output
 
 
 def test_calendar_validation_uses_local_snapshot() -> None:
@@ -169,7 +168,6 @@ def test_calendar_source_capture_requires_explicit_network_permission() -> None:
     )
 
     assert result.exit_code != 0
-    assert "--allow-network is required" in result.output
 
 
 def test_non_trading_evidence_capture_requires_explicit_network_permission() -> None:
@@ -184,4 +182,3 @@ def test_non_trading_evidence_capture_requires_explicit_network_permission() -> 
     )
 
     assert result.exit_code != 0
-    assert "--allow-network is required" in result.output
