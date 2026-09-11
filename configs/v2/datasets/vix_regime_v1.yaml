@@ -1,0 +1,24 @@
+schema_version: 1
+dataset_id: vix_regime_v1
+source_repository: datasets/finance-vix
+source_commit: 07b07683964380e746032155af4b49821aad09e6
+source_release: commit-07b07683964380e746032155af4b49821aad09e6
+source_release_kind: commit_snapshot
+retrieved_at_utc: null
+usage_level: RESEARCH_ADJUSTED_ONLY
+qualification_status: METADATA_ONLY
+license:
+  code_license: UNKNOWN
+  market_data_rights_reviewed: false
+  redistribution_permitted: false
+  notes: Use only as a regime label after source and rights review; early OHLC fields are not execution evidence.
+artifacts: {archive_url: null, archive_sha256: null, manifest_url: null, manifest_sha256: null}
+coverage: {market: US, frequency: 1d, first_date: null, last_date: null}
+semantics:
+  price_type: regime_label
+  raw_price_recoverable: false
+  adjustment_definition: VIX observations are regime labels; pre-mid-2004 OHLC must not be treated as tradable bars.
+  historical_membership: true
+  corporate_actions_officially_verified: false
+allowed_uses: [engineering, exploratory_research, regime_label]
+forbidden_uses: [execution, live_order, fresh_holdout_claim, official_execution_price_claim, redistribution]

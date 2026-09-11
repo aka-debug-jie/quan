@@ -34,7 +34,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/quant_stack"]
+packages = ["src/quant_stack", "src/quant_stack_v2"]
 
 [tool.ruff]
 target-version = "py311"
@@ -54,7 +54,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["quant_stack"]
+source = ["quant_stack", "quant_stack_v2"]
 
 [tool.coverage.report]
 show_missing = true

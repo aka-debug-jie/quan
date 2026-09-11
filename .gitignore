@@ -23,3 +23,6 @@ data/reports/**
 
 artifacts/**
 !artifacts/.gitkeep
+
+data/external/**
+external/**

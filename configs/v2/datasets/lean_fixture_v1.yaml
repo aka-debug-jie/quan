@@ -1,0 +1,24 @@
+schema_version: 1
+dataset_id: lean_fixture_v1
+source_repository: QuantConnect/Lean
+source_commit: 8ee075a39918f2df6fe9e0a5944e366fb60d10dc
+source_release: v2.4.0.1
+source_release_kind: github_release
+retrieved_at_utc: null
+usage_level: FIXTURE_ONLY
+qualification_status: METADATA_ONLY
+license:
+  code_license: Apache-2.0
+  market_data_rights_reviewed: false
+  redistribution_permitted: false
+  notes: LEAN is registered as an independent engine/fixture source, not canonical market data.
+artifacts: {archive_url: null, archive_sha256: null, manifest_url: null, manifest_sha256: null}
+coverage: {market: MULTI, frequency: mixed, first_date: null, last_date: null}
+semantics:
+  price_type: engine_fixture
+  raw_price_recoverable: false
+  adjustment_definition: Only explicit LEAN fixtures may be used for engine reconciliation.
+  historical_membership: false
+  corporate_actions_officially_verified: false
+allowed_uses: [engineering, fixture, engine_reconciliation]
+forbidden_uses: [research_return_claim, execution, live_order, fresh_holdout_claim, redistribution]

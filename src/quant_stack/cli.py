@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
@@ -71,6 +72,13 @@ from quant_stack.paper_service import PaperDailyError, initialize_paper_account,
 from quant_stack.research_result import recover_controlled_publication, recover_publication
 from quant_stack.snapshot import create_raw_snapshot
 from quant_stack.validation import load_daily_bars_csv
+from quant_stack_v2.dataset_registry import (
+    DatasetRegistryError,
+    capture_dataset,
+    list_dataset_registries,
+    load_dataset_registry,
+    validate_dataset,
+)
 
 app = typer.Typer(help="Offline-first quantitative research commands.")
 data_app = typer.Typer(help="Validate and snapshot local data.")
@@ -78,18 +86,101 @@ calendar_app = typer.Typer(help="Validate local exchange calendar snapshots.")
 backtest_app = typer.Typer(help="Backtest commands (M0 placeholders).")
 signal_app = typer.Typer(help="Signal commands (M0 placeholders).")
 paper_app = typer.Typer(help="Paper-trading commands (M0 placeholders).")
+v2_app = typer.Typer(help="Isolated Quant V2 research-factory commands.")
+v2_dataset_app = typer.Typer(help="Inspect and capture registered V2 datasets.")
 
 app.add_typer(data_app, name="data")
 app.add_typer(calendar_app, name="calendar")
 app.add_typer(backtest_app, name="backtest")
 app.add_typer(signal_app, name="signal")
 app.add_typer(paper_app, name="paper")
+app.add_typer(v2_app, name="v2")
+v2_app.add_typer(v2_dataset_app, name="dataset")
 
 UniverseOption = Annotated[Path, typer.Option(..., exists=True, readable=True)]
 RequiredDateOption = Annotated[str, typer.Option(...)]
 DataRootOption = Annotated[Path, typer.Option()]
 CalendarRootOption = Annotated[Path, typer.Option(exists=True, readable=True)]
 AllowNetworkOption = Annotated[bool, typer.Option()]
+V2DatasetRootOption = Annotated[Path, typer.Option(exists=True, readable=True)]
+
+
+def _v2_dataset_path(dataset_id: str, registry_root: Path) -> Path:
+    """Resolve one dataset ID only inside the configured registry directory."""
+    resolved_root = _v2_registry_root(registry_root)
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", dataset_id) is None:
+        raise typer.BadParameter("invalid V2 dataset ID")
+    path = resolved_root / f"{dataset_id}.yaml"
+    if not path.is_file():
+        raise typer.BadParameter(f"unknown V2 dataset: {dataset_id}")
+    return path
+
+
+def _v2_registry_root(registry_root: Path) -> Path:
+    resolved = registry_root.resolve()
+    if tuple(resolved.parts[-3:]) != ("configs", "v2", "datasets"):
+        raise typer.BadParameter("V2 registry root must end with configs/v2/datasets")
+    return resolved
+
+
+@v2_dataset_app.command("list")
+def list_v2_datasets(
+    registry_root: V2DatasetRootOption = Path("configs/v2/datasets"),
+) -> None:
+    """List V2 dataset identities and their maximum declared usage levels offline."""
+    try:
+        records = list_dataset_registries(_v2_registry_root(registry_root))
+    except DatasetRegistryError as error:
+        typer.echo(f"V2 dataset registry failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    for record in records:
+        typer.echo(
+            f"{record.dataset_id}\t{record.usage_level.value}\t{record.qualification_status}"
+        )
+
+
+@v2_dataset_app.command("inspect")
+def inspect_v2_dataset(
+    dataset_id: str,
+    registry_root: V2DatasetRootOption = Path("configs/v2/datasets"),
+) -> None:
+    """Print one strict V2 registry without downloading its artifacts."""
+    record = load_dataset_registry(_v2_dataset_path(dataset_id, registry_root))
+    typer.echo(json.dumps(record.model_dump(mode="json"), ensure_ascii=False, sort_keys=True))
+
+
+@v2_dataset_app.command("validate")
+def validate_v2_dataset(
+    dataset_id: str,
+    registry_root: V2DatasetRootOption = Path("configs/v2/datasets"),
+    data_root: DataRootOption = Path("data/external"),
+) -> None:
+    """Validate one captured dataset locally and fail closed while qualification is pending."""
+    result = validate_dataset(_v2_dataset_path(dataset_id, registry_root), data_root)
+    typer.echo(json.dumps(result.model_dump(mode="json"), sort_keys=True))
+    if not result.qualified:
+        raise typer.Exit(code=1)
+
+
+@v2_dataset_app.command("capture")
+def capture_v2_dataset(
+    dataset_id: str,
+    registry_root: V2DatasetRootOption = Path("configs/v2/datasets"),
+    data_root: DataRootOption = Path("data/external"),
+    allow_network: AllowNetworkOption = False,
+) -> None:
+    """Explicitly capture pre-hashed GitHub artifacts without qualifying their semantics."""
+    try:
+        paths = capture_dataset(
+            _v2_dataset_path(dataset_id, registry_root),
+            data_root,
+            allow_network=allow_network,
+        )
+    except DatasetRegistryError as error:
+        typer.echo(f"V2 dataset capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    for path in paths:
+        typer.echo(f"captured: {path}")
 
 
 @data_app.command("validate")

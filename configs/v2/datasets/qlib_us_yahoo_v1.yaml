@@ -1,0 +1,24 @@
+schema_version: 1
+dataset_id: qlib_us_yahoo_v1
+source_repository: microsoft/qlib
+source_commit: 79633dd9506ea689e5400dea0197717b5b3d74b7
+source_release: v0.9.7
+source_release_kind: github_release
+retrieved_at_utc: null
+usage_level: RESEARCH_ADJUSTED_ONLY
+qualification_status: METADATA_ONLY
+license:
+  code_license: MIT
+  market_data_rights_reviewed: false
+  redistribution_permitted: false
+  notes: Qlib code licensing does not grant rights to redistribute Yahoo-derived market data.
+artifacts: {archive_url: null, archive_sha256: null, manifest_url: null, manifest_sha256: null}
+coverage: {market: US, frequency: 1d, first_date: null, last_date: null}
+semantics:
+  price_type: adjusted
+  raw_price_recoverable: true
+  adjustment_definition: Qlib factor semantics require dataset-specific inspection; adjusted prices are not execution prices.
+  historical_membership: false
+  corporate_actions_officially_verified: false
+allowed_uses: [engineering, exploratory_research]
+forbidden_uses: [execution, live_order, fresh_holdout_claim, official_execution_price_claim, redistribution]

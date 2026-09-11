@@ -1,0 +1,31 @@
+schema_version: 1
+dataset_id: qlib_cn_community_v1
+source_repository: chenditc/investment_data
+source_commit: b8c129b4d9b838f050eac8b1135111b3b79fc894
+source_release: "2026-09-10"
+source_release_kind: github_release
+retrieved_at_utc: null
+usage_level: BACKTEST_RESEARCH
+qualification_status: PENDING_CAPTURE_AND_INSPECTION
+license:
+  code_license: Apache-2.0
+  market_data_rights_reviewed: false
+  redistribution_permitted: false
+  notes: Repository code license does not establish redistribution rights for included market data.
+artifacts:
+  archive_url: https://github.com/chenditc/investment_data/releases/download/2026-09-10/qlib_bin.tar.gz
+  archive_sha256: eccf69b778f7147502add9f975115c8f057a04b20b073122d9cad12f31889a7e
+  manifest_url: https://github.com/chenditc/investment_data/releases/download/2026-09-10/qlib_bin.manifest.json
+  manifest_sha256: bf82990791cdd8b0939ded6af41b9ac3d2cf40192ccf8e0693dfbd9b3955fe2e
+  manifest_bindings:
+    release_tag: "2026-09-10"
+    investment_data_commit: b8c129b4d9b838f050eac8b1135111b3b79fc894
+coverage: {market: CN, frequency: 1d, first_date: null, last_date: null}
+semantics:
+  price_type: adjusted
+  raw_price_recoverable: true
+  adjustment_definition: Must be inspected from the captured Qlib factor and release manifest before use.
+  historical_membership: true
+  corporate_actions_officially_verified: false
+allowed_uses: [engineering, exploratory_research, external_retrospective_test]
+forbidden_uses: [execution, live_order, fresh_holdout_claim, official_execution_price_claim, redistribution]
