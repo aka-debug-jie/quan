@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import socket
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
@@ -173,27 +174,40 @@ def _live_query(
         import baostock as bs  # type: ignore[import-not-found]
     except ImportError as error:
         raise ValueError("BaoStock package is not installed") from error
-    for attempt in range(3):
-        login = bs.login()
-        if login.error_code == "0":
+    previous_timeout = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(30.0)
+    last_error: OSError | None = None
+    try:
+        for attempt in range(3):
+            logged_in = False
             try:
-                result = bs.query_history_k_data_plus(
-                    code,
-                    fields,
-                    start_date=start,
-                    end_date=end,
-                    frequency=frequency,
-                    adjustflag=adjustflag,
-                )
-                rows: list[list[str]] = []
-                while result.error_code == "0" and result.next():
-                    rows.append(result.get_row_data())
-                return result.error_code, rows
+                login = bs.login()
+                if login.error_code != "0":
+                    last_error = OSError(f"BaoStock login failed: {login.error_code}")
+                else:
+                    logged_in = True
+                    result = bs.query_history_k_data_plus(
+                        code,
+                        fields,
+                        start_date=start,
+                        end_date=end,
+                        frequency=frequency,
+                        adjustflag=adjustflag,
+                    )
+                    rows: list[list[str]] = []
+                    while result.error_code == "0" and result.next():
+                        rows.append(result.get_row_data())
+                    return result.error_code, rows
+            except (OSError, TimeoutError) as error:
+                last_error = OSError(str(error))
             finally:
-                bs.logout()
-        if attempt < 2:
-            time.sleep(0.2 * (attempt + 1))
-    return login.error_code, ()
+                if logged_in:
+                    bs.logout()
+            if attempt < 2:
+                time.sleep(0.2 * (attempt + 1))
+    finally:
+        socket.setdefaulttimeout(previous_timeout)
+    raise ValueError("BaoStock failed after three bounded attempts") from last_error
 
 
 def _json(value: object) -> bytes:
