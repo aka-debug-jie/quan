@@ -115,9 +115,26 @@ def setup_controlled_repository(root: Path) -> tuple[LockedTestPrecommit, Path]:
         destination.write_bytes((REPOSITORY / relative).read_bytes())
     old = root / "artifacts/issue009/locked_runs" / locked_test.V2_PRECOMMIT_ID
     old.mkdir(parents=True)
-    original_old = REPOSITORY / "artifacts/issue009/locked_runs" / locked_test.V2_PRECOMMIT_ID
-    for name in ("attempt.json", "failure.json"):
-        (old / name).write_bytes((original_old / name).read_bytes())
+    attempt = (
+        b'{"code_commit":"10275b30e82f9d3b394e4ffc2de1c5138dc31965",'
+        b'"data_snapshot_id":"6f33e58c7681a3444d05933d7605672a22940ca5a5039b748d962c419fea4750",'
+        b'"precommit_id":"d1c3c371864885134f4a733cebdc09b0fedcd2ca69ad7a8a9c1898c4374fe7c6",'
+        b'"status":"STARTED"}\n'
+    )
+    failure = (
+        b'{"attempt_status":"FAILED","code_commit":"10275b30e82f9d3b394e4ffc2de1c5138dc31965",'
+        b'"data_snapshot_id":"6f33e58c7681a3444d05933d7605672a22940ca5a5039b748d962c419fea4750",'
+        b'"error_message":"Object of type date is not JSON serializable","error_type":"TypeError",'
+        b'"execution_commit":"a9b96c01ddf713e2860c175f674aae2bf2f93453",'
+        b'"failure_stage":"experiment_registry_serialization","locked_data_accessed":true,'
+        b'"metrics_persisted":false,"outcome":"INVALID_RESEARCH_RESULT",'
+        b'"precommit_id":"d1c3c371864885134f4a733cebdc09b0fedcd2ca69ad7a8a9c1898c4374fe7c6",'
+        b'"rerun_permitted":false}\n'
+    )
+    assert sha256(attempt).hexdigest() == locked_test.V2_ATTEMPT_SHA256
+    assert sha256(failure).hexdigest() == locked_test.V2_FAILURE_SHA256
+    (old / "attempt.json").write_bytes(attempt)
+    (old / "failure.json").write_bytes(failure)
     authorization = root / locked_test.V3_AUTHORIZATION_PATH
     authorization.parent.mkdir(parents=True, exist_ok=True)
     authorization.write_bytes(canonical_json(precommit.as_dict()))
