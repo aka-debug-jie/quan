@@ -1,5 +1,15 @@
 # Delivery Progress
 
+## Current authoritative status
+
+Issues 001–011 are accepted. Issue 012 is a release candidate pending explicit
+timer enablement and the planned 15-day operations observation. RC-01 fixes the
+paper month-end calendar gate, record-date dividend entitlement and receivable
+accounting, actual-generation/backfill metadata, install-versus-enable separation,
+and CI coverage for `codex/**` and `issue/**` pushes. Issue 009 remains
+`PASS_CONTROLLED_RECOVERY` with `NO_EVIDENCE_OF_EDGE`; no strategy parameter or
+locked-test evidence changed.
+
 ## V3 controlled-recovery result
 
 Authorization `f44f878b...` executed once under code `d865221` and authorization

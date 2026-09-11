@@ -22,6 +22,14 @@ prevents fills and new orders for that run.
 
 The optional user-level systemd timer runs at 16:20 Asia/Shanghai on weekdays,
 is persistent across missed timer activations and writes journal plus desktop
-notifications on failure. Install it only after reviewing
-`systemd/paper.env.example`; the environment file explicitly enables automatic
-network data retrieval.
+notifications on failure. Preview and install do not enable the timer. The
+separate enable script requires `ALLOW_NETWORK=1` in the reviewed environment
+file before it calls `systemctl --user enable --now`.
+
+Monthly strategy and benchmark targets are created only when the verified local
+calendar says the next common session is in a new month. Catch-up runs retain
+their actual UTC generation time and an explicit historical-backfill flag.
+
+Dividend entitlements use the post-fill record-date close holdings. Receivables
+enter NAV at entitlement creation and move to cash on the verified payment date
+without changing NAV solely because of settlement.

@@ -93,7 +93,7 @@ def test_dividend_record_payment_and_split_rebuild_exact_state(tmp_path: Path) -
         record=date(2026, 1, 6),
         payment=date(2026, 1, 7),
     )
-    broker.run_daily(
+    record = broker.run_daily(
         "record",
         date(2026, 1, 6),
         {"ETF": Decimal("10")},
@@ -103,7 +103,7 @@ def test_dividend_record_payment_and_split_rebuild_exact_state(tmp_path: Path) -
     )
     paid = broker.run_daily(
         "payment",
-        date(2026, 1, 7),
+        date(2026, 1, 8),
         {"ETF": Decimal("10")},
         {"ETF": Decimal("10")},
         "e" * 64,
@@ -111,18 +111,21 @@ def test_dividend_record_payment_and_split_rebuild_exact_state(tmp_path: Path) -
     )
     split = _action(
         CorporateActionKind.SHARE_SPLIT,
-        effective=date(2026, 1, 8),
+        effective=date(2026, 1, 9),
         ratio=Decimal("2"),
     )
     final = broker.run_daily(
         "split",
-        date(2026, 1, 8),
+        date(2026, 1, 9),
         {"ETF": Decimal("5")},
         {"ETF": Decimal("5")},
         "f" * 64,
         {"ETF": (split,)},
     )
 
+    assert record.receivable_dividends == Decimal("25.00")
+    assert paid.receivable_dividends == Decimal("0")
+    assert paid.net_asset_value == record.net_asset_value
     assert paid.cash > Decimal("99000")
     assert final.positions == {"ETF": Decimal("200")}
     assert broker.reconcile().snapshot == final
@@ -168,3 +171,57 @@ def test_unaffordable_order_is_recorded_as_rejection(tmp_path: Path) -> None:
     )
     assert broker.rejections()[0].reason == "insufficient_cash"
     assert len(broker.fills()) == 1
+
+
+def test_record_date_entitlement_uses_post_fill_close_holdings(tmp_path: Path) -> None:
+    dividend = _action(
+        CorporateActionKind.CASH_DISTRIBUTION,
+        effective=date(2026, 1, 5),
+        cash=Decimal("0.25"),
+        record=date(2026, 1, 5),
+        payment=date(2026, 1, 6),
+    )
+    buyer = _broker(tmp_path / "buyer")
+    buyer.initialize()
+    buyer.place_order(_order())
+    bought = buyer.run_daily(
+        "record-buy",
+        date(2026, 1, 5),
+        {"ETF": Decimal("10")},
+        {"ETF": Decimal("10")},
+        "b" * 64,
+        {"ETF": (dividend,)},
+    )
+    assert bought.receivable_dividends == Decimal("25.00")
+
+    seller = _broker(tmp_path / "seller")
+    seller.initialize()
+    seller.place_order(_order())
+    seller.run_daily(
+        "buy-before", date(2026, 1, 5), {"ETF": Decimal("10")}, {"ETF": Decimal("10")}, "c" * 64
+    )
+    seller.place_order(
+        PaperOrder(
+            "sell-record", "ETF", Side.SELL, Decimal("100"), date(2026, 1, 5), date(2026, 1, 6)
+        )
+    )
+    sold = seller.run_daily(
+        "record-sell",
+        date(2026, 1, 6),
+        {"ETF": Decimal("10")},
+        {"ETF": Decimal("10")},
+        "d" * 64,
+        {
+            "ETF": (
+                _action(
+                    CorporateActionKind.CASH_DISTRIBUTION,
+                    effective=date(2026, 1, 6),
+                    cash=Decimal("0.25"),
+                    record=date(2026, 1, 6),
+                    payment=date(2026, 1, 7),
+                ),
+            )
+        },
+    )
+    assert sold.positions["ETF"] == Decimal("0")
+    assert sold.receivable_dividends == Decimal("0")

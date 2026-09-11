@@ -6,7 +6,7 @@ import fcntl
 import json
 import subprocess
 from dataclasses import asdict
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
@@ -77,6 +77,8 @@ def run_paper_daily(
     trading_date: date,
     *,
     allow_network: bool,
+    generated_at: datetime | None = None,
+    is_backfill: bool = False,
 ) -> Path:
     """Refresh approved raw sources, process one paper date, and write an offline report."""
     lock_path = artifact_root / "paper-daily.lock"
@@ -93,6 +95,8 @@ def run_paper_daily(
                 artifact_root,
                 trading_date,
                 allow_network=allow_network,
+                generated_at=generated_at or datetime.now(UTC),
+                is_backfill=is_backfill,
             )
         except Exception as error:
             content = (
@@ -121,22 +125,29 @@ def run_paper_catchup(
 ) -> tuple[Path, ...]:
     """Process every common confirmed session after the last completed paper snapshot."""
     environment = load_paper_environment(environment_path)
-    broker = initialize_paper_account(environment_path, artifact_root)
-    history = broker.snapshots()
+    initialize_paper_account(environment_path, artifact_root)
     universe = _universe(Path(str(environment["universe"])))
     calendar = ExchangeCalendarStore(Path(str(environment["calendar_root"])))
-    start = history[-1].as_of_date if history else as_of
+    completed = _completed_dates(artifact_root, str(environment["account_id"]))
+    start = max(completed) if completed else as_of
     dates = [
         session
         for session in calendar.sessions_between(universe[0].exchange, start, as_of)
-        if (not history or session > start)
+        if (not completed or session > start)
         and all(calendar.is_session(item.exchange, session) for item in universe)
     ]
-    if not history and calendar.is_session(universe[0].exchange, as_of):
+    if not completed and calendar.is_session(universe[0].exchange, as_of):
         dates = [as_of]
+    generated_at = datetime.now(UTC)
     return tuple(
         run_paper_daily(
-            environment_path, data_root, artifact_root, session, allow_network=allow_network
+            environment_path,
+            data_root,
+            artifact_root,
+            session,
+            allow_network=allow_network,
+            generated_at=generated_at,
+            is_backfill=session < as_of,
         )
         for session in dates
     )
@@ -149,6 +160,8 @@ def _run_paper_daily_locked(
     trading_date: date,
     *,
     allow_network: bool,
+    generated_at: datetime,
+    is_backfill: bool,
 ) -> Path:
     """Execute the locked daily workflow after the process-level exclusion gate."""
     environment = load_paper_environment(environment_path)
@@ -217,6 +230,8 @@ def _run_paper_daily_locked(
         closes,
         source_id,
         actions,
+        generated_at=generated_at,
+        is_backfill=is_backfill,
     )
     benchmark_snapshot = benchmark.run_daily(
         _run_id(account, "benchmark", trading_date, source_id),
@@ -225,10 +240,15 @@ def _run_paper_daily_locked(
         closes,
         source_id,
         actions,
+        generated_at=generated_at,
+        is_backfill=is_backfill,
     )
     next_session = _next_session(calendar, universe, trading_date)
-    _place_strategy_orders(strategy, causal, closes, strategy_snapshot, trading_date, next_session)
-    _place_benchmark_orders(benchmark, closes, benchmark_snapshot, trading_date, next_session)
+    if next_session.month != trading_date.month:
+        _place_strategy_orders(
+            strategy, causal, closes, strategy_snapshot, trading_date, next_session
+        )
+        _place_benchmark_orders(benchmark, closes, benchmark_snapshot, trading_date, next_session)
     report = _report_payload(
         account,
         trading_date,
@@ -247,7 +267,27 @@ def _run_paper_daily_locked(
         / "reports"
         / f"{_run_id(account, 'report', trading_date, source_id)}.html"
     )
-    return write_paper_report(report, report_path)
+    written = write_paper_report(report, report_path)
+    receipt = {
+        "schema_version": "1.0.0",
+        "account_id": account,
+        "trading_date": trading_date.isoformat(),
+        "generated_at": strategy_snapshot.generated_at.isoformat()
+        if strategy_snapshot.generated_at
+        else None,
+        "is_backfill": strategy_snapshot.is_backfill,
+        "strategy_run_id": strategy_snapshot.run_id,
+        "benchmark_run_id": benchmark_snapshot.run_id,
+        "strategy_ledger_head": strategy.reconcile().head_hash,
+        "benchmark_ledger_head": benchmark.reconcile().head_hash,
+        "report_sha256": sha256(written.read_bytes()).hexdigest(),
+        "source_manifest_id": source_id,
+    }
+    write_immutable(
+        artifact_root / account / "completed" / f"{trading_date.isoformat()}.json",
+        json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode() + b"\n",
+    )
+    return written
 
 
 def _refresh_primary_raw(
@@ -380,7 +420,12 @@ def _report_payload(
         "run_id": strategy_snapshot.run_id,
         "account_id": account,
         "trading_date": trading_date.isoformat(),
+        "generated_at": strategy_snapshot.generated_at.isoformat()
+        if strategy_snapshot.generated_at
+        else None,
+        "is_backfill": strategy_snapshot.is_backfill,
         "cash": str(strategy_snapshot.cash),
+        "receivable_dividends": str(strategy_snapshot.receivable_dividends),
         "cumulative_fees": str(strategy_snapshot.cumulative_fees),
         "strategy": {"nav": str(strategy_snapshot.net_asset_value)},
         "benchmark": {"nav": str(benchmark_snapshot.net_asset_value)},
@@ -469,3 +514,9 @@ def _next_session(
     if len(set(sessions)) != 1:
         raise PaperDailyError("paper universe does not share one next session")
     return sessions[0]
+
+
+def _completed_dates(artifact_root: Path, account_id: str) -> set[date]:
+    """Return only dates with a complete account-level strategy/benchmark/report receipt."""
+    completed = artifact_root / account_id / "completed"
+    return {date.fromisoformat(path.stem) for path in completed.glob("*.json") if path.is_file()}

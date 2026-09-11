@@ -15,3 +15,11 @@ def test_service_uses_failure_handler_and_explicit_network_wrapper() -> None:
     assert "OnFailure=quant-paper-failure@%n.service" in service
     assert "--allow-network" in wrapper
     assert 'ALLOW_NETWORK" != "1"' in wrapper
+
+
+def test_install_and_enable_are_separate_actions() -> None:
+    install = (ROOT / "scripts/install_paper_systemd_user.sh").read_text(encoding="utf-8")
+    enable = (ROOT / "scripts/enable_paper_systemd_user.sh").read_text(encoding="utf-8")
+    assert "--preview" in install
+    assert "enable --now" not in install
+    assert "enable --now quant-paper.timer" in enable

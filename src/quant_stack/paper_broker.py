@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from collections.abc import Iterable, Mapping
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -89,6 +89,9 @@ class PaperBroker:
         manifest_id: str,
         corporate_actions: Mapping[str, Iterable[CorporateActionEvent]]
         | Iterable[CorporateActionEvent] = (),
+        *,
+        generated_at: datetime | None = None,
+        is_backfill: bool = False,
     ) -> PaperSnapshot:
         """Apply actions, fill eligible orders at raw opens, and write raw-close NAV once."""
         if not run_id or not manifest_id:
@@ -119,12 +122,22 @@ class PaperBroker:
                 (run_id, trading_date.isoformat()),
             )
             state = self._rebuild(connection)
-            self._apply_actions(connection, trading_date, actions, state.positions)
+            self._apply_actions(connection, trading_date, actions, state.positions, "pre_open")
             state = self._rebuild(connection)
             self._fill_orders(connection, trading_date, raw_opens, manifest_id, state)
             state = self._rebuild(connection)
+            self._apply_actions(connection, trading_date, actions, state.positions, "record_close")
+            self._apply_actions(connection, trading_date, actions, state.positions, "payment_close")
+            state = self._rebuild(connection)
             snapshot = self._append_snapshot(
-                connection, run_id, trading_date, raw_closes, manifest_id, state
+                connection,
+                run_id,
+                trading_date,
+                raw_closes,
+                manifest_id,
+                state,
+                generated_at or datetime.now(UTC),
+                is_backfill,
             )
             encoded = json.dumps(_snapshot_payload(snapshot), sort_keys=True, separators=(",", ":"))
             connection.execute(
@@ -264,6 +277,7 @@ class PaperBroker:
         trading_date: date,
         actions: Mapping[str, Iterable[CorporateActionEvent]] | tuple[CorporateActionEvent, ...],
         positions: Mapping[str, Decimal],
+        phase: str,
     ) -> None:
         if isinstance(actions, Mapping):
             action_pairs = tuple(
@@ -278,7 +292,8 @@ class PaperBroker:
         for symbol, action in action_pairs:
             action_id = self._action_id(action)
             if (
-                action.kind is CorporateActionKind.SHARE_SPLIT
+                phase == "pre_open"
+                and action.kind is CorporateActionKind.SHARE_SPLIT
                 and action.effective_date == trading_date
             ):
                 self._append_event(
@@ -292,8 +307,14 @@ class PaperBroker:
                     },
                 )
             if action.kind is CorporateActionKind.CASH_DISTRIBUTION:
-                record_date = action.record_date or action.effective_date
-                if record_date == trading_date:
+                if (
+                    action.record_date is None
+                    and action.effective_date == trading_date
+                    and positions.get(symbol, Decimal("0")) > 0
+                ):
+                    raise PaperLedgerError("cash distribution for held position lacks record_date")
+                record_date = action.record_date
+                if phase == "record_close" and record_date == trading_date:
                     quantity = positions.get(symbol, Decimal("0"))
                     if quantity > 0:
                         if action.payment_date is None:
@@ -312,12 +333,16 @@ class PaperBroker:
                                 "payment_date": action.payment_date.isoformat(),
                             },
                         )
-                if action.payment_date == trading_date:
+                if (
+                    phase == "payment_close"
+                    and action.payment_date is not None
+                    and action.payment_date <= trading_date
+                ):
                     for row in connection.execute(
                         "SELECT event_id, payload FROM events WHERE event_type = 'entitlement'"
                     ):
                         entitlement = json.loads(row[1])
-                        if entitlement["payment_date"] == trading_date.isoformat():
+                        if date.fromisoformat(entitlement["payment_date"]) <= trading_date:
                             self._append_event(
                                 connection,
                                 f"{row[0]}:payment",
@@ -467,15 +492,29 @@ class PaperBroker:
         raw_closes: Mapping[str, Decimal],
         manifest_id: str,
         state: PaperSnapshot,
+        generated_at: datetime,
+        is_backfill: bool,
     ) -> PaperSnapshot:
         if set(state.positions) - set(raw_closes):
             raise PaperLedgerError("raw close missing for a held position")
-        nav = state.cash + sum(
-            (quantity * raw_closes[symbol] for symbol, quantity in state.positions.items()),
-            Decimal("0"),
+        nav = (
+            state.cash
+            + state.receivable_dividends
+            + sum(
+                (quantity * raw_closes[symbol] for symbol, quantity in state.positions.items()),
+                Decimal("0"),
+            )
         )
         snapshot = PaperSnapshot(
-            trading_date, state.cash, dict(state.positions), nav, state.cumulative_fees, run_id
+            trading_date,
+            state.cash,
+            dict(state.positions),
+            nav,
+            state.cumulative_fees,
+            run_id,
+            state.receivable_dividends,
+            generated_at.astimezone(UTC),
+            is_backfill,
         )
         self._append_event(
             connection,
@@ -494,6 +533,7 @@ class PaperBroker:
         cash = Decimal("0")
         positions: dict[str, Decimal] = {}
         fees = Decimal("0")
+        receivable = Decimal("0")
         last: PaperSnapshot | None = None
         previous = _GENESIS_HASH
         for (
@@ -537,36 +577,59 @@ class PaperBroker:
                 positions[payload["symbol"]] = positions.get(
                     payload["symbol"], Decimal("0")
                 ) * Decimal(payload["ratio"])
+            elif event_type == "entitlement":
+                receivable += Decimal(payload["quantity"]) * Decimal(payload["cash_per_unit"])
             elif event_type == "dividend_payment":
-                cash += Decimal(payload["cash"])
+                payment = Decimal(payload["cash"])
+                cash += payment
+                receivable -= payment
             elif event_type == "snapshot":
                 last = _snapshot_from_payload(payload)
-                expected_at_snapshot = cash + sum(
-                    (
-                        positions.get(symbol, Decimal("0")) * Decimal(price)
-                        for symbol, price in payload["raw_closes"].items()
-                    ),
-                    Decimal("0"),
+                expected_at_snapshot = (
+                    cash
+                    + receivable
+                    + sum(
+                        (
+                            positions.get(symbol, Decimal("0")) * Decimal(price)
+                            for symbol, price in payload["raw_closes"].items()
+                        ),
+                        Decimal("0"),
+                    )
                 )
                 if (
                     last.cash != cash
                     or dict(last.positions) != positions
                     or last.net_asset_value != expected_at_snapshot
                     or last.cumulative_fees != fees
+                    or last.receivable_dividends != receivable
                 ):
                     raise PaperLedgerError("snapshot does not reconcile to immutable events")
-            if cash < 0 or any(quantity < 0 for quantity in positions.values()):
+            if cash < 0 or receivable < 0 or any(quantity < 0 for quantity in positions.values()):
                 raise PaperLedgerError("ledger replay produced negative cash or position")
         if last is None:
-            return PaperSnapshot(date.min, cash, positions, cash, fees, "")
-        expected_nav = cash + sum(
-            (
-                positions.get(symbol, Decimal("0")) * Decimal(price)
-                for symbol, price in _snapshot_prices(connection, last.run_id).items()
-            ),
-            Decimal("0"),
+            return PaperSnapshot(date.min, cash, positions, cash, fees, "", receivable)
+        expected_nav = (
+            cash
+            + receivable
+            + sum(
+                (
+                    positions.get(symbol, Decimal("0")) * Decimal(price)
+                    for symbol, price in _snapshot_prices(connection, last.run_id).items()
+                ),
+                Decimal("0"),
+            )
         )
-        return PaperSnapshot(last.as_of_date, cash, positions, expected_nav, fees, last.run_id)
+        return PaperSnapshot(
+            last.as_of_date,
+            cash,
+            positions,
+            expected_nav,
+            fees,
+            last.run_id,
+            receivable,
+            last.generated_at,
+            last.is_backfill,
+        )
 
     def _validate_prices(
         self, raw_opens: Mapping[str, Decimal], raw_closes: Mapping[str, Decimal]
@@ -669,6 +732,9 @@ def _snapshot_payload(snapshot: PaperSnapshot) -> dict[str, Any]:
         "net_asset_value": _text(snapshot.net_asset_value),
         "cumulative_fees": _text(snapshot.cumulative_fees),
         "run_id": snapshot.run_id,
+        "receivable_dividends": _text(snapshot.receivable_dividends),
+        "generated_at": snapshot.generated_at.isoformat() if snapshot.generated_at else None,
+        "is_backfill": snapshot.is_backfill,
     }
 
 
@@ -680,4 +746,9 @@ def _snapshot_from_payload(payload: Mapping[str, Any]) -> PaperSnapshot:
         Decimal(payload["net_asset_value"]),
         Decimal(payload["cumulative_fees"]),
         str(payload["run_id"]),
+        Decimal(str(payload.get("receivable_dividends", "0"))),
+        datetime.fromisoformat(str(payload["generated_at"]))
+        if payload.get("generated_at")
+        else None,
+        bool(payload.get("is_backfill", False)),
     )

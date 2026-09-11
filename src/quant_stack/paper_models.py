@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from quant_stack.costs import CostModel
@@ -69,6 +69,9 @@ class PaperSnapshot:
     net_asset_value: Decimal
     cumulative_fees: Decimal
     run_id: str
+    receivable_dividends: Decimal = Decimal("0")
+    generated_at: datetime | None = None
+    is_backfill: bool = False
 
 
 @dataclass(frozen=True)

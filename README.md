@@ -89,8 +89,14 @@ uv run quant paper reconcile
 uv run quant paper run-daily --allow-network
 ```
 
-Daily reports are written below `artifacts/paper/`. Install the optional
-user-level timer with `bash scripts/install_paper_systemd_user.sh`.
+Daily reports are written below `artifacts/paper/`. Preview and install the
+optional user-level timer without enabling it, then explicitly enable it:
+
+```bash
+bash scripts/install_paper_systemd_user.sh --preview
+bash scripts/install_paper_systemd_user.sh
+bash scripts/enable_paper_systemd_user.sh
+```
 
 ## Layout
 
