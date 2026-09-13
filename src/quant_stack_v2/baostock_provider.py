@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import importlib
 import io
 import json
 import socket
@@ -171,7 +172,7 @@ def _live_query(
     code: str, fields: str, start: str, end: str, frequency: str, adjustflag: str
 ) -> tuple[str, Sequence[Sequence[str]]]:
     try:
-        import baostock as bs  # type: ignore[import-not-found]
+        bs = importlib.import_module("baostock")
     except ImportError as error:
         raise ValueError("BaoStock package is not installed") from error
     previous_timeout = socket.getdefaulttimeout()

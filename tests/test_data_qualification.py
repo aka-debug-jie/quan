@@ -69,7 +69,11 @@ def test_qualification_reports_all_frozen_assets_not_only_known_missing_ones(
         encoding="utf-8",
     )
     report = qualify_frozen_universe(
-        universe, tmp_path, tmp_path / "ledgers", source_registry_path=registry
+        universe,
+        tmp_path,
+        tmp_path / "ledgers",
+        source_registry_path=registry,
+        artifact_root=tmp_path / "artifacts",
     )
     assert [asset.symbol for asset in report.assets] == ["A", "B"]
     assert all(asset.result == "NOT_QUALIFIED" for asset in report.assets)
