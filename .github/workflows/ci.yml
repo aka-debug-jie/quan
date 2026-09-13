@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install system test runtime
+        run: |
+          sudo apt-get update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends poppler-utils python3 tzdata git
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11.15"
@@ -22,3 +26,18 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy src
       - run: uv run pytest --cov=quant_stack --cov=quant_stack_v2
+
+  v2-environment:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CPU OpenMP runtime
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgomp1
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11.15"
+          enable-cache: true
+      - name: Install locked V2 dependency group
+        run: uv sync --locked --group v2
+      - name: Verify V2 versions and synthetic model round trips
+        run: uv run --no-sync --offline pytest -v tests/v2_environment_smoke.py
