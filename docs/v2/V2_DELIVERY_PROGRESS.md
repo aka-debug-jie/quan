@@ -6,7 +6,7 @@
 | V2-001 Dataset registry | COMPLETE | Five pinned records, strict model, content-addressed capture and offline CLI |
 | V2-002 Qlib/community import | IMPORT_READY | The pinned 565 MB archive, release manifest and extraction tree were captured in the sealed store. The immutable legacy import report remains `BLOCKED_DATA`; newer imports distinguish structural readiness from semantic qualification. |
 | V2-003 PIT membership qualification | BLOCKED_DATA; FREE_AUDIT_CLOSED_ACCEPTED | User accepted free-audit closure on 2026-09-13: SSE residual 0; SZSE 8,030/8,093 explained, 63 residual days in 23 intervals, zero conflicts. Five official CSI removal dates verified; five end boundaries corrected only in a derivative copy. Full PIT qualification remains separate. No further residual or full-PIT work is scheduled under this audit. See FREE_AUDIT_CLOSURE_20260913.md. |
-| V2-004 Qlib Linear/LightGBM baseline | BLOCKED_DATA | Frozen 20-seed precommit and sealed aggregate-result gate implemented; no real-market model has run. V2-NEXT-01 verifies the locked V2 dependencies and synthetic Linear/LightGBM fit/predict/serialization only; complete qualification binding and the fixed runner remain unimplemented/unverified. See V2_NEXT_READINESS.md. |
+| V2-004 Qlib Linear/LightGBM baseline | FORMAL_BLOCKED_DATA; LIMITED_DEV_COMPLETED | The formal two-track 20-seed protocol remains blocked and unexecuted. DEV-001 separately completed one fixed-seed CSI300 limited-development Linear/LightGBM run with Alpha158, content-addressed evidence, view and results, plus exact model reload and prediction rebuild. It is not promotion or formal qualification. See DEV_001_RESULT.md. |
 | V2-005 Global ETF research dataset | CAPTURED_RESEARCH_ADJUSTED_ONLY | Seven Yahoo snapshots share 3,884 daily sessions; report `7d2022ca…` is locally archived. |
 | V2-006 V2-A trend / dual momentum | IMPLEMENTED_RESEARCH_SIGNAL_ONLY | Frozen monthly 12-1 signal contract produced 175 signals from Yahoo report `7d2022ca…`, output `7b5ca5ff…`; it cannot produce an execution backtest or candidate claim. |
 | V2-007 V2-B deterministic factors | BLOCKED_DATA | PIT fundamental-evidence and transparent factor-ranking interfaces exist; no qualified PIT fundamentals or real-stock ranking exists. |
@@ -34,6 +34,21 @@ V2-NEXT-02 has a separate limited development path; it does not promote any row 
 See `V2_NEXT_02_DELIVERY.md` and the complete upfront matrix in
 `V2_NEXT_02_READINESS.md`. Real Alpha158/source normalization and use approval
 remain unimplemented/unapproved; the original sealed runner still refuses execution.
+
+DEV-001 subsequently filled the explicitly approved limited-development scope without
+overwriting the V2-NEXT-02 synthetic contract. Its separate status is:
+
+| Status field | Value |
+| --- | --- |
+| IMPLEMENTATION_STATUS | REAL_QLIB_ADAPTER_AND_STAGED_RUNNER_VERIFIED |
+| REAL_DATA_VIEW_STATUS | CSI300_LIMITED_VIEW_EXPORTED |
+| DEV_SMOKE_STATUS | DEV_REAL_RUN_COMPLETED |
+| FORMAL_RESEARCH_STATUS | BLOCKED_DATA; CSI500_NOT_STARTED |
+
+The run used the fixed 2015--2019 training and 2020 validation candidates, excluded
+the first 20 validation sessions, and retained `BLOCKED_DATA` for incomplete full-PIT
+membership qualification. It produced signal diagnostics only; no portfolio-return,
+promotion, sealed-test or live-trading conclusion was generated.
 
 Current external metadata pins:
 

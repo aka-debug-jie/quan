@@ -1,0 +1,24 @@
+schema_version: 1
+run_id: DEV-001
+contract_kind: LIMITED_DEV_RESEARCH_REAL_V1
+approval_status: APPROVED_FOR_THIS_EXACT_DEV_RUN
+formal_qualification: BLOCKED_DATA
+sealed_test: NOT_STARTED
+dataset_reference: configs/v2/datasets/qlib_cn_community_v1.yaml
+reported_tree_sha256: a826df48452256f195171155e75835d2bd14803ac6fd9b057ee8ae0a57b6c93f
+universe: csi300
+membership: ORIGINAL_CSI300_PLUS_ARCHIVED_FIVE_END_BOUNDARY_FIXES
+membership_limitation: FIVE_END_BOUNDARY_FIXES_NOT_FULL_PIT_QUALIFICATION
+train_candidate: {start: 2015-01-01, end: 2019-12-31}
+validation_candidate: {start: 2020-01-01, end: 2020-12-31}
+validation_exclude_first_sessions: 20
+feature_set: pyqlib-0.9.7-standard-Alpha158
+warmup_sessions: 60
+label: {formula: "close[T+2] / close[T+1] - 1", calendar: qlib_day_sessions}
+preprocessing: TRAIN_FIT_STANDARD_SCALER_COMPLETE_ALPHA158_FEATURES
+prediction_eligibility: MEMBER_AT_T_AND_COMPLETE_FEATURES_INDEPENDENT_OF_FUTURE_LABEL
+diagnostic_segments: calendar_quarters_2020
+resolved_config_policy: WRITE_IMMUTABLE_BEFORE_FIRST_TARGET_VALUE_READ
+view_format: deterministic_content_addressed_parquet_shards
+allowed_uses: [features, training, validation_prediction, signal_diagnostics]
+forbidden_uses: [csi500, sealed_test, portfolio_returns, parameter_search, promotion, live_order]
