@@ -1,0 +1,18 @@
+schema_version: 1
+run_kind: DEV_SMOKE
+status: PENDING_EXACT_PARAMETERS
+usage: LIMITED_DEV_RESEARCH
+use_contract_reference: configs/v2/development/limited_dev_v1.yaml
+formal_model_reference: configs/v2/models/qlib_baseline_v1.yaml
+models: [linear, lightgbm]
+seed: null
+linear_parameters: null
+lightgbm_parameters: null
+approved_contract_sha256: null
+approved_evidence_sha256: null
+approved_view_sha256: null
+formal_qualification: BLOCKED_DATA
+sealed_test: NOT_STARTED
+parameter_tuning: false
+portfolio_metrics: false
+note: Formal two-track 20-seed configuration remains unchanged; real DEV_SMOKE is not authorized by this draft.

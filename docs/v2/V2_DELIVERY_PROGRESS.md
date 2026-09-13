@@ -22,6 +22,19 @@ V1 remains on its existing release-candidate branch and account paths. V2 writes
 only below `docs/v2`, `configs/v2`, `src/quant_stack_v2`, `data/external` and
 `artifacts/v2`, plus the minimal root CLI/package wiring needed to expose V2.
 
+V2-NEXT-02 has a separate limited development path; it does not promote any row above:
+
+| Status field | Value |
+| --- | --- |
+| IMPLEMENTATION_STATUS | SYNTHETIC_E2E_VERIFIED |
+| REAL_DATA_VIEW_STATUS | NOT_EXPORTED_MISSING_SPEC_AND_AUTHORITY |
+| DEV_SMOKE_STATUS | SYNTHETIC_VERIFIED; REAL_NOT_RUN |
+| FORMAL_RESEARCH_STATUS | BLOCKED_DATA; CSI500_NOT_STARTED |
+
+See `V2_NEXT_02_DELIVERY.md` and the complete upfront matrix in
+`V2_NEXT_02_READINESS.md`. Real Alpha158/source normalization and use approval
+remain unimplemented/unapproved; the original sealed runner still refuses execution.
+
 Current external metadata pins:
 
 - `chenditc/investment_data` release `2026-09-10`, commit `b8c129b...`;

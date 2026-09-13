@@ -1,0 +1,30 @@
+schema_version: 1
+contract_kind: LIMITED_DEV_RESEARCH
+approval_status: PENDING_COMPLETE_SCOPE_AND_AUTHORITY
+formal_qualification: BLOCKED_DATA
+sealed_test: NOT_STARTED
+dataset_reference: configs/v2/datasets/qlib_cn_community_v1.yaml
+evaluation_reference: configs/v2/evaluations/qlib_csi300_csi500_v1.yaml
+archive_sha256: eccf69b778f7147502add9f975115c8f057a04b20b073122d9cad12f31889a7e
+reported_tree_sha256: a826df48452256f195171155e75835d2bd14803ac6fd9b057ee8ae0a57b6c93f
+universe: csi300
+train: null
+validation: null
+approved_security_date_roster_sha256: null
+membership_version_sha256: null
+normalized_source_sha256: null
+price_factor_semantics_evidence_sha256: null
+allowed_fields: null
+feature_expressions_and_processors: null
+warmup_sessions_and_start: null
+label_formula_and_session_offsets: null
+train_label_dependency_end: null
+validation_label_dependency_end: null
+preprocessing_and_missing_policy: null
+operator_approval_identity: null
+trusted_authority_and_exporter_identity: null
+source_file_allowlist: null
+output_root_and_read_permissions: null
+allowed_uses: [features, training, validation_prediction, signal_diagnostics]
+forbidden_uses: [csi500_export, sealed_test, portfolio_returns, parameter_search, model_search, promotion, live_order]
+note: Not executable approval; synthetic fixtures do not fill these null fields.

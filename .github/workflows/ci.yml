@@ -41,3 +41,5 @@ jobs:
         run: uv sync --locked --group v2
       - name: Verify V2 versions and synthetic model round trips
         run: uv run --no-sync --offline pytest -v tests/v2_environment_smoke.py
+      - name: Verify limited development exporter and runner end to end
+        run: uv run --group v2 --no-sync --offline pytest -v tests/v2_dev_runner_smoke.py tests/v2_dev_runner_safety.py
