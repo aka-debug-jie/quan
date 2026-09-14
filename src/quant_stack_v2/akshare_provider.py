@@ -168,6 +168,8 @@ def _live_query(symbol: str, start: str, end: str) -> pd.DataFrame:
 
 def _validate(frame: pd.DataFrame, session: date) -> list[dict[str, str]]:
     required = {"日期", "开盘", "收盘", "最高", "最低", "成交量", "成交额"}
+    if frame.empty:
+        return []
     if not required <= set(frame.columns):
         raise ValueError("AKShare response lacks daily raw fields")
     rows = [
