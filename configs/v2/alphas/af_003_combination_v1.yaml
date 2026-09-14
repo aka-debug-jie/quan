@@ -1,0 +1,30 @@
+schema_version: 1
+registry_id: AF-003-CSI300-COMBINATIONS-V1
+status: PREREGISTERED
+scope: LIMITED_DEV_RESEARCH
+run_id: DEV-001
+universe: csi300
+required_af002_result_sha256: 738aa277f047fe9e55af567c187a21ddefda5ded81100cfce62d05037b473c47
+candidate_alpha_ids: [CN_REV_001, CN_REV_003, CN_PV_003, CN_RANGE_001, CN_VOL_003, CN_VOL_002, CN_PV_004]
+label: close[T+2] / close[T+1] - 1
+folds:
+  - {fold_id: AF003_2017, train_start: 2015-01-01, train_end: 2016-12-31, test_start: 2017-01-01, test_end: 2017-12-31}
+  - {fold_id: AF003_2018, train_start: 2015-01-01, train_end: 2017-12-31, test_start: 2018-01-01, test_end: 2018-12-31}
+  - {fold_id: AF003_2019, train_start: 2015-01-01, train_end: 2018-12-31, test_start: 2019-01-01, test_end: 2019-12-31}
+  - {fold_id: AF003_2020, train_start: 2015-01-01, train_end: 2019-12-31, test_start: 2020-01-01, test_end: 2020-12-31}
+preprocessing: train_fit_standard_scaler_complete_candidate_features
+simple_models: [equal_weight_zscore, train_rank_ic_weighted_zscore]
+models:
+  ridge: {alpha: 1.0, fit_intercept: true}
+  elasticnet: {alpha: 0.001, l1_ratio: 0.5, fit_intercept: true, max_iter: 10000, selection: cyclic, random_state: 0}
+  lightgbm: {objective: regression, n_estimators: 200, learning_rate: 0.05, num_leaves: 31, max_depth: 6, min_child_samples: 100, subsample: 1.0, subsample_freq: 0, colsample_bytree: 1.0, reg_alpha: 0.0, reg_lambda: 0.0, n_jobs: 1, device_type: cpu, deterministic: true, force_col_wise: true, verbosity: -1}
+  xgboost: {objective: reg:squarederror, n_estimators: 200, learning_rate: 0.05, max_depth: 6, min_child_weight: 100, subsample: 1.0, colsample_bytree: 1.0, reg_alpha: 0.0, reg_lambda: 1.0, n_jobs: 1, tree_method: hist, device: cpu, verbosity: 0}
+tree_seeds: [0, 1, 2]
+selection:
+  baseline: equal_weight_zscore
+  minimum_positive_increment_fold_fraction: 0.75
+  require_positive_mean_increment: true
+  simple_rule: highest_mean_rank_ic_then_model_id
+  challenger_rule: highest_mean_increment_then_model_id
+missing_sensitivity: test_one_factor_at_a_time_replaced_with_training_mean
+forbidden_uses: [csi500, sealed_test, portfolio_returns, parameter_search, promotion, live_order, network]

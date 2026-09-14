@@ -2871,6 +2871,7 @@ dev = [
 v2 = [
     { name = "lightgbm" },
     { name = "pyqlib" },
+    { name = "scikit-learn" },
     { name = "xgboost" },
 ]
 v2-free-data = [
@@ -2902,6 +2903,7 @@ dev = [
 v2 = [
     { name = "lightgbm", specifier = "==4.5.0" },
     { name = "pyqlib", specifier = "==0.9.7" },
+    { name = "scikit-learn", specifier = "==1.9.0" },
     { name = "xgboost", specifier = "==2.1.4" },
 ]
 v2-free-data = [{ name = "baostock", specifier = "==0.8.9" }]
