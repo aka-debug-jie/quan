@@ -73,6 +73,16 @@ class BaoStockManifest:
 Query = Callable[[str, str, str, str, str, str], tuple[str, Sequence[Sequence[str]]]]
 
 
+@dataclass(frozen=True)
+class BaoStockCaptureFailure:
+    """One bounded batch-capture failure retained instead of silently retrying forever."""
+
+    symbol: str
+    start_date: str
+    end_date: str
+    error: str
+
+
 def capture_baostock_history(
     data_root: Path,
     *,
@@ -134,6 +144,47 @@ def capture_baostock_history(
     manifest_path = data_root / "baostock_manifests" / manifest.identity_sha256 / "manifest.json"
     write_immutable(manifest_path, _json(asdict(manifest)) + b"\n")
     return manifest_path, manifest, rows
+
+
+def capture_baostock_batch(
+    data_root: Path,
+    *,
+    symbols: tuple[str, ...],
+    start_date: date,
+    end_date: date,
+    allow_network: bool,
+    query: Query | None = None,
+    provider_version: str = "unknown",
+) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
+    """Capture one fixed date span for each symbol and retain every bounded failure."""
+    if not allow_network:
+        raise ValueError("--allow-network is required for BaoStock capture")
+    if not symbols or tuple(sorted(set(symbols))) != symbols:
+        raise ValueError("BaoStock batch requires sorted unique symbols")
+    manifests: list[BaoStockManifest] = []
+    failures: list[BaoStockCaptureFailure] = []
+    for symbol in symbols:
+        try:
+            _, manifest, _ = capture_baostock_history(
+                data_root,
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                allow_network=True,
+                query=query,
+                provider_version=provider_version,
+            )
+            manifests.append(manifest)
+        except ValueError as error:
+            failures.append(
+                BaoStockCaptureFailure(
+                    symbol=symbol,
+                    start_date=start_date.isoformat(),
+                    end_date=end_date.isoformat(),
+                    error=str(error),
+                )
+            )
+    return tuple(manifests), tuple(failures)
 
 
 def _provider_symbol(symbol: str) -> str:

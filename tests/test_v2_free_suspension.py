@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from quant_stack_v2.baostock_provider import BaoStockRow, capture_baostock_history
+from quant_stack_v2.baostock_provider import (
+    BaoStockRow,
+    capture_baostock_batch,
+    capture_baostock_history,
+)
 from quant_stack_v2.qlib_qualification import QlibDailyIssue
 from quant_stack_v2.suspension_audit import (
     MissingClass,
@@ -46,6 +50,28 @@ def test_baostock_capture_is_raw_unadjusted_and_network_gated(tmp_path: Path) ->
     receipt = next((tmp_path / "baostock" / manifest.raw_sha256 / "receipts").glob("*.json"))
     assert '"method":"query_history_k_data_plus"' in receipt.read_text(encoding="utf-8")
     assert '"adjustflag":"3"' in receipt.read_text(encoding="utf-8")
+
+
+def test_baostock_batch_retains_one_failure_without_losing_success(tmp_path: Path) -> None:
+    """A candidate-scope batch reports a failed symbol instead of silently omitting it."""
+
+    def query(
+        code: str, _fields: str, _start: str, _end: str, _frequency: str, _adjust: str
+    ) -> tuple[str, list[list[str]]]:
+        if code == "sz.000002":
+            return "100", []
+        return "0", [["2020-01-02", code, "1", "1", "1", "1", "1", "2", "3", "1", "0"]]
+
+    manifests, failures = capture_baostock_batch(
+        tmp_path,
+        symbols=("sz000001", "sz000002"),
+        start_date=date(2020, 1, 2),
+        end_date=date(2020, 1, 2),
+        allow_network=True,
+        query=query,
+    )
+    assert [item.symbol for item in manifests] == ["sz000001"]
+    assert failures[0].symbol == "sz000002" and "100" in failures[0].error
 
 
 def test_free_audit_compresses_adjacent_market_sessions_and_blocks_conflict() -> None:
