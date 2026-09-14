@@ -25,9 +25,7 @@ def probe(
 ) -> dict[str, object]:
     """Check whether frozen residual keys have locally reconstructable Qlib raw bars."""
     qualification = qualify(development_root, sealed_root, repo_root, registry_path)
-    rows = _mapping(
-        _mapping(qualification, "lifecycle_and_suspension"), "free_residual_intersection"
-    )
+    rows = _mapping(qualification, "lifecycle_and_suspension").get("free_residual_intersection")
     if not isinstance(rows, list):
         raise ValueError("EXQ residual intersection is unavailable")
     qlib_root = _qlib_root(
