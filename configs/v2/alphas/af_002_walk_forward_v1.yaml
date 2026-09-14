@@ -1,0 +1,36 @@
+schema_version: 1
+registry_id: AF-002-CSI300-WALK-FORWARD-V1
+status: PREREGISTERED
+scope: LIMITED_DEV_RESEARCH
+run_id: DEV-001
+universe: csi300
+required_af001_registry_sha256: cef1062c32388bc97efa086c4ff917b7a32e4b33897c0c47ffcad2f228af38bb
+required_af001_result_sha256: d89d25f06e0b5c1885d81b434fccb5c973a25922d5b525d46c04edbd58116e62
+label: close[T+2] / close[T+1] - 1
+folds:
+  - {fold_id: WF_2017, start: 2017-01-01, end: 2017-12-31}
+  - {fold_id: WF_2018, start: 2018-01-01, end: 2018-12-31}
+  - {fold_id: WF_2019, start: 2019-01-01, end: 2019-12-31}
+  - {fold_id: WF_2020, start: 2020-01-01, end: 2020-12-31}
+stability:
+  minimum_defined_days_per_fold: 30
+  minimum_evaluation_coverage: 0.5
+  minimum_positive_fold_fraction: 0.75
+  require_positive_mean_rank_ic: true
+redundancy:
+  absolute_value_correlation_threshold: 0.8
+  absolute_ic_correlation_threshold: 0.8
+  top_score_fraction: 0.2
+  top_score_proxy_overlap_threshold: 0.7
+  representative_rule: highest_mean_rank_ic_then_alpha_id
+  maximum_candidates: 8
+  value_correlation: mean_daily_pearson_absolute
+  ic_correlation: pearson_of_aligned_daily_ic_absolute
+  rank_ic_correlation: pearson_of_aligned_daily_rank_ic_absolute
+  top_score_proxy: daily_top_fraction_jaccard_keep_all_ties
+  clustering: connected_components_any_threshold_or_undefined
+  undefined_relation_is_redundant: true
+exposure_diagnostics:
+  industry: NOT_AVAILABLE_IN_APPROVED_VIEW
+  market_cap: NOT_AVAILABLE_IN_APPROVED_VIEW
+forbidden_uses: [csi500, sealed_test, portfolio_returns, parameter_search, promotion, live_order, network]
