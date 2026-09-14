@@ -13,6 +13,7 @@ from quant_stack_v2.suspension_audit import (
     MissingClass,
     classify_missing_sessions,
     compress_missing_candidates,
+    render_free_evidence_residual_report,
 )
 
 
@@ -42,6 +43,9 @@ def test_baostock_capture_is_raw_unadjusted_and_network_gated(tmp_path: Path) ->
     assert path.is_file()
     assert manifest.adjustflag == "3"
     assert parsed[0].tradestatus == 0
+    receipt = next((tmp_path / "baostock" / manifest.raw_sha256 / "receipts").glob("*.json"))
+    assert '"method":"query_history_k_data_plus"' in receipt.read_text(encoding="utf-8")
+    assert '"adjustflag":"3"' in receipt.read_text(encoding="utf-8")
 
 
 def test_free_audit_compresses_adjacent_market_sessions_and_blocks_conflict() -> None:
@@ -66,6 +70,36 @@ def test_free_audit_compresses_adjacent_market_sessions_and_blocks_conflict() ->
     assert report.unique_suspension_intervals_count == 1
     assert report.suspension_intervals[0].session_count == 2
     assert report.status == "BLOCKED_DATA"
+    assert report.gap_gate == "BLOCKED_DATA"
     candidates = compress_missing_candidates(issues, sessions)
     assert len(candidates) == 1
     assert candidates[0].session_count == 3
+    residual = render_free_evidence_residual_report(report)
+    assert "PROVIDER_CONFLICT" in residual
+    assert "sh600001" in residual
+
+
+def test_baostock_complete_is_a_free_gate_not_formal_qualification() -> None:
+    session = date(2020, 1, 2)
+    report = classify_missing_sessions(
+        issues=(QlibDailyIssue("sh600001", session.isoformat(), "MISSING", ""),),
+        market_sessions=(session,),
+        lifecycles={},
+        baostock_rows={("sh600001", session): (_row(session, 0), "b" * 64)},
+    )
+    assert report.gap_gate == "PASS"
+    assert report.status == "FREE_EVIDENCE_COMPLETE"
+
+
+def test_candidate_planning_rejects_non_missing_and_calendar_mismatch() -> None:
+    session = date(2020, 1, 2)
+    with pytest.raises(ValueError, match="only expected-session"):
+        compress_missing_candidates(
+            (QlibDailyIssue("sh600001", session.isoformat(), "ILLEGAL_FACTOR", ""),),
+            (session,),
+        )
+    with pytest.raises(ValueError, match="outside"):
+        compress_missing_candidates(
+            (QlibDailyIssue("sh600001", "2020-01-03", "MISSING_OR_SUSPENDED_UNVERIFIED", ""),),
+            (session,),
+        )

@@ -26,6 +26,21 @@ def test_foundation_gate_blocks_absent_and_failed_evidence() -> None:
     )
     assert report.status == "BLOCKED_DATA"
     assert "official_membership_missing" in report.reasons
+    assert "free_evidence_reconciliation_missing" in report.reasons
+    assert "tushare_raw_reconciliation_missing" not in report.reasons
+
+
+def test_tushare_is_an_optional_provider_gate() -> None:
+    report = qualify_foundation(
+        universe="csi300",
+        research_effective_from="2015-01-01",
+        research_effective_to="2026-09-10",
+        import_report_sha256="a" * 64,
+        config_sha256="b" * 64,
+        code_commit="c" * 40,
+        evidence=(GateEvidence("tushare_raw_reconciliation", "x", "d" * 64, "UNAVAILABLE"),),
+    )
+    assert "tushare_raw_reconciliation_not_qualified" not in report.reasons
 
 
 def test_tushare_capture_needs_network_and_runtime_token(tmp_path: Path) -> None:

@@ -14,9 +14,13 @@ REQUIRED_GATES = (
     "official_membership",
     "daily_audit",
     "official_trading_state",
-    "tushare_raw_reconciliation",
+    "free_evidence_reconciliation",
     "pit_membership",
 )
+
+# Tushare can add a provider cross-check when a user voluntarily supplies it,
+# but no token, credits, or paid service is needed for the free-evidence gate.
+OPTIONAL_PROVIDER_GATES = ("tushare_raw_reconciliation",)
 
 
 @dataclass(frozen=True)
@@ -66,7 +70,8 @@ def qualify_foundation(
     if len(code_commit) != 40:
         raise ValueError("Foundation Gate requires the exact code commit")
     by_name = {item.name: item for item in evidence}
-    if len(by_name) != len(evidence) or set(by_name) - set(REQUIRED_GATES):
+    allowed = set(REQUIRED_GATES) | set(OPTIONAL_PROVIDER_GATES)
+    if len(by_name) != len(evidence) or set(by_name) - allowed:
         raise ValueError("Foundation Gate received unknown or duplicate evidence")
     reasons: list[str] = []
     for name in REQUIRED_GATES:

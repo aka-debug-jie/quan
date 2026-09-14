@@ -116,6 +116,18 @@ def capture_baostock_history(
         "schema_version": 1,
         "manifest_sha256": manifest.identity_sha256,
         "retrieved_at_utc": datetime.now(UTC).isoformat(),
+        "provider": "baostock",
+        "provider_version": provider_version,
+        "request": {
+            "method": "query_history_k_data_plus",
+            "code": code,
+            "fields": FIELDS,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "frequency": "d",
+            "adjustflag": "3",
+        },
+        "raw_sha256": digest,
     }
     receipt_bytes = _json(receipt) + b"\n"
     write_immutable(base / "receipts" / f"{sha256(receipt_bytes).hexdigest()}.json", receipt_bytes)

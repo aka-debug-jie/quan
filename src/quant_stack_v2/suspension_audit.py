@@ -92,6 +92,7 @@ class FreeEvidenceAudit:
     unique_suspension_intervals_count: int
     classified: tuple[ClassifiedMissing, ...]
     suspension_intervals: tuple[SuspensionInterval, ...]
+    gap_gate: str
     status: str
 
     @property
@@ -169,7 +170,10 @@ def classify_missing_sessions(
         unique_suspension_intervals_count=len(compressed),
         classified=tuple(classified),
         suspension_intervals=compressed,
-        status="QUALIFIED" if blocked == 0 else "BLOCKED_DATA",
+        gap_gate="PASS" if blocked == 0 else "BLOCKED_DATA",
+        # A free-provider funnel is diagnostic evidence, never a substitute for
+        # the formal qualification or independent PIT membership gate.
+        status="FREE_EVIDENCE_COMPLETE" if blocked == 0 else "BLOCKED_DATA",
     )
 
 
@@ -180,17 +184,55 @@ def persist_free_evidence_audit(report: FreeEvidenceAudit, artifact_root: Path) 
     return path
 
 
+def render_free_evidence_residual_report(report: FreeEvidenceAudit) -> str:
+    """Render only blocking free-evidence rows; no paid-provider recommendation is implied."""
+    residuals = tuple(
+        row
+        for row in report.classified
+        if row.classification in {MissingClass.PROVIDER_CONFLICT, MissingClass.UNEXPLAINED}
+    )
+    lines = [
+        "# FREE EVIDENCE RESIDUAL REPORT",
+        "",
+        f"source_audit_sha256: `{report.identity_sha256}`",
+        f"gap_gate: {report.gap_gate}",
+        f"provider_conflict: {report.counts[MissingClass.PROVIDER_CONFLICT.value]}",
+        f"unexplained: {report.counts[MissingClass.UNEXPLAINED.value]}",
+        "",
+        "| symbol | session | classification | attempted evidence | minimum remaining evidence |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for row in residuals:
+        attempted = row.evidence_sha256 or "no archived free provider result"
+        required = (
+            "reconcile archived Qlib/BaoStock/official records"
+            if row.classification is MissingClass.PROVIDER_CONFLICT
+            else "official exchange suspension/resumption or lifecycle evidence"
+        )
+        lines.append(
+            f"| {row.symbol} | {row.session.isoformat()} | {row.classification.value} | "
+            f"{attempted} | {required} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def compress_missing_candidates(
     issues: tuple[QlibDailyIssue, ...], market_sessions: tuple[date, ...]
 ) -> tuple[MissingCandidateInterval, ...]:
     """Compress consecutive Qlib missing sessions before any provider lookup."""
     positions = {session: index for index, session in enumerate(market_sessions)}
+    if any(issue.kind != "MISSING_OR_SUSPENDED_UNVERIFIED" for issue in issues):
+        raise ValueError("free suspension planning accepts only expected-session missing issues")
+    if len({(item.symbol, item.session) for item in issues}) != len(issues):
+        raise ValueError("free suspension planning has duplicate missing sessions")
     rows = sorted(issues, key=lambda item: (item.symbol, item.session))
     result: list[MissingCandidateInterval] = []
     for issue in rows:
         session = date.fromisoformat(issue.session)
         if session not in positions:
-            continue
+            raise ValueError("expected-session missing date is outside the frozen market calendar")
+        if len(issue.symbol) != 8 or issue.symbol[:2] not in {"sh", "sz"}:
+            raise ValueError("expected-session missing symbol has invalid exchange prefix")
         if (
             result
             and result[-1].symbol == issue.symbol

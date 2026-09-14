@@ -28,7 +28,7 @@
 | 项目 | 判断 |
 | --- | --- |
 | `foundation_gate.py`必需门聚合 | 已实现名称/状态聚合，但并非完整证据验证器；会接受调用方自报`QUALIFIED`，CLI计算哈希也没有验证业务语义、来源权威性或研究范围。 |
-| `tushare_raw_reconciliation` | 必需门名已存在，`tushare_pro.py`有原始抓取；尚无对应完整对账证据生产者/专用验证器。不能因此要求用户购买数据或申请token。 |
+| `tushare_raw_reconciliation` | 可选provider观测：`tushare_pro.py`保留原始抓取兼容性，但无token、积分或付费服务不阻塞免费缺口审计。免费路线改由`free_evidence_reconciliation`记录其独立证据漏斗。 |
 | `baseline.py` fixed runner | 占位、拒绝执行；尚未实现真实基线训练。 |
 | baseline precommit | 绑定import、模型配置、代码和同源PIT结构报告，未绑定完整Foundation资格证据；成员内部结构通过不代表官方PIT资格。 |
 | 真实研究使用权限与数据质量 | 未验证、未批准；工程合成冒烟通过不改变任何数据资格。 |
