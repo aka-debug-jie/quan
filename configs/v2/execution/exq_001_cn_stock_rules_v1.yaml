@@ -1,0 +1,25 @@
+schema_version: 1
+contract_id: EXQ-001-CN-STOCK-EXECUTION-RULES-V1
+status: PREREGISTERED_OFFICIAL_EVIDENCE_REQUIRED
+scope: LIMITED_DEV_RESEARCH_CSI300_CANDIDATE_SCOPE
+effective_range: {start: 2014-10-01, end: 2020-12-31}
+required_official_evidence:
+  - exchange_board_classification
+  - historical_risk_warning_status
+  - historical_price_limit_regime
+  - minimum_order_lot
+  - t_plus_one_settlement_and_sale_constraint
+  - suspension_untradability
+  - official_tax_and_exchange_fee_schedule
+research_assumptions_requiring_separate_freeze:
+  - broker_commission
+  - slippage
+  - liquidity_participation_limit
+forbidden_inferences:
+  - derive_st_from_current_name
+  - derive_halt_from_future_label
+  - derive_price_limit_from_adjusted_close
+  - treat_provider_empty_bar_as_official_halt
+formal_pit_status: BLOCKED_DATA
+formal_research_status: BLOCKED_DATA
+csi500: NOT_STARTED
