@@ -1,0 +1,18 @@
+schema_version: 1
+registry_id: EXQ-001-CSI300-CANDIDATE-SCOPE-V1
+status: PREREGISTERED
+scope: LIMITED_DEV_RESEARCH
+run_id: DEV-001
+universe: csi300
+required_af003_result_sha256: 5aa2fe8b6ddcab4d2ec8d58f5a77eb79bb5dad2f3da10335edb58eae64567624
+required_simple_model: equal_weight_zscore
+required_ml_challenger: NO_STABLE_ML_INCREMENT
+required_free_residual_sha256: 5402dea11a1a430a1807edfd53a986ee8711f89797ff27deb0be7914cfe0cafb
+required_free_intervals_sha256: 6342713499912cc952db35a8ffeb61b0fc8310a5c8cf98246558817c99332d06
+required_free_funnel_sha256: 20a61fc923cce2b9dd46238e0c0d78801886e0b063061c30339f6c839154247b
+required_free_initial_missing: 15743
+required_free_unexplained: 540
+required_free_conflicts: 0
+required_candidate_alpha_ids: [CN_REV_001, CN_REV_003, CN_PV_003, CN_RANGE_001, CN_VOL_003, CN_VOL_002, CN_PV_004]
+required_execution_semantics: [t_plus_one, price_limit, board_lot, liquidity, costs]
+forbidden_uses: [csi500, sealed_test, portfolio_returns, parameter_search, promotion, live_order, network]
