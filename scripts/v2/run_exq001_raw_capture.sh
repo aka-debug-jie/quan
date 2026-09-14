@@ -27,7 +27,8 @@ export PYTHONPATH="$repo_root/src"
   --registry "$registry" \
   --result-root "$result_root" \
   --report "$report" \
-  --allow-network
+  --allow-network \
+  --workers 4
 
 if getent group quant-v2 >/dev/null; then
   chgrp -R quant-v2 "$result_root"

@@ -25,6 +25,7 @@ def capture(
     registry_path: Path,
     *,
     allow_network: bool,
+    workers: int,
 ) -> dict[str, object]:
     """Capture only the actual DEV-001 candidate raw dependency span."""
     if not allow_network:
@@ -46,6 +47,7 @@ def capture(
         requests=requests,
         allow_network=True,
         provider_version="baostock-0.8.9",
+        workers=workers,
     )
     return {
         "schema_version": 1,
@@ -60,6 +62,7 @@ def capture(
         ],
         "raw_dependency_span": view.access.raw_dependency_span.model_dump(mode="json"),
         "capture_scope": "FREE_RESIDUAL_INTERSECTION_SYMBOL_ENVELOPES_ONLY",
+        "workers": workers,
         "provider": "baostock",
         "provider_evidence_level": "INDEPENDENT_PROVIDER_CONFIRMED_NOT_OFFICIAL",
         "successful_manifests": [
@@ -151,6 +154,7 @@ def main() -> None:
     parser.add_argument("--result-root", type=Path, required=True)
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--allow-network", action="store_true")
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
     payload = capture(
         args.development_root,
@@ -158,6 +162,7 @@ def main() -> None:
         args.repo_root,
         args.registry,
         allow_network=args.allow_network,
+        workers=args.workers,
     )
     identity = persist(payload, args.result_root)
     args.report.write_text(render_markdown(payload, identity), encoding="utf-8")

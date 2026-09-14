@@ -9,6 +9,7 @@ import json
 import socket
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from hashlib import sha256
@@ -92,6 +93,7 @@ def capture_baostock_history(
     allow_network: bool,
     query: Query | None = None,
     provider_version: str = "unknown",
+    workers: int = 1,
 ) -> tuple[Path, BaoStockManifest, tuple[BaoStockRow, ...]]:
     """Capture raw unadjusted daily rows with explicit network authorization."""
     if not allow_network:
@@ -155,6 +157,7 @@ def capture_baostock_batch(
     allow_network: bool,
     query: Query | None = None,
     provider_version: str = "unknown",
+    workers: int = 1,
 ) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
     """Capture one fixed date span through one BaoStock login and retain failures."""
     if not allow_network:
@@ -167,6 +170,7 @@ def capture_baostock_batch(
         allow_network=allow_network,
         query=query,
         provider_version=provider_version,
+        workers=workers,
     )
 
 
@@ -177,6 +181,7 @@ def capture_baostock_requests(
     allow_network: bool,
     query: Query | None = None,
     provider_version: str = "unknown",
+    workers: int = 1,
 ) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
     """Capture sorted symbol/date requests through one BaoStock login."""
     if not allow_network:
@@ -185,8 +190,30 @@ def capture_baostock_requests(
         raise ValueError("BaoStock requests must be sorted and unique")
     if any(start > end for _, start, end in requests):
         raise ValueError("BaoStock request has reversed dates")
+    if not 1 <= workers <= 4:
+        raise ValueError("BaoStock workers must be between 1 and 4")
     if query is not None:
         return _capture_requests(data_root, requests, query, provider_version)
+    if workers > 1:
+        partitions = tuple(requests[index::workers] for index in range(workers))
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            results = tuple(
+                executor.map(
+                    _capture_partition,
+                    (
+                        (data_root, partition, provider_version)
+                        for partition in partitions
+                        if partition
+                    ),
+                )
+            )
+        manifests = tuple(
+            sorted((item for rows, _ in results for item in rows), key=lambda row: row.symbol)
+        )
+        failures = tuple(
+            sorted((item for _, rows in results for item in rows), key=lambda row: row.symbol)
+        )
+        return manifests, failures
     try:
         bs = importlib.import_module("baostock")
     except ImportError as error:
@@ -221,6 +248,19 @@ def capture_baostock_requests(
         if logged_in:
             bs.logout()
         socket.setdefaulttimeout(previous_timeout)
+
+
+def _capture_partition(
+    args: tuple[Path, tuple[tuple[str, date, date], ...], str],
+) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
+    """Run one independent BaoStock session for a disjoint request partition."""
+    root, requests, provider_version = args
+    return capture_baostock_requests(
+        root,
+        requests=requests,
+        allow_network=True,
+        provider_version=provider_version,
+    )
 
 
 def _capture_requests(

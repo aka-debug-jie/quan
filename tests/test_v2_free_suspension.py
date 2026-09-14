@@ -74,6 +74,19 @@ def test_baostock_batch_retains_one_failure_without_losing_success(tmp_path: Pat
     assert failures[0].symbol == "sz000002" and "100" in failures[0].error
 
 
+def test_baostock_batch_rejects_unbounded_parallelism(tmp_path: Path) -> None:
+    """Provider concurrency is intentionally bounded before any network request."""
+    with pytest.raises(ValueError, match="between 1 and 4"):
+        capture_baostock_batch(
+            tmp_path,
+            symbols=("sz000001",),
+            start_date=date(2020, 1, 2),
+            end_date=date(2020, 1, 2),
+            allow_network=True,
+            workers=5,
+        )
+
+
 def test_free_audit_compresses_adjacent_market_sessions_and_blocks_conflict() -> None:
     sessions = (date(2020, 1, 2), date(2020, 1, 3), date(2020, 1, 6))
     issues = tuple(
