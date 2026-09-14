@@ -405,7 +405,7 @@ def render_markdown(payload: dict[str, object], identity: str) -> str:
         "- 提供冻结的 T+1 成交、涨跌停、整手、流动性与成本规则；",
         "- 若 free residual 交集非零，仅对机器结果列出的交集键补充最小证据。",
     ]
-    return "\\n".join(lines) + "\\n"
+    return "\n".join(lines) + "\n"
 
 
 def _commit(repo_root: Path) -> str:

@@ -11,6 +11,7 @@ from quant_stack_v2.exq001 import (
     _candidate_dependencies,
     _residual_intersection,
     load_registry,
+    render_markdown,
 )
 
 
@@ -70,3 +71,27 @@ def test_residual_intersection_rejects_nonblocking_row() -> None:
             (),
             {},
         )
+
+
+def test_report_renders_real_newlines() -> None:
+    """Human report text must not serialize its line endings as backslash literals."""
+    report = render_markdown(
+        {
+            "status": "BLOCKED_DATA",
+            "selected_simple_model": "equal_weight_zscore",
+            "ml_challenger": "NO_STABLE_ML_INCREMENT",
+            "candidate_alpha_ids": ["CN_REV_001"],
+            "required_raw_fields": ["close"],
+            "label": "close[T+2] / close[T+1] - 1",
+            "scope_membership": {
+                "symbol_count": 1,
+                "status": "DERIVATIVE_CSI300_MEMBERSHIP_BOUND_NOT_FULL_PIT_QUALIFICATION",
+            },
+            "lifecycle_and_suspension": {
+                "official_suspension_intervals_intersecting_required_range": 0,
+                "free_residual_intersection_count": 0,
+            },
+        },
+        "0" * 64,
+    )
+    assert "\\n" not in report and report.endswith("\n")
