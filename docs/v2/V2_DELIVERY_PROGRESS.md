@@ -19,7 +19,7 @@
 | V2-013 Independent V2 paper account | BLOCKED_DATA | V2-only CNY/USD account namespace and Champion gate exist; no account has been created because no `PAPER_CANDIDATE` exists. |
 | V2-014 RD-Agent constrained experiments | IMPLEMENTED_PROPOSAL_ONLY | Immutable preregistration proposals are permitted; data access, network, training, backtests, promotion and account actions are rejected. |
 | V2 research roadmap | PLANNING_ONLY | `V2_RESEARCH_ROADMAP_PROMPTS.md` defines ordered, separately authorized task prompts from AF-001 through PORT-001. It changes no current gate, contract or research status. |
-| AF-001 interpretable factor screen | PREREGISTERED_PENDING_RESTRICTED_REPLAY | A frozen 16-factor Alpha158-only registry and offline evaluator are prepared for the existing CSI300 limited-development view. It does not read raw OHLCV or CSI500, and it does not change formal status. See AF_001_PROTOCOL.md. |
+| AF-001 interpretable factor screen | COMPLETED_LIMITED_DEV_DIAGNOSTICS | The frozen 16-factor Alpha158-only registry was evaluated once on the existing CSI300 development view: 10 are `CANDIDATE_PENDING_AF002`, 6 are `REJECTED_NO_STABLE_SIGNAL`; result `d89d25f0…16e62`. This is not formal promotion, uses no raw OHLCV or CSI500, and leaves formal status unchanged. See AF_001_PROTOCOL.md and AF_001_RESULT.md. |
 
 V1 remains on its existing release-candidate branch and account paths. V2 writes
 only below `docs/v2`, `configs/v2`, `src/quant_stack_v2`, `data/external` and
