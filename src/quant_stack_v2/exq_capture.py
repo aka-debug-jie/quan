@@ -61,7 +61,7 @@ def capture(
             for symbol, start, end in requests
         ],
         "raw_dependency_span": view.access.raw_dependency_span.model_dump(mode="json"),
-        "capture_scope": "FREE_RESIDUAL_INTERSECTION_SYMBOL_ENVELOPES_ONLY",
+        "capture_scope": "FREE_RESIDUAL_INTERSECTION_EXACT_SINGLE_SESSION_REQUESTS",
         "workers": workers,
         "provider": "baostock",
         "provider_evidence_level": "INDEPENDENT_PROVIDER_CONFIRMED_NOT_OFFICIAL",
@@ -98,18 +98,21 @@ def capture(
 
 
 def _residual_requests(value: object) -> tuple[tuple[str, date, date], ...]:
-    """Compress exact residual keys to one bounded provider envelope per symbol."""
+    """Create one exact-session provider request per frozen residual key."""
     if not isinstance(value, list):
         raise EXQ001Error("EXQ qualification lacks residual intersection rows")
-    grouped: dict[str, list[date]] = {}
+    requests: set[tuple[str, date, date]] = set()
     for row in value:
         if not isinstance(row, dict):
             raise EXQ001Error("EXQ residual row is invalid")
         symbol, session = row.get("symbol"), row.get("expected_session")
         if not isinstance(symbol, str) or not isinstance(session, str):
             raise EXQ001Error("EXQ residual key is invalid")
-        grouped.setdefault(symbol, []).append(date.fromisoformat(session))
-    return tuple(sorted((symbol, min(days), max(days)) for symbol, days in grouped.items()))
+        day = date.fromisoformat(session)
+        requests.add((symbol, day, day))
+    if len(requests) != len(value):
+        raise EXQ001Error("EXQ residual keys are not unique")
+    return tuple(sorted(requests))
 
 
 def persist(payload: dict[str, object], root: Path) -> str:
