@@ -5,13 +5,14 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 from typing import cast
 
 from quant_stack_v2.af002 import _blob, _mapping, _string
 from quant_stack_v2.af003 import DEV001_SUMMARY_SHA256
-from quant_stack_v2.baostock_provider import capture_baostock_batch
+from quant_stack_v2.baostock_provider import capture_baostock_requests
 from quant_stack_v2.dev_contract import canonical, write_blob
 from quant_stack_v2.dev_real_staged_view import load_staged_view
 from quant_stack_v2.exq001 import EXQ001Error, qualify
@@ -38,11 +39,11 @@ def capture(
         _string(identities, "evidence_sha256"),
         _string(identities, "view_pin_sha256"),
     )
-    manifests, failures = capture_baostock_batch(
+    residuals = _mapping(qualification, "lifecycle_and_suspension")["free_residual_intersection"]
+    requests = _residual_requests(residuals)
+    manifests, failures = capture_baostock_requests(
         sealed_root / "artifacts/v2/exq001_candidate_scope/free_raw_baostock",
-        symbols=view.access.symbols,
-        start_date=view.access.raw_dependency_span.start,
-        end_date=view.access.raw_dependency_span.end,
+        requests=requests,
         allow_network=True,
         provider_version="baostock-0.8.9",
     )
@@ -52,8 +53,13 @@ def capture(
         "status": "CAPTURE_COMPLETE" if not failures else "CAPTURE_PARTIAL",
         "qualification_before_capture": qualification["status"],
         "scope": qualification["scope"],
-        "symbols_requested": len(view.access.symbols),
+        "symbols_requested": len({symbol for symbol, _, _ in requests}),
+        "provider_requests": [
+            {"symbol": symbol, "start": start.isoformat(), "end": end.isoformat()}
+            for symbol, start, end in requests
+        ],
         "raw_dependency_span": view.access.raw_dependency_span.model_dump(mode="json"),
+        "capture_scope": "FREE_RESIDUAL_INTERSECTION_SYMBOL_ENVELOPES_ONLY",
         "provider": "baostock",
         "provider_evidence_level": "INDEPENDENT_PROVIDER_CONFIRMED_NOT_OFFICIAL",
         "successful_manifests": [
@@ -86,6 +92,21 @@ def capture(
             "git_commit": _commit(repo_root),
         },
     }
+
+
+def _residual_requests(value: object) -> tuple[tuple[str, date, date], ...]:
+    """Compress exact residual keys to one bounded provider envelope per symbol."""
+    if not isinstance(value, list):
+        raise EXQ001Error("EXQ qualification lacks residual intersection rows")
+    grouped: dict[str, list[date]] = {}
+    for row in value:
+        if not isinstance(row, dict):
+            raise EXQ001Error("EXQ residual row is invalid")
+        symbol, session = row.get("symbol"), row.get("expected_session")
+        if not isinstance(symbol, str) or not isinstance(session, str):
+            raise EXQ001Error("EXQ residual key is invalid")
+        grouped.setdefault(symbol, []).append(date.fromisoformat(session))
+    return tuple(sorted((symbol, min(days), max(days)) for symbol, days in grouped.items()))
 
 
 def persist(payload: dict[str, object], root: Path) -> str:

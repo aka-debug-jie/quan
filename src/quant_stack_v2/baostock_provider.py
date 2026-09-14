@@ -161,10 +161,32 @@ def capture_baostock_batch(
         raise ValueError("--allow-network is required for BaoStock capture")
     if not symbols or tuple(sorted(set(symbols))) != symbols:
         raise ValueError("BaoStock batch requires sorted unique symbols")
+    return capture_baostock_requests(
+        data_root,
+        requests=tuple((symbol, start_date, end_date) for symbol in symbols),
+        allow_network=allow_network,
+        query=query,
+        provider_version=provider_version,
+    )
+
+
+def capture_baostock_requests(
+    data_root: Path,
+    *,
+    requests: tuple[tuple[str, date, date], ...],
+    allow_network: bool,
+    query: Query | None = None,
+    provider_version: str = "unknown",
+) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
+    """Capture sorted symbol/date requests through one BaoStock login."""
+    if not allow_network:
+        raise ValueError("--allow-network is required for BaoStock capture")
+    if not requests or tuple(sorted(requests)) != requests:
+        raise ValueError("BaoStock requests must be sorted and unique")
+    if any(start > end for _, start, end in requests):
+        raise ValueError("BaoStock request has reversed dates")
     if query is not None:
-        return _capture_batch_rows(
-            data_root, symbols, start_date, end_date, query, provider_version
-        )
+        return _capture_requests(data_root, requests, query, provider_version)
     try:
         bs = importlib.import_module("baostock")
     except ImportError as error:
@@ -175,7 +197,7 @@ def capture_baostock_batch(
     try:
         login = bs.login()
         if login.error_code != "0":
-            return (), _batch_failures(symbols, start_date, end_date, "BaoStock login failed")
+            return (), _request_failures(requests, "BaoStock login failed")
         logged_in = True
 
         def session_query(
@@ -194,27 +216,23 @@ def capture_baostock_batch(
                 rows.append(result.get_row_data())
             return str(result.error_code), rows
 
-        return _capture_batch_rows(
-            data_root, symbols, start_date, end_date, session_query, provider_version
-        )
+        return _capture_requests(data_root, requests, session_query, provider_version)
     finally:
         if logged_in:
             bs.logout()
         socket.setdefaulttimeout(previous_timeout)
 
 
-def _capture_batch_rows(
+def _capture_requests(
     data_root: Path,
-    symbols: tuple[str, ...],
-    start_date: date,
-    end_date: date,
+    requests: tuple[tuple[str, date, date], ...],
     query: Query,
     provider_version: str,
 ) -> tuple[tuple[BaoStockManifest, ...], tuple[BaoStockCaptureFailure, ...]]:
     """Write one immutable response per successful query while preserving all failures."""
     manifests: list[BaoStockManifest] = []
     failures: list[BaoStockCaptureFailure] = []
-    for symbol in symbols:
+    for symbol, start_date, end_date in requests:
         try:
             _, manifest, _ = capture_baostock_history(
                 data_root,
@@ -238,13 +256,13 @@ def _capture_batch_rows(
     return tuple(manifests), tuple(failures)
 
 
-def _batch_failures(
-    symbols: tuple[str, ...], start_date: date, end_date: date, error: str
+def _request_failures(
+    requests: tuple[tuple[str, date, date], ...], error: str
 ) -> tuple[BaoStockCaptureFailure, ...]:
     """Record a login-level failure for each fixed request without retrying it independently."""
     return tuple(
-        BaoStockCaptureFailure(symbol, start_date.isoformat(), end_date.isoformat(), error)
-        for symbol in symbols
+        BaoStockCaptureFailure(symbol, start.isoformat(), end.isoformat(), error)
+        for symbol, start, end in requests
     )
 
 
