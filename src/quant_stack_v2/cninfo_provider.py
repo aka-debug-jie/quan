@@ -13,6 +13,7 @@ from quant_stack.snapshot import write_immutable
 
 STOCK_URL = "https://www.cninfo.com.cn/new/data/szse_stock.json"
 QUERY_URL = "https://www.cninfo.com.cn/new/hisAnnouncement/query"
+PDF_BASE = "https://static.cninfo.com.cn/"
 HEADERS = {
     "User-Agent": "quant-stack-v2/1.0",
     "X-Requested-With": "XMLHttpRequest",
@@ -70,6 +71,24 @@ def discover(
         "catalog_sha256": digest,
         "announcements": payload.get("announcements", []),
     }
+
+
+def archive_pdf(data_root: Path, adjunct_url: str, *, allow_network: bool) -> dict[str, str]:
+    """Archive one official CNINFO PDF selected from an archived catalog row."""
+    if (
+        not allow_network
+        or not adjunct_url.startswith("finalpage/")
+        or ".." in Path(adjunct_url).parts
+        or not adjunct_url.endswith(".PDF")
+    ):
+        raise ValueError("CNINFO PDF request is invalid")
+    url = PDF_BASE + adjunct_url
+    body = _get(url)
+    if not body.startswith(b"%PDF"):
+        raise ValueError("CNINFO response is not a PDF")
+    digest = sha256(body).hexdigest()
+    write_immutable(data_root / "cninfo_pdfs" / digest / "notice.pdf", body)
+    return {"official_url": url, "raw_sha256": digest}
 
 
 def _get(url: str) -> bytes:
