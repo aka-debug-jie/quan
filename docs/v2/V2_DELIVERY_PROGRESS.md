@@ -1,5 +1,11 @@
 # Quant V2 Delivery Progress
 
+EXQ history revalidation (2026-09-19): 27 of 30 relevant existing reviewed
+claims passed the unchanged issuer-history validator, supporting 210 of the
+275 SZSE residual keys retrospectively; 65 SZSE and 3 SSE keys remain without
+this support. This does not replace the frozen global funnel or qualify
+execution. See EXQ_001_HISTORY_REVALIDATION.md.
+
 EXQ full discovery (2026-09-19): all 28 fixed issuer windows completed across
 64 pages (1,451 announcements). 155 candidate PDFs yielded 630 complete
 page-numbered sentences without capture/extraction failure. Claim review is
