@@ -1,5 +1,10 @@
 # Quant V2 Delivery Progress
 
+EXQ corporate-action leads (2026-09-19): 24 title-selected, hash-bound issuer
+PDF leads are queued for accounting validation. None has record/ex-date or
+cash/share terms verified, so no price adjustment or execution eligibility is
+claimed. See EXQ_001_CORPORATE_ACTION_QUEUE.md.
+
 EXQ rule-source capture (2026-09-19): four official CSRC/SSE/SZSE source
 bodies and receipts are content-addressed. Security/date binding, historical ST
 status, fee schedules and research cost assumptions remain pending. See
