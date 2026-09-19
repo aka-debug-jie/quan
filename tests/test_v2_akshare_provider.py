@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from quant_stack_v2.akshare_provider import capture_batch, capture_daily
+from quant_stack_v2.akshare_provider import capture_batch, capture_daily, capture_history_batch
 
 
 def _frame(session: str) -> pd.DataFrame:
@@ -38,3 +38,18 @@ def test_capture_batch_archives_empty_response(tmp_path: Path) -> None:
     assert len(manifests) == 2
     assert not failures
     assert next(item for item in manifests if item.symbol == "sz000002").row_count == 0
+
+
+def test_capture_history_batch_archives_only_requested_span(tmp_path: Path) -> None:
+    """A bounded history request retains normal trading rows without widening its range."""
+    frame = pd.concat([_frame("2020-01-02"), _frame("2020-01-03")], ignore_index=True)
+    manifests, failures = capture_history_batch(
+        tmp_path,
+        requests=(("sz000001", date(2020, 1, 2), date(2020, 1, 3)),),
+        allow_network=True,
+        query=lambda *_: frame,
+    )
+    assert not failures
+    assert manifests[0].row_count == 2
+    assert manifests[0].start_date == "2020-01-02"
+    assert manifests[0].end_date == "2020-01-03"

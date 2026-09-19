@@ -104,6 +104,65 @@ def capture_daily(
     return manifest
 
 
+def capture_history(
+    data_root: Path,
+    *,
+    symbol: str,
+    start: date,
+    end: date,
+    allow_network: bool,
+    query: Query | None = None,
+    provider_version: str = "unknown",
+) -> AKShareManifest:
+    """Archive one bounded unadjusted history response for an approved scope span."""
+    if not allow_network:
+        raise ValueError("--allow-network is required for AKShare capture")
+    if start > end:
+        raise ValueError("AKShare history request has reversed dates")
+    provider_symbol = _provider_symbol(symbol)
+    frame = (query or _live_query)(
+        provider_symbol, start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+    )
+    rows = _validate_range(frame, start, end)
+    raw = _csv_rows(rows)
+    digest = sha256(raw).hexdigest()
+    manifest = AKShareManifest(
+        symbol,
+        start.isoformat(),
+        end.isoformat(),
+        FIELDS,
+        provider_version,
+        digest,
+        len(rows),
+    )
+    base = data_root / "akshare_eastmoney" / digest
+    write_immutable(base / "response.csv", raw)
+    receipt = {
+        "schema_version": 1,
+        "provider": "akshare_eastmoney",
+        "provider_version": provider_version,
+        "adapter_version": ADAPTER_VERSION,
+        "retrieved_at_utc": datetime.now(UTC).isoformat(),
+        "request": {
+            "method": "stock_zh_a_hist",
+            "symbol": provider_symbol,
+            "period": "daily",
+            "start_date": start.strftime("%Y%m%d"),
+            "end_date": end.strftime("%Y%m%d"),
+            "adjust": "",
+        },
+        "raw_sha256": digest,
+        "manifest_sha256": manifest.identity_sha256,
+    }
+    receipt_bytes = _json(receipt) + b"\n"
+    write_immutable(base / "receipts" / f"{sha256(receipt_bytes).hexdigest()}.json", receipt_bytes)
+    write_immutable(
+        data_root / "akshare_eastmoney_manifests" / manifest.identity_sha256 / "manifest.json",
+        _json(asdict(manifest)) + b"\n",
+    )
+    return manifest
+
+
 def capture_batch(
     data_root: Path,
     *,
@@ -150,6 +209,58 @@ def capture_batch(
     return manifests, failures
 
 
+def capture_history_batch(
+    data_root: Path,
+    *,
+    requests: tuple[tuple[str, date, date], ...],
+    allow_network: bool,
+    query: Query | None = None,
+    provider_version: str = "unknown",
+    workers: int = 4,
+) -> tuple[tuple[AKShareManifest, ...], tuple[AKShareFailure, ...]]:
+    """Capture approved history spans with bounded parallelism and retained failures."""
+    if not allow_network:
+        raise ValueError("--allow-network is required for AKShare capture")
+    if (
+        not requests
+        or tuple(sorted(set(requests))) != requests
+        or not 1 <= workers <= 4
+        or any(start > end for _, start, end in requests)
+    ):
+        raise ValueError("AKShare history requests must be unique/sorted and workers 1..4")
+
+    def one(request: tuple[str, date, date]) -> AKShareManifest | AKShareFailure:
+        symbol, start, end = request
+        try:
+            return capture_history(
+                data_root,
+                symbol=symbol,
+                start=start,
+                end=end,
+                allow_network=True,
+                query=query,
+                provider_version=provider_version,
+            )
+        except (ValueError, OSError) as error:
+            return AKShareFailure(symbol, f"{start.isoformat()}:{end.isoformat()}", str(error))
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        outcomes = tuple(executor.map(one, requests))
+    manifests = tuple(
+        sorted(
+            (item for item in outcomes if isinstance(item, AKShareManifest)),
+            key=lambda item: (item.symbol, item.start_date, item.end_date),
+        )
+    )
+    failures = tuple(
+        sorted(
+            (item for item in outcomes if isinstance(item, AKShareFailure)),
+            key=lambda item: (item.symbol, item.session),
+        )
+    )
+    return manifests, failures
+
+
 def _provider_symbol(symbol: str) -> str:
     if len(symbol) != 8 or symbol[:2] not in {"sh", "sz"} or not symbol[2:].isdigit():
         raise ValueError("AKShare symbol must use sh/sz plus six digits")
@@ -189,6 +300,30 @@ def _validate(frame: pd.DataFrame, session: date) -> list[dict[str, str]]:
     return rows
 
 
+def _validate_range(frame: pd.DataFrame, start: date, end: date) -> list[dict[str, str]]:
+    if frame.empty:
+        return []
+    required = {"日期", "开盘", "收盘", "最高", "最低", "成交量", "成交额"}
+    if not required <= set(frame.columns):
+        raise ValueError("AKShare response lacks daily raw fields")
+    rows = [
+        {
+            "date": str(row["日期"]),
+            "open": str(row["开盘"]),
+            "close": str(row["收盘"]),
+            "high": str(row["最高"]),
+            "low": str(row["最低"]),
+            "volume": str(row["成交量"]),
+            "amount": str(row["成交额"]),
+        }
+        for _, row in frame.iterrows()
+    ]
+    sessions = [date.fromisoformat(row["date"]) for row in rows]
+    if len(set(sessions)) != len(sessions) or any(day < start or day > end for day in sessions):
+        raise ValueError("AKShare response is outside requested history span")
+    return rows
+
+
 def _csv(frame: pd.DataFrame) -> bytes:
     buffer = io.StringIO(newline="")
     writer = csv.writer(buffer, lineterminator="\n")
@@ -196,6 +331,15 @@ def _csv(frame: pd.DataFrame) -> bytes:
     for row in (
         _validate(frame, date.fromisoformat(str(frame.iloc[0]["日期"]))) if not frame.empty else []
     ):
+        writer.writerow([row[field] for field in FIELDS])
+    return buffer.getvalue().encode()
+
+
+def _csv_rows(rows: list[dict[str, str]]) -> bytes:
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer, lineterminator="\n")
+    writer.writerow(FIELDS)
+    for row in rows:
         writer.writerow([row[field] for field in FIELDS])
     return buffer.getvalue().encode()
 
