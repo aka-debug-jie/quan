@@ -1,5 +1,11 @@
 # Quant V2 Delivery Progress
 
+EXQ full discovery (2026-09-19): all 28 fixed issuer windows completed across
+64 pages (1,451 announcements). 155 candidate PDFs yielded 630 complete
+page-numbered sentences without capture/extraction failure. Claim review is
+pending; no additional session is classified as explained. See
+EXQ_001_FULL_DISCOVERY_RESULT.md. Qualification remains BLOCKED_DATA.
+
 EXQ pagination follow-up: all 62 discovered PDFs now have byte-verified local
 copies (245 candidate sentences). The fixed sz000793 window returns 110
 announcements on four pages; the first-page-only discovery was incomplete.
