@@ -1,5 +1,11 @@
 # Quant V2 Delivery Progress
 
+EXQ equity-distribution candidates (2026-09-19): six official implementation
+notices yielded record/ex-date and gross cash text. Three ex dates intersect
+candidate residual intervals; factor/raw-price reconciliation remains required,
+so no ledger event or classification changed. See
+EXQ_001_EQUITY_DISTRIBUTION_CANDIDATES.md.
+
 EXQ corporate field extraction (2026-09-19): 24 hash-verified PDFs produced
 639 candidate sentences but only one same-sentence explicit date field. No
 corporate-action ledger event or price adjustment was inferred. See

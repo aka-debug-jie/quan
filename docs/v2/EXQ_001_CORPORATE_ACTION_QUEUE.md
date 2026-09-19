@@ -9,8 +9,8 @@ paginated discovery. It has 24 title-selected leads:
 | Lead family | Count |
 | --- | ---: |
 | Hongyuan/SWHY conversion, cash-option or delisting | 16 |
-| Equity-distribution implementation | 5 |
-| Other exchange, merger or charter-related lead | 3 |
+| Equity-distribution implementation | 6 |
+| Other exchange, merger or charter-related lead | 2 |
 
 Each lead retains its issuer, announcement identity, official URL and PDF hash.
 It requires a separately validated event type, record date, ex date and
