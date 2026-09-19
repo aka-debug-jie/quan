@@ -6,11 +6,30 @@ import argparse
 import json
 import re
 import subprocess
+from hashlib import sha256
 from pathlib import Path
 
 from quant_stack_v2.dev_contract import canonical, read_blob, write_blob
 
-PATTERN = re.compile(r"[^。]{0,100}(?:停牌|复牌|恢复交易)[^。]{0,100}[。]")
+
+def extract_pdf(path: Path, expected_sha256: str) -> list[dict[str, object]]:
+    """Check actual PDF bytes and retain entire sentences, including planned wording."""
+    if path.is_symlink() or sha256(path.read_bytes()).hexdigest() != expected_sha256:
+        raise ValueError("PDF SHA-256 mismatch or symlink")
+    text = subprocess.run(
+        ["/usr/bin/pdftotext", "-layout", str(path), "-"],
+        check=True,
+        capture_output=True,
+        timeout=30,
+    ).stdout.decode("utf-8")
+    anchors: list[dict[str, object]] = []
+    for page, value in enumerate(text.split("\f"), 1):
+        # Never truncate a sentence prefix: it may contain a negation or a plan.
+        for match in re.finditer(r"[^。!?]+[。!?]|[^。!?]+$", value):
+            sentence = match.group().strip()
+            if re.search(r"停牌|复牌|恢复交易|除权|除息|权益分派|风险警示", sentence):
+                anchors.append({"page": page, "anchor": sentence})
+    return anchors
 
 
 def main() -> None:
@@ -31,24 +50,16 @@ def main() -> None:
                 / pdf["raw_sha256"]
                 / "notice.pdf"
             )
-            text = subprocess.run(
-                ["/usr/bin/pdftotext", "-layout", str(path), "-"],
-                check=True,
-                capture_output=True,
-                timeout=30,
-            ).stdout.decode("utf-8", errors="replace")
-            for page, value in enumerate(text.split("\f"), 1):
-                for sentence in PATTERN.findall(value.replace("\n", "")):
-                    candidates.append(
-                        {
-                            "symbol": task["symbol"],
-                            "raw_sha256": pdf["raw_sha256"],
-                            "official_url": pdf["official_url"],
-                            "title": pdf["title"],
-                            "page": page,
-                            "anchor": sentence,
-                        }
-                    )
+            for anchor in extract_pdf(path, pdf["raw_sha256"]):
+                candidates.append(
+                    {
+                        "symbol": task["symbol"],
+                        "raw_sha256": pdf["raw_sha256"],
+                        "official_url": pdf["official_url"],
+                        "title": pdf["title"],
+                        **anchor,
+                    }
+                )
     payload = {
         "schema_version": 1,
         "kind": "exq001_cninfo_candidate_anchors",

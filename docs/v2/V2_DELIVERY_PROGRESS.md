@@ -1,5 +1,10 @@
 # Quant V2 Delivery Progress
 
+EXQ notice review update (2026-09-19): 54 of 62 discovered PDFs were located in
+existing local archives and byte-hash verified, yielding 223 complete candidate
+sentences. No new session qualification is claimed. Discovery pagination and
+corporate-action validation remain incomplete. See EXQ_001_LOCAL_NOTICE_REVIEW.md.
+
 | Issue | Status | Evidence |
 | --- | --- | --- |
 | V2-000 Research charter | COMPLETE | Charter, dataset and experiment contracts frozen before capture |
