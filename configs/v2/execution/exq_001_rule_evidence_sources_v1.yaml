@@ -1,0 +1,34 @@
+schema_version: 1
+contract_id: EXQ-001-CN-STOCK-OFFICIAL-RULE-SOURCES-V1
+status: PENDING_CAPTURE_AND_DATE_BINDING
+scope: LIMITED_DEV_RESEARCH_CSI300_CANDIDATE_SCOPE
+sources:
+  - id: csrc_a_share_t_plus_one
+    authority: CSRC
+    url: https://www.csrc.gov.cn/csrc/c100028/c1002481/content.shtml
+    supports: [t_plus_one_settlement_and_sale_constraint]
+    effective_from: "1995-01-01"
+  - id: sse_price_limit_reference
+    authority: SSE
+    url: https://www.sse.com.cn/aboutus/publication/factbook/documents/c/10170564/files/300a2dcef0f0452794683bd1bfbf65b0.pdf
+    supports: [main_board_price_limit_10_percent, risk_warning_price_limit_5_percent]
+    limitation: reference_document_requires_date_binding_to_each_security
+  - id: szse_chinext_transition
+    authority: SZSE
+    url: https://www.szse.cn/disclosure/notice/general/t20200710_579459.html
+    supports: [chinext_risk_warning_transition, delisting_period_transition]
+    effective_from: "2020-07-10"
+  - id: szse_chinext_transaction_rules
+    authority: SZSE
+    url: https://investor.szse.cn/index/update/t20200807_580310.html
+    supports: [chinext_price_limit_20_percent, board_lot_100_shares]
+    effective_from: "2020-08-24"
+unresolved_date_bindings:
+  - historical_board_for_each_symbol
+  - historical_risk_warning_status_for_each_symbol
+  - security_specific_price_limit_parameter
+  - historical_official_tax_and_exchange_fee_schedule
+  - broker_commission_and_slippage_assumptions
+formal_pit_status: BLOCKED_DATA
+formal_research_status: BLOCKED_DATA
+csi500: NOT_STARTED
