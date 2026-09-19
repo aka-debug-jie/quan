@@ -1,5 +1,10 @@
 # Quant V2 Delivery Progress
 
+EXQ corporate field extraction (2026-09-19): 24 hash-verified PDFs produced
+639 candidate sentences but only one same-sentence explicit date field. No
+corporate-action ledger event or price adjustment was inferred. See
+EXQ_001_CORPORATE_ACTION_EXTRACTION.md.
+
 EXQ corporate-action leads (2026-09-19): 24 title-selected, hash-bound issuer
 PDF leads are queued for accounting validation. None has record/ex-date or
 cash/share terms verified, so no price adjustment or execution eligibility is
