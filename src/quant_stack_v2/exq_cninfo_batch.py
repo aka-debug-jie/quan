@@ -76,7 +76,9 @@ def main() -> None:
         "schema_version": 1,
         "kind": "exq001_cninfo_issuer_discovery",
         "replay_sha256": args.replay_sha256,
-        "status": "DISCOVERY_COMPLETE",
+        "status": "DISCOVERY_PARTIAL"
+        if any("error" in row for row in rows)
+        else "DISCOVERY_COMPLETE",
         "tasks": rows,
         "formal_pit_status": "BLOCKED_DATA",
         "formal_research_status": "BLOCKED_DATA",
