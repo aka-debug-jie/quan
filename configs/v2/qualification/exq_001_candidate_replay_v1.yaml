@@ -1,0 +1,24 @@
+schema_version: 1
+contract_id: EXQ-001-CANDIDATE-REPLAY-V1
+scope: EXQ001_CANDIDATE_SCOPE_V1
+input_requirements:
+  - compiled_scope
+  - legacy_qualification
+required_evidence:
+  - raw_execution
+  - corporate_actions
+  - trading_status
+  - price_limit
+  - board_lot
+  - t_plus_one
+  - liquidity
+  - cost_model
+exclusion_rule: official_notice_published_on_or_before_signal_and_explicitly_untradable
+forbidden_substitutes:
+  - adjusted_qlib_only_prices
+  - empty_independent_provider_response
+  - retrospective_issuer_notice
+  - future_label_missingness
+formal_pit_status: BLOCKED_DATA
+formal_research_status: BLOCKED_DATA
+csi500: NOT_STARTED

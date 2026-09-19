@@ -1,0 +1,18 @@
+schema_version: 1
+ledger_id: EXQ-001-CORPORATE-LEDGER-V1
+scope: LIMITED_DEV_RESEARCH_CSI300_CANDIDATE_SCOPE
+events:
+  - {event_id: sz000009-20150806, symbol: sz000009, kind: EQUITY_DISTRIBUTION, record_date: '2015-08-05', effective_date: '2015-08-06', gross_cash_per_ten: '0.20_CNY', source_sha256: bc5a867cf7c2cf2091a0ac1871946731c2fcfba98cb548b4802ca0b3cab014fa, status: FACTOR_RECONCILIATION_PENDING}
+  - {event_id: sz002081-20150603, symbol: sz002081, kind: EQUITY_DISTRIBUTION, record_date: '2015-06-02', effective_date: '2015-06-03', gross_cash_per_ten: '1.00_CNY', source_sha256: adbd90c547292d6e47c5c6e63ee7d7d77efb2a5941b49d1be4c4585b1d427867, status: FACTOR_RECONCILIATION_PENDING}
+  - {event_id: sz300251-20160523, symbol: sz300251, kind: EQUITY_DISTRIBUTION, record_date: '2016-05-20', effective_date: '2016-05-23', gross_cash_per_ten: '1.00_CNY', source_sha256: 5ba87426964b17f6fa8c41cc2bac42b537aaf91195dd00f0b22a26fc00a18918, status: FACTOR_RECONCILIATION_PENDING}
+  - {event_id: sz000562-merger, symbol: sz000562, kind: STOCK_FOR_STOCK_MERGER, status: EVENT_BOUNDARY_ONLY}
+  - {event_id: sz000562-cash-option, symbol: sz000562, kind: CASH_OPTION, status: EVENT_BOUNDARY_ONLY}
+  - {event_id: sz000562-delisting, symbol: sz000562, kind: DELISTING, status: EVENT_BOUNDARY_ONLY}
+forbidden_inferences:
+  - infer_raw_execution_price
+  - infer_completed_merger_or_cash_payment
+  - infer_csi_membership_end
+  - mutate_qlib_factor_or_label
+formal_pit_status: BLOCKED_DATA
+formal_research_status: BLOCKED_DATA
+csi500: NOT_STARTED

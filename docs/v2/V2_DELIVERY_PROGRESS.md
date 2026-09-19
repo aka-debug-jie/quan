@@ -6,6 +6,14 @@ candidate residual intervals; factor/raw-price reconciliation remains required,
 so no ledger event or classification changed. See
 EXQ_001_EQUITY_DISTRIBUTION_CANDIDATES.md.
 
+EXQ final replay implementation (2026-09-19): a new deterministic matrix binds
+hash-pinned legacy qualification and compiled current evidence. It rejects
+future-notice exclusions, empty provider output and unreconciled factor events;
+the full candidate domain remains independently blocking until raw execution,
+rule and cost evidence exist. The fixed root runner is ready to write a
+content-addressed replay without exporting prices. See
+EXQ_001_FINAL_REPLAY_PROTOCOL.md.
+
 EXQ corporate field extraction (2026-09-19): 24 hash-verified PDFs produced
 639 candidate sentences but only one same-sentence explicit date field. No
 corporate-action ledger event or price adjustment was inferred. See
@@ -68,6 +76,7 @@ corporate-action validation remain incomplete. See EXQ_001_LOCAL_NOTICE_REVIEW.m
 | AF-003 combinations and fixed-model increment diagnostics | COMPLETED_LIMITED_DEV_DIAGNOSTICS | Fixed expanding training folds retained `equal_weight_zscore` as the one simple development diagnostic and found `NO_STABLE_ML_INCREMENT` across Ridge, ElasticNet, LightGBM and XGBoost; result `5aa2fe8b…7624`. This is fully touched development reuse, contains no portfolio return or CSI500, and leaves formal status unchanged. See AF_003_PROTOCOL.md and AF_003_RESULT.md. |
 | EXQ-001 candidate-scope qualification | BLOCKED_DATA | The frozen seven-factor AF-003 scope was bound to actual derivative CSI300 membership, feature lookbacks, label T+1/T+2 dependencies and frozen free-evidence artifacts. It has 278 exact free-residual dependency intersections and 671 official-suspension intervals in its required range. Raw OHLCV, official corporate actions, ST, and frozen execution semantics remain absent; no evidence was supplemented. Result `d76df755…7862`; formal PIT/research remain BLOCKED_DATA and CSI500 remains NOT_STARTED. See EXQ_001_PROTOCOL.md and EXQ_001_RESULT.md. |
 | EXQ-001 independent raw capture | CAPTURE_COMPLETE; NOT_QUALIFYING | AKShare/Eastmoney archived 278 exact candidate-residual requests with zero provider failures, but every response was an empty daily-bar result. This is independent-provider absence evidence only; it does not establish official suspension, PIT-safe exclusions, corporate actions, or executable prices. Receipt 47c730bd…a9ed; formal status is unchanged. See EXQ_001_RAW_PROVIDER_RESULT.md. |
+| EXQ-001 final replay | IMPLEMENTED_PENDING_RESTRICTED_REPLAY | The additive, fail-closed replay verifies source hashes, derives each residual-key disposition, separately blocks incomplete full-domain coverage, and content-addresses matrix/residual/summary outputs. It is not a qualification upgrade until the fixed read-only runner verifies the real sealed identities. |
 
 V1 remains on its existing release-candidate branch and account paths. V2 writes
 only below `docs/v2`, `configs/v2`, `src/quant_stack_v2`, `data/external` and
