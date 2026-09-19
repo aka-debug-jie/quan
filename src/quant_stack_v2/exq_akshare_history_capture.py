@@ -11,7 +11,7 @@ from typing import Any
 
 from quant_stack_v2.af002 import _blob, _mapping, _string
 from quant_stack_v2.af003 import DEV001_SUMMARY_SHA256
-from quant_stack_v2.akshare_provider import capture_history_batch
+from quant_stack_v2.akshare_provider import AKShareManifest, capture_history_batch
 from quant_stack_v2.dev_contract import canonical, write_blob
 from quant_stack_v2.dev_real_staged_view import load_staged_view
 from quant_stack_v2.exq001 import EXQ001Error, qualify
@@ -24,6 +24,41 @@ def scope_requests(
     if not symbols or tuple(sorted(set(symbols))) != symbols or start > end:
         raise EXQ001Error("EXQ history capture scope is invalid")
     return tuple((symbol, start, end) for symbol in symbols)
+
+
+def existing_manifests(
+    data_root: Path, requests: tuple[tuple[str, date, date], ...]
+) -> tuple[AKShareManifest, ...]:
+    """Reuse only immutable manifests whose exact approved span was already captured."""
+    expected = set(requests)
+    found: dict[tuple[str, date, date], AKShareManifest] = {}
+    manifest_root = data_root / "akshare_eastmoney_manifests"
+    for path in manifest_root.glob("*/manifest.json"):
+        value = json.loads(path.read_bytes())
+        if not isinstance(value, dict):
+            raise EXQ001Error("AKShare manifest is not an object")
+        try:
+            manifest = AKShareManifest(
+                symbol=str(value["symbol"]),
+                start_date=str(value["start_date"]),
+                end_date=str(value["end_date"]),
+                fields=tuple(value["fields"]),
+                provider_version=str(value["provider_version"]),
+                raw_sha256=str(value["raw_sha256"]),
+                row_count=int(value["row_count"]),
+            )
+            key = (
+                manifest.symbol,
+                date.fromisoformat(manifest.start_date),
+                date.fromisoformat(manifest.end_date),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise EXQ001Error("AKShare manifest schema is invalid") from error
+        if key in expected:
+            prior = found.setdefault(key, manifest)
+            if prior != manifest:
+                raise EXQ001Error("conflicting AKShare history manifests")
+    return tuple(found[key] for key in sorted(found))
 
 
 def capture(
@@ -50,13 +85,24 @@ def capture(
     )
     span = view.access.raw_dependency_span
     requests = scope_requests(view.access.symbols, span.start, span.end)
-    manifests, failures = capture_history_batch(
-        sealed_root / "artifacts/v2/exq001_candidate_scope/akshare_history_raw",
-        requests=requests,
-        allow_network=True,
-        provider_version="akshare-installed",
-        workers=workers,
-    )
+    data_root = sealed_root / "artifacts/v2/exq001_candidate_scope/akshare_history_raw"
+    reused = existing_manifests(data_root, requests)
+    reused_keys = {
+        (item.symbol, date.fromisoformat(item.start_date), date.fromisoformat(item.end_date))
+        for item in reused
+    }
+    pending = tuple(request for request in requests if request not in reused_keys)
+    if pending:
+        captured, failures = capture_history_batch(
+            data_root,
+            requests=pending,
+            allow_network=True,
+            provider_version="akshare-installed",
+            workers=workers,
+        )
+    else:
+        captured, failures = (), ()
+    manifests = (*reused, *captured)
     return {
         "schema_version": 1,
         "kind": "exq001_akshare_history_raw_capture",
@@ -67,6 +113,9 @@ def capture(
         "symbol_count": len(view.access.symbols),
         "raw_dependency_span": span.model_dump(mode="json"),
         "required_fields": ["open", "high", "low", "close", "volume", "amount"],
+        "reused_manifests": len(reused),
+        "new_requests": len(pending),
+        "new_successful_manifests": len(captured),
         "successful_manifests": len(manifests),
         "empty_history_responses": sum(item.row_count == 0 for item in manifests),
         "captured_row_count": sum(item.row_count for item in manifests),

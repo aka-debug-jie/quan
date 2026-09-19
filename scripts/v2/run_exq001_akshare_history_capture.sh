@@ -16,4 +16,4 @@ export PYTHONPATH="$repo_root/src"
   --registry "$repo_root/configs/v2/qualification/exq_001_candidate_scope_v1.yaml" \
   --result-root /srv/quant-v2/development/exq001 \
   --allow-network \
-  --workers 4
+  --workers 1
