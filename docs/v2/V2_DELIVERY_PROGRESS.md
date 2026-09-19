@@ -1,5 +1,10 @@
 # Quant V2 Delivery Progress
 
+EXQ rule-source capture (2026-09-19): four official CSRC/SSE/SZSE source
+bodies and receipts are content-addressed. Security/date binding, historical ST
+status, fee schedules and research cost assumptions remain pending. See
+EXQ_001_RULE_CAPTURE_RESULT.md.
+
 EXQ history revalidation (2026-09-19): 27 of 30 relevant existing reviewed
 claims passed the unchanged issuer-history validator, supporting 210 of the
 275 SZSE residual keys retrospectively; 65 SZSE and 3 SSE keys remain without
