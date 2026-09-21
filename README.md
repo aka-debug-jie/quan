@@ -44,6 +44,16 @@ Champion selection and V2 paper-account gates remain separate from V1. A
 blocked gate is not a strategy result, and no V2 component can submit a real
 order.
 
+## CN Historical Research V3
+
+`research/cn-historical-v3` is an isolated, non-commercial historical
+development comparison. It uses a content-addressed RQAlpha bundle, a causal
+dynamic-liquidity universe, the frozen AF-003 seven-factor score, and local-only
+T+1 accounting. The completed first round is documented in
+`docs/v3/CN_HISTORICAL_RESEARCH_V3_RESULT.md`; it found
+`NO_HISTORICAL_COST_ADJUSTED_EDGE` and does not modify or promote the running
+prospective system.
+
 ## CLI
 
 ```bash

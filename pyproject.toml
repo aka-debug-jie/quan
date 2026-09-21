@@ -42,6 +42,10 @@ v2 = [
 v2-free-data = [
   "baostock==0.8.9",
 ]
+v3-historical = [
+  "baostock==0.8.9",
+  "h5py==3.15.1",
+]
 [tool.hatch.build.targets.wheel]
 packages = ["src/quant_stack", "src/quant_stack_v2", "src/quant_stack_v3"]
 
