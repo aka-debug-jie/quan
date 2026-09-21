@@ -6,7 +6,7 @@ import json
 import math
 from collections import Counter
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import date
 from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
@@ -18,16 +18,15 @@ from quant_stack.costs import CostModel
 from quant_stack.data.models import CorporateActionEvent
 from quant_stack.evaluation import ExecutionStatistics, evaluate_equity_curve
 from quant_stack.models import Side
-from quant_stack.paper_broker import PaperBroker
-from quant_stack.paper_models import (
-    PaperBrokerConfig,
-    PaperExecutionRule,
-    PaperOrder,
-    PaperSnapshot,
-)
+from quant_stack.paper_models import PaperExecutionRule
 from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
 from quant_stack_v3.actions import load_actions, unexplained_factor_events
+from quant_stack_v3.fast_engine import (
+    HistoricalAccount,
+    HistoricalOrder,
+    HistoricalSnapshot,
+)
 from quant_stack_v3.protocol import Protocol, StrategySpec
 from quant_stack_v3.targets import TargetSet, build_targets
 
@@ -76,6 +75,7 @@ def run_strategy(
         "evaluation_sha256": _file_sha256(
             Path(__file__).parents[1] / "quant_stack" / "evaluation.py"
         ),
+        "fast_engine_sha256": _file_sha256(Path(__file__).with_name("fast_engine.py")),
     }
     run_identity = sha256(canonical_json(identity_payload)).hexdigest()
     run_root = artifact_root / "runs" / run_identity
@@ -118,29 +118,16 @@ def run_strategy(
         start=protocol.research.start,
         end=protocol.research.end,
     )
-    database = run_root / "strategy.sqlite3"
     account_id = f"historical-v3-{run_identity}"
-    initial_costs = _costs(protocol, sessions[0], options.friction_multiplier)
-    PaperBroker(
-        database,
-        PaperBrokerConfig(account_id, initial_costs, protocol.execution.initial_cash),
-    ).initialize()
+    account = HistoricalAccount(account_id, protocol.execution.initial_cash)
     last_closes: dict[str, Decimal] = {}
     stale_counts: dict[str, int] = {}
     maximum_stale = 0
     stale_observations = 0
     index_by_session = {session: index for index, session in enumerate(sessions)}
     for session in sessions:
-        broker = PaperBroker(
-            database,
-            PaperBrokerConfig(
-                account_id,
-                _costs(protocol, session, options.friction_multiplier),
-                protocol.execution.initial_cash,
-            ),
-        )
         for transfer in transfers.get(session, ()):
-            broker.transfer_position(
+            account.transfer_position(
                 sha256(
                     f"{run_identity}:{session}:transfer:{transfer.predecessor}:{transfer.successor}".encode()
                 ).hexdigest(),
@@ -153,16 +140,16 @@ def run_strategy(
         raw_opens = {str(symbol): Decimal(str(row.raw_open)) for symbol, row in today.iterrows()}
         raw_closes = {str(symbol): Decimal(str(row.raw_close)) for symbol, row in today.iterrows()}
         last_closes.update(raw_closes)
-        before = broker.snapshot()
+        before_positions = dict(account.positions)
         unresolved_held = set(unexplained_actions.get(session, ())) & {
-            symbol for symbol, quantity in before.positions.items() if quantity > 0
+            symbol for symbol, quantity in before_positions.items() if quantity > 0
         }
         if unresolved_held:
             raise ValueError(
                 "held position has unexplained adjustment factor on "
                 f"{session}: {', '.join(sorted(unresolved_held))}"
             )
-        for symbol, quantity in before.positions.items():
+        for symbol, quantity in before_positions.items():
             if quantity <= 0:
                 continue
             if symbol in raw_closes:
@@ -174,44 +161,33 @@ def run_strategy(
             stale_counts[symbol] = stale_counts.get(symbol, 0) + 1
             maximum_stale = max(maximum_stale, stale_counts[symbol])
             stale_observations += 1
-        blocks = _execution_blocks(broker, today, session, actions.get(session, {}))
+        blocks = _execution_blocks(account, today, session, actions.get(session, {}))
         rules = {str(symbol): _execution_rule(str(row.board)) for symbol, row in today.iterrows()}
-        snapshot = broker.run_daily(
-            sha256(f"{run_identity}:{session}".encode()).hexdigest(),
+        snapshot = account.run_day(
             session,
             raw_opens,
             raw_closes,
-            bars_sha,
+            _costs(protocol, session, options.friction_multiplier),
             actions.get(session, {}),
-            execution_block_reasons=blocks,
-            execution_rules=rules,
-            generated_at=_generated_at(session),
-            is_backfill=True,
+            blocks,
+            rules,
         )
         target = targets.get(session)
         if target is not None:
             execution_index = index_by_session[session] + options.delay_sessions
             if execution_index < len(sessions):
                 _place_target_orders(
-                    broker,
+                    account,
                     snapshot,
                     target,
                     today,
                     sessions[execution_index],
                     run_identity,
                 )
-    broker = PaperBroker(
-        database,
-        PaperBrokerConfig(
-            account_id,
-            _costs(protocol, sessions[-1], options.friction_multiplier),
-            protocol.execution.initial_cash,
-        ),
-    )
-    reconciliation = broker.reconcile()
-    snapshots = broker.snapshots()
-    fills = broker.fills()
-    rejections = broker.rejections()
+    reconciliation = account.reconcile()
+    snapshots = tuple(account.snapshots)
+    fills = tuple(account.fills)
+    rejections = tuple(account.rejections)
     equity = pd.Series(
         [float(item.net_asset_value) for item in snapshots],
         index=pd.DatetimeIndex([item.as_of_date for item in snapshots]),
@@ -264,6 +240,9 @@ def run_strategy(
     nav_path = run_root / "nav.parquet"
     nav_frame.to_parquet(nav_path, index=False, compression="zstd")
     nav_sha = _file_sha256(nav_path)
+    ledger_path = run_root / "ledger.parquet"
+    pd.DataFrame(account.events).to_parquet(ledger_path, index=False, compression="zstd")
+    ledger_sha = _file_sha256(ledger_path)
     year_index = pd.DatetimeIndex(equity.index).year
     yearly_returns = {
         str(year): _period_return(group) for year, group in equity.groupby(year_index, sort=True)
@@ -302,7 +281,7 @@ def run_strategy(
             ),
         },
         "execution": {
-            "orders": len(broker.orders()),
+            "orders": len(account.orders),
             "fills": len(fills),
             "rejections": len(rejections),
             "rejection_reasons": dict(sorted(Counter(item.reason for item in rejections).items())),
@@ -315,6 +294,7 @@ def run_strategy(
         | {
             "ledger_head": reconciliation.head_hash,
             "ledger_events": reconciliation.event_count,
+            "ledger_sha256": ledger_sha,
             "nav_sha256": nav_sha,
         },
         "limitations": [
@@ -348,14 +328,14 @@ def _daily_rows(bars: pd.DataFrame, session: date) -> pd.DataFrame:
 
 
 def _execution_blocks(
-    broker: PaperBroker,
+    account: HistoricalAccount,
     today: pd.DataFrame,
     session: date,
     actions: dict[str, tuple[CorporateActionEvent, ...]],
 ) -> dict[str, str]:
     blocks: dict[str, str] = {}
-    for order in broker.orders():
-        if order.earliest_execution_date > session:
+    for order in account.orders:
+        if order.execution_date != session:
             continue
         symbol = order.symbol
         if symbol in actions and any(
@@ -385,8 +365,8 @@ def _execution_blocks(
 
 
 def _place_target_orders(
-    broker: PaperBroker,
-    snapshot: PaperSnapshot,
+    account: HistoricalAccount,
+    snapshot: HistoricalSnapshot,
     target: TargetSet,
     today: pd.DataFrame,
     execution_date: date,
@@ -411,8 +391,8 @@ def _place_target_orders(
         order_id = sha256(
             f"{run_identity}:{target.signal_date}:{symbol}:{side.value}:{quantity}".encode()
         ).hexdigest()
-        broker.place_order(
-            PaperOrder(
+        account.place_order(
+            HistoricalOrder(
                 order_id,
                 symbol,
                 side,
@@ -457,11 +437,6 @@ def _costs(protocol: Protocol, session: date, multiplier: Decimal) -> CostModel:
         tax,
         transfer,
     )
-
-
-def _generated_at(session: date) -> datetime:
-    shanghai = timezone(timedelta(hours=8))
-    return datetime.combine(session, time(16, 0), tzinfo=shanghai).astimezone(UTC)
 
 
 def _date_int(value: object) -> date:
