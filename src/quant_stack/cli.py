@@ -95,6 +95,7 @@ from quant_stack_v2.external_validation import (
     qualify_external_market,
 )
 from quant_stack_v2.foundation_gate import GateEvidence, persist_qualification, qualify_foundation
+from quant_stack_v2.free_etf_audit import audit_archive, persist_audit
 from quant_stack_v2.paper import initialize_v2_paper_account
 from quant_stack_v2.pit import (
     build_pit_universe,
@@ -890,6 +891,47 @@ def qualify_v2_external_market(
     typer.echo(json.dumps({"report_path": str(path), "status": report.status}, sort_keys=True))
     if report.status != "QUALIFIED":
         raise typer.Exit(code=1)
+
+
+@v2_external_app.command("free-research-audit")
+def audit_v2_global_etf_free_research(
+    config: Annotated[Path, typer.Option(exists=True, readable=True)],
+    yahoo_report: Annotated[Path, typer.Option(exists=True, readable=True)],
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/external"),
+) -> None:
+    """Audit archived Yahoo raw responses without qualifying execution or a backtest."""
+    expected_config_root = (REPOSITORY_ROOT / "configs" / "v2" / "external").resolve()
+    expected_data_root = (REPOSITORY_ROOT / "data" / "external").resolve()
+    if not config.resolve().is_relative_to(expected_config_root):
+        raise typer.BadParameter("V2 external configuration must be below configs/v2/external")
+    if not yahoo_report.resolve().is_relative_to(expected_data_root):
+        raise typer.BadParameter("Yahoo report must be below data/external")
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    if (
+        not isinstance(payload, dict)
+        or payload.get("dataset_id") != "yahoo_global_etf_research_v1"
+        or payload.get("status") != "frozen_free_research_audit_only"
+        or not isinstance(payload.get("yahoo_report_sha256"), str)
+        or not isinstance(payload.get("symbols"), list)
+    ):
+        raise typer.BadParameter("V2 free research audit configuration is invalid")
+    symbols = tuple(str(item) for item in payload["symbols"])
+    try:
+        result = audit_archive(yahoo_report, payload["yahoo_report_sha256"], symbols)
+        identity = persist_audit(result, _v2_artifact_root(artifact_root))
+    except ValueError as error:
+        typer.echo(f"V2 free research audit failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "audit_sha256": identity,
+                "status": result["status"],
+                "symbol_count": result["symbol_count"],
+            },
+            sort_keys=True,
+        )
+    )
 
 
 @v2_paper_app.command("initialize")

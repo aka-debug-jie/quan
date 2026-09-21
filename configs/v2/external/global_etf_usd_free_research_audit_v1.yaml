@@ -1,0 +1,6 @@
+schema_version: 1
+dataset_id: yahoo_global_etf_research_v1
+status: frozen_free_research_audit_only
+yahoo_report_sha256: c24b0a11bf99e406c5b03dc3c26eebac5a51599834f55d27fff1511c51c8ab0a
+symbols: [MCHI, SPY, EFA, IEF, GLD, DBC, BIL]
+forbidden_uses: [execution, backtest, paper_broker, promotion, live_order]
