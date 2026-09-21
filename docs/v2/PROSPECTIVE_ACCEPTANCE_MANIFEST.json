@@ -1,0 +1,47 @@
+{
+  "acceptance_id": "0a71c72f77a64973f217f9d6652f10e582f1c2746510260b0db0a77ec1056779",
+  "acceptance_status": "OPERATIONS_LOOP_RC",
+  "boundaries": {
+    "csi500": "NOT_STARTED",
+    "historical_research": "NO_FORMAL_DATA_QUALIFICATION",
+    "live_broker": "FORBIDDEN",
+    "profitability": "INSUFFICIENT_PROSPECTIVE_EVIDENCE"
+  },
+  "ci": {
+    "conclusion": "success",
+    "head_sha": "9303a1391084bf5374ecfde2d35814b8ea36b600",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35599637840"
+  },
+  "code_commit": "9303a1391084bf5374ecfde2d35814b8ea36b600",
+  "file_sha256": {
+    "configs/v2/prospective/cn_shadow_rules_v1.yaml": "cd79c8542194666f9a6475fc74c6218f2236a662c427ef9183b74109eb470648",
+    "configs/v2/prospective/cn_shadow_v1.yaml": "10039e49b82b12e0058649ee140c8094b2886a9a2d78a2ce42103c1898a9cd7f",
+    "systemd/user/quant-prospective.service": "813505ed166ee9f3282322d822010550430a58a3ad46f370c6746ddc6e1c1b39",
+    "systemd/user/quant-prospective.timer": "3b6a5c76f335d8a9697f1a5f68f3058f661e22d8e2dac81ae4cfce5deb7b7754"
+  },
+  "local_validation": {
+    "branch_coverage_percent": 66,
+    "tests_passed": 454
+  },
+  "missing_acceptance_evidence": [
+    "REAL_T_PLUS_ONE_FILL",
+    "REAL_TWO_SIDED_REBALANCE"
+  ],
+  "runtime": {
+    "accounts": {
+      "engineering_warm_start": {
+        "as_of_date": "2026-09-21",
+        "ledger_head": "f92dcac1e9a514af26e3441df5899166966e6bae4e82c6eb9f616c558969cbf4",
+        "nav": "1000000.00"
+      }
+    },
+    "artifact_set_sha256": "d89c6dc364f76f3767bdb755db8f34d54cf65f91c7e4c08e21d28fae750e0a38",
+    "first_live_capture_date": "2026-09-21",
+    "first_live_fill_date": null,
+    "first_two_sided_rebalance_date": null,
+    "receipt_sha256": [
+      "ec9b33432a78142193d1acafa1a4a0eef6169bcd5bee8b2539fcd84dd5c922a5"
+    ]
+  },
+  "schema_version": 1
+}

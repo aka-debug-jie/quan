@@ -70,8 +70,9 @@ section. Rebuild reproduced ledger head `f92dcac1…cbf4` and artifact-set hash
 the timer is enabled for the next session.
 
 This first smoke establishes an `OPERATIONS_LOOP_RC`, not final closure: no
-opening fill was due, no real two-sided rebalance occurred and the branch had no
-remote CI run. Closure additionally requires green remote CI, one real T+1 fill,
+opening fill was due and no real two-sided rebalance occurred. RC-02 commit
+`9303a13` passed both remote CI jobs; the redacted evidence is retained in
+`PROSPECTIVE_ACCEPTANCE_MANIFEST.json`. Closure still requires one real T+1 fill,
 one naturally occurring sell-plus-buy rebalance and a matching rebuild. Signal
 and profitability acceptance remain pending real forward observations;
 warm-start diagnostics never promote either status.
