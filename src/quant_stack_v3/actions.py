@@ -109,6 +109,39 @@ def load_actions(
     return actions, transfers
 
 
+def unexplained_factor_events(
+    bundle_root: Path,
+    actions: dict[date, dict[str, tuple[CorporateActionEvent, ...]]],
+    *,
+    start: date,
+    end: date,
+) -> dict[date, tuple[str, ...]]:
+    """Return factor changes not explained by a cash/split event in the vendor ledger."""
+    import h5py
+
+    known = {
+        (symbol, action.effective_date)
+        for symbols in actions.values()
+        for symbol, values in symbols.items()
+        for action in values
+    }
+    output: dict[date, list[str]] = {}
+    with h5py.File(bundle_root / "ex_cum_factor.h5", "r") as handle:
+        for provider_symbol in handle.keys():
+            symbol = _symbol(provider_symbol)
+            if symbol is None:
+                continue
+            for row in handle[provider_symbol][:]:
+                effective = _optional_date(row["start_date"])
+                if (
+                    effective is not None
+                    and start <= effective <= end
+                    and (symbol, effective) not in known
+                ):
+                    output.setdefault(effective, []).append(symbol)
+    return {session: tuple(sorted(set(symbols))) for session, symbols in sorted(output.items())}
+
+
 def _load_transfers(path: Path, start: date, end: date) -> dict[date, tuple[PositionTransfer, ...]]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -121,6 +154,8 @@ def _load_transfers(path: Path, start: date, end: date) -> dict[date, tuple[Posi
         successor = _symbol(str(item.get("successor", "")))
         effective = date.fromisoformat(str(item["effective_date"]))
         ratio = Decimal(str(item["share_conversion_ratio"]))
+        if predecessor is None:
+            continue
         if predecessor is None or successor is None or ratio <= 0:
             raise ValueError("invalid share transformation record")
         if start <= effective <= end:
@@ -160,8 +195,11 @@ def _overlaps(values: tuple[date, ...], start: date, end: date) -> bool:
 def _symbol(value: str) -> str | None:
     if len(value) != 11 or not value[:6].isdigit():
         return None
-    if value.endswith(".XSHG"):
-        return "sh" + value[:6]
-    if value.endswith(".XSHE"):
-        return "sz" + value[:6]
+    code = value[:6]
+    if value.endswith(".XSHG") and code.startswith(("600", "601", "603", "605", "688", "689")):
+        return "sh" + code
+    if value.endswith(".XSHE") and code.startswith(
+        ("000", "001", "002", "003", "300", "301", "302")
+    ):
+        return "sz" + code
     return None

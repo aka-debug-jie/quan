@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from quant_stack_v3.factors import build_scores
+from quant_stack_v3.market import _lifecycle_overrides, _symbol
 from quant_stack_v3.protocol import ALPHAS, load_protocol
 
 ROOT = Path(__file__).parents[1]
@@ -93,3 +94,24 @@ def test_protocol_rejects_factor_drift(tmp_path: Path) -> None:
     path.write_text(source.read_text().replace("CN_REV_001", "CN_MOM_001"), encoding="utf-8")
     with pytest.raises(ValueError, match="seven AF-003"):
         load_protocol(path)
+
+
+def test_historical_scope_accepts_common_stocks_and_rejects_fund_prefixes() -> None:
+    assert _symbol("600000.XSHG") == "sh600000"
+    assert _symbol("300001.XSHE") == "sz300001"
+    assert _symbol("302132.XSHE") == "sz302132"
+    assert _symbol("689009.XSHG") == "sh689009"
+    assert _symbol("160125.XSHE") is None
+    assert _symbol("990001.XSHG") is None
+
+
+def test_code_change_masks_backfilled_successor_history(tmp_path: Path) -> None:
+    path = tmp_path / "share_transformation.json"
+    path.write_text(
+        '{"300114.XSHE":{"successor":"302132.XSHE",'
+        '"effective_date":"2025-02-17","event":"code_change"}}',
+        encoding="utf-8",
+    )
+    starts, ends = _lifecycle_overrides(path)
+    assert starts["302132.XSHE"].isoformat() == "2025-02-17"
+    assert ends["300114.XSHE"].isoformat() == "2025-02-17"

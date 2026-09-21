@@ -7,7 +7,7 @@ data:
   source_url: https://bundle.assets.ricequant.com/bundles_v4/rqbundle_202609.tar.bz2
   bundle_sha256: 80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139
   tree_sha256: 9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620
-  normalized_bars_sha256: 98ee7b8defbc5c14bb2e120b782570ca60484a96d056e5c07a389f5a740c5432
+  normalized_bars_sha256: d0b4f72f8bc95539582f129ed1ad1e9c22c4dbb49f98413566bec9c1e5a3cc8f
   fallback: qlib_cn_community_20260910_signal_only
   commercial_use: false
   redistribution: false

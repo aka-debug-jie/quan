@@ -27,7 +27,7 @@ from quant_stack.paper_models import (
 )
 from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
-from quant_stack_v3.actions import load_actions
+from quant_stack_v3.actions import load_actions, unexplained_factor_events
 from quant_stack_v3.protocol import Protocol, StrategySpec
 from quant_stack_v3.targets import TargetSet, build_targets
 
@@ -71,6 +71,11 @@ def run_strategy(
         "paper_broker_sha256": _file_sha256(
             Path(__file__).parents[1] / "quant_stack" / "paper_broker.py"
         ),
+        "actions_sha256": _file_sha256(Path(__file__).with_name("actions.py")),
+        "targets_sha256": _file_sha256(Path(__file__).with_name("targets.py")),
+        "evaluation_sha256": _file_sha256(
+            Path(__file__).parents[1] / "quant_stack" / "evaluation.py"
+        ),
     }
     run_identity = sha256(canonical_json(identity_payload)).hexdigest()
     run_root = artifact_root / "runs" / run_identity
@@ -104,6 +109,12 @@ def run_strategy(
     actions, transfers = load_actions(
         bundle_root,
         bundle_sha256=bundle_sha256,
+        start=protocol.research.start,
+        end=protocol.research.end,
+    )
+    unexplained_actions = unexplained_factor_events(
+        bundle_root,
+        actions,
         start=protocol.research.start,
         end=protocol.research.end,
     )
@@ -143,6 +154,14 @@ def run_strategy(
         raw_closes = {str(symbol): Decimal(str(row.raw_close)) for symbol, row in today.iterrows()}
         last_closes.update(raw_closes)
         before = broker.snapshot()
+        unresolved_held = set(unexplained_actions.get(session, ())) & {
+            symbol for symbol, quantity in before.positions.items() if quantity > 0
+        }
+        if unresolved_held:
+            raise ValueError(
+                "held position has unexplained adjustment factor on "
+                f"{session}: {', '.join(sorted(unresolved_held))}"
+            )
         for symbol, quantity in before.positions.items():
             if quantity <= 0:
                 continue
@@ -262,7 +281,7 @@ def run_strategy(
         "options": asdict(options),
         "IMPLEMENTATION_STATUS": "IMPLEMENTED_REAL_DATA_PATH",
         "HISTORICAL_RUN_STATUS": "COMPLETE_REAL_DATA",
-        "DATA_USE_LEVEL": "RQALPHA_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY_FINAL_REVISED",
+        "DATA_USE_LEVEL": "RQALPHA_SINGLE_SOURCE_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY",
         "RESEARCH_VALIDITY": validity,
         "ECONOMIC_OUTCOME": "PENDING_MATRIX_COMPARISON",
         "PROSPECTIVE_ISOLATION_STATUS": "SEPARATE_WORKTREE_ENV_DATA_AND_LEDGER",

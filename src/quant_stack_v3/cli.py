@@ -16,6 +16,7 @@ from quant_stack_v3.bundle import (
     extract_and_inspect,
     inspect_bundle,
 )
+from quant_stack_v3.crosscheck import run_crosscheck
 from quant_stack_v3.market import MarketDataError, normalize_bundle
 from quant_stack_v3.protocol import load_protocol
 from quant_stack_v3.runner import RunOptions, run_strategy
@@ -100,6 +101,39 @@ def normalize_data(
                 "report": report_path.as_posix(),
                 "rows": report.rows,
                 "symbols": report.symbols,
+                "status": report.status,
+            },
+            indent=2,
+        )
+    )
+
+
+@data_app.command("crosscheck")
+def crosscheck_data(
+    bars_path: Annotated[Path, typer.Option()],
+    scores_path: Annotated[Path, typer.Option()],
+    data_root: Annotated[Path, typer.Option()],
+    artifact_root: Annotated[Path, typer.Option()],
+    allow_network: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Run the frozen 36-row independent BaoStock cross-check."""
+    try:
+        path, report = run_crosscheck(
+            bars_path,
+            scores_path,
+            data_root,
+            artifact_root,
+            allow_network=allow_network,
+        )
+    except ValueError as error:
+        typer.echo(f"historical cross-check failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report": path.as_posix(),
+                "matched": report.matched_count,
+                "mismatched": report.mismatched_count,
                 "status": report.status,
             },
             indent=2,

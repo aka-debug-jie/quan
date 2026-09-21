@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from bisect import bisect_left
@@ -64,6 +65,7 @@ def normalize_bundle(
     source_end = protocol.research.end
     suspended = _date_sets(bundle_root / "suspended_days.h5")
     st_days = _date_sets(bundle_root / "st_stock_days.h5")
+    valid_starts, valid_ends = _lifecycle_overrides(bundle_root / "share_transformation.json")
     frames: list[pd.DataFrame] = []
     dropped = 0
     with (
@@ -79,7 +81,13 @@ def normalize_bundle(
                 continue
             dates = np.asarray([_date_int(item) for item in values["datetime"]], dtype=object)
             selected = np.asarray(
-                [source_start <= item <= source_end for item in dates], dtype=bool
+                [
+                    source_start <= item <= source_end
+                    and item >= valid_starts.get(provider_symbol, date.min)
+                    and item < valid_ends.get(provider_symbol, date.max)
+                    for item in dates
+                ],
+                dtype=bool,
             )
             if not selected.any():
                 continue
@@ -223,7 +231,30 @@ def _optional_date_int(value: object) -> date | None:
 def _symbol(value: str) -> str | None:
     if len(value) != 11 or value[6:] not in {".XSHG", ".XSHE"} or not value[:6].isdigit():
         return None
-    return ("sh" if value.endswith(".XSHG") else "sz") + value[:6]
+    code = value[:6]
+    if value.endswith(".XSHG") and code.startswith(("600", "601", "603", "605", "688", "689")):
+        return "sh" + code
+    if value.endswith(".XSHE") and code.startswith(
+        ("000", "001", "002", "003", "300", "301", "302")
+    ):
+        return "sz" + code
+    return None
+
+
+def _lifecycle_overrides(path: Path) -> tuple[dict[str, date], dict[str, date]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise MarketDataError("share transformation payload must be a mapping")
+    starts: dict[str, date] = {}
+    ends: dict[str, date] = {}
+    for predecessor, item in payload.items():
+        if not isinstance(item, dict):
+            raise MarketDataError("share transformation record must be a mapping")
+        effective = date.fromisoformat(str(item["effective_date"]))
+        ends[str(predecessor)] = effective
+        if str(item.get("event")) in {"code_change", "listing board switch"}:
+            starts[str(item["successor"])] = effective
+    return starts, ends
 
 
 def _board(symbol: str) -> str:

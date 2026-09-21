@@ -1,16 +1,17 @@
 {
   "schema_version": 1,
   "status": "PREREGISTERED_BEFORE_PORTFOLIO_RETURNS",
-  "protocol_sha256": "2fccc22b09e78f385f25513e76876a6dfe6585b6f0d1a98063f6ccb2f9dd641d",
+  "protocol_sha256": "b5d473c38ebf3a0b827e26f1fc5315b6a532092ed45380d617347e5914a89a21",
   "bundle_sha256": "80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139",
   "extracted_tree_sha256": "9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620",
-  "normalized_bars_sha256": "98ee7b8defbc5c14bb2e120b782570ca60484a96d056e5c07a389f5a740c5432",
-  "score_cache_identity": "a921820e5be6a511c3fb72312250c60b5da900b2a1f624f9dde792fc68ea8b3d",
-  "scores_sha256": "af8ec419ce5a93349fd8ff9ac81b5c9f0707360754655e33cbdcfb7b07b40992",
+  "normalized_bars_sha256": "d0b4f72f8bc95539582f129ed1ad1e9c22c4dbb49f98413566bec9c1e5a3cc8f",
+  "score_cache_identity": "dd08038c26a255d80bc802d2e25542599125fea248608821b1e42a05d95320ad",
+  "scores_sha256": "2fa925b04971254fdcec72a24a04d18684e1fc36495ff13ed5e65cf274f1e958",
   "evaluation_sessions": 2674,
   "score_rows": 802200,
   "minimum_cross_section": 300,
   "maximum_cross_section": 300,
+  "independent_crosscheck": "UNAVAILABLE_BOUNDED_ATTEMPT_TIMEOUT_NO_ROWS",
   "csi500": "NOT_READ",
   "portfolio_returns": "NOT_READ_AT_PREFLIGHT"
 }

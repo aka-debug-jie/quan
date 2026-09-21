@@ -37,7 +37,7 @@ def test_real_runner_contract_fills_only_after_signal_and_reconciles(tmp_path: P
         bundle / "trading_dates.npy",
         np.asarray([int(item.strftime("%Y%m%d")) for item in sessions]),
     )
-    for name in ("dividends.h5", "split_factor.h5"):
+    for name in ("dividends.h5", "split_factor.h5", "ex_cum_factor.h5"):
         with h5py.File(bundle / name, "w"):
             pass
     (bundle / "share_transformation.json").write_text("{}", encoding="utf-8")
