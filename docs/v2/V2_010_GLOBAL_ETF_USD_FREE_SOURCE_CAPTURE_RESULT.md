@@ -28,3 +28,10 @@ actions `e4e9d95605b5459e157befedab49a4b6a2e56a5b0ae897d954b549ce8a3edaf9`, and
 universe `373fe1ee0db5e1d3c772baa1ab0500af1f1df2b8430b873b520c784eee74a346`.
 They are rejected by the crosscheck until a later source-bound normalization
 replaces them with actual evidence records.
+
+A second constrained capture receipt,
+`865dac8271e222ad469e587233bdfbb6e9da683e6605566afb338ae7c0a5dc25`, added
+the discovered direct NYSE Trading Days PDF, State Street historical
+distributions XLSX and iShares distribution schedule PDF. These files are
+available for offline parsing; no DBC distribution ledger was inferred or
+substituted.

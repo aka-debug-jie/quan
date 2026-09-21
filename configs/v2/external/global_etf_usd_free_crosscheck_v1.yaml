@@ -15,4 +15,7 @@ sources:
   - {id: ssga_gld, url: 'https://www.ssga.com/us/en/individual/etfs/spdr-gold-shares-gld'}
   - {id: ishares_distributions, url: 'https://www.ishares.com/us/library/financial-legal-tax'}
   - {id: invesco_etf_tax, url: 'https://www.invesco.com/us/en/accounts/tax-center/etf-tax-center.html'}
+  - {id: nyse_trading_days_pdf, url: 'https://www.nyse.com/publicdocs/Trading_Days.pdf'}
+  - {id: ssga_historical_distributions, url: 'https://www.ssga.com/library-content/products/fund-data/etfs/us/spdr-etf-historical-distributions.xlsx'}
+  - {id: ishares_distribution_schedule, url: 'https://www.ishares.com/us/literature/shareholder-letters/isharesandblackrocketfsdistributionschedule.pdf'}
 forbidden_uses: [execution, backtest, paper_broker, promotion, live_order]
