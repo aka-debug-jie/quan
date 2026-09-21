@@ -47,6 +47,21 @@ class PaperFill:
     spread_cost: Decimal
     slippage_cost: Decimal
     manifest_id: str
+    tax_cost: Decimal = Decimal("0")
+    transfer_fee: Decimal = Decimal("0")
+
+
+@dataclass(frozen=True)
+class PaperExecutionRule:
+    """Paper-only buy-size constraints for one exchange board."""
+
+    minimum_buy_quantity: Decimal
+    buy_increment: Decimal
+
+    def __post_init__(self) -> None:
+        """Require usable positive quantity constraints."""
+        if self.minimum_buy_quantity <= 0 or self.buy_increment <= 0:
+            raise ValueError("paper execution quantities must be positive")
 
 
 @dataclass(frozen=True)

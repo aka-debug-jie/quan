@@ -23,3 +23,15 @@ def test_install_and_enable_are_separate_actions() -> None:
     assert "--preview" in install
     assert "enable --now" not in install
     assert "enable --now quant-paper.timer" in enable
+
+
+def test_prospective_timer_has_idempotent_evening_retry() -> None:
+    timer = (ROOT / "systemd/user/quant-prospective.timer").read_text(encoding="utf-8")
+    service = (ROOT / "systemd/user/quant-prospective.service").read_text(encoding="utf-8")
+    wrapper = (ROOT / "scripts/run_prospective_systemd.sh").read_text(encoding="utf-8")
+    assert "18:30:00 Asia/Shanghai" in timer
+    assert "20:30:00 Asia/Shanghai" in timer
+    assert "Persistent=true" in timer
+    assert "OnFailure=quant-paper-failure@%n.service" in service
+    assert "ExecStart=/usr/bin/bash" in service
+    assert "v2 prospective run-daily --allow-network" in wrapper

@@ -12,7 +12,7 @@ from quant_stack.costs import CostModel
 from quant_stack.data.models import CorporateActionEvent, CorporateActionKind, OfficialEvidence
 from quant_stack.models import Side
 from quant_stack.paper_broker import PaperBroker, PaperLedgerError
-from quant_stack.paper_models import PaperBrokerConfig, PaperOrder
+from quant_stack.paper_models import PaperBrokerConfig, PaperExecutionRule, PaperOrder
 
 
 def _broker(tmp_path: Path) -> PaperBroker:
@@ -171,6 +171,73 @@ def test_unaffordable_order_is_recorded_as_rejection(tmp_path: Path) -> None:
     )
     assert broker.rejections()[0].reason == "insufficient_cash"
     assert len(broker.fills()) == 1
+
+
+def test_board_quantity_and_sell_only_taxes_are_recorded(tmp_path: Path) -> None:
+    broker = PaperBroker(
+        tmp_path / "taxed.sqlite",
+        PaperBrokerConfig(
+            "taxed",
+            CostModel(
+                Decimal("0.0003"),
+                Decimal("5"),
+                Decimal("0"),
+                Decimal("0"),
+                Decimal("0.0005"),
+                Decimal("0.00001"),
+            ),
+            Decimal("100000"),
+        ),
+    )
+    broker.initialize()
+    broker.place_order(
+        PaperOrder(
+            "star-buy", "sh688001", Side.BUY, Decimal("201"), date(2026, 1, 2), date(2026, 1, 5)
+        )
+    )
+    broker.run_daily(
+        "buy-star",
+        date(2026, 1, 5),
+        {"sh688001": Decimal("10")},
+        {"sh688001": Decimal("10")},
+        "a" * 64,
+        execution_rules={"sh688001": PaperExecutionRule(Decimal("200"), Decimal("1"))},
+    )
+    bought = broker.fills()[0]
+    assert bought.tax_cost == 0
+    assert bought.transfer_fee > 0
+    broker.place_order(
+        PaperOrder(
+            "star-sell", "sh688001", Side.SELL, Decimal("201"), date(2026, 1, 5), date(2026, 1, 6)
+        )
+    )
+    broker.run_daily(
+        "sell-star",
+        date(2026, 1, 6),
+        {"sh688001": Decimal("10")},
+        {"sh688001": Decimal("10")},
+        "b" * 64,
+        execution_rules={"sh688001": PaperExecutionRule(Decimal("200"), Decimal("1"))},
+    )
+    assert broker.fills()[-1].tax_cost > 0
+
+
+def test_invalid_board_buy_quantity_expires_without_fill(tmp_path: Path) -> None:
+    broker = _broker(tmp_path)
+    broker.initialize()
+    broker.place_order(
+        PaperOrder("bad-lot", "ETF", Side.BUY, Decimal("150"), date(2026, 1, 2), date(2026, 1, 5))
+    )
+    broker.run_daily(
+        "bad-lot-day",
+        date(2026, 1, 5),
+        {"ETF": Decimal("10")},
+        {"ETF": Decimal("10")},
+        "d" * 64,
+        execution_rules={"ETF": PaperExecutionRule(Decimal("100"), Decimal("100"))},
+    )
+    assert broker.fills() == ()
+    assert broker.rejections()[0].reason == "invalid_board_quantity"
 
 
 def test_record_date_entitlement_uses_post_fill_close_holdings(tmp_path: Path) -> None:

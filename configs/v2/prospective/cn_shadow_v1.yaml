@@ -1,0 +1,27 @@
+schema_version: 1
+strategy_id: prospective_cn_shadow_v1
+status: PREREGISTERED_PROSPECTIVE_ONLY
+selected_model: equal_weight_zscore
+selected_alpha_ids: [CN_REV_001, CN_REV_003, CN_PV_003, CN_RANGE_001, CN_VOL_003, CN_VOL_002, CN_PV_004]
+selection_count: 20
+lot_size: 100
+initial_cash: 1000000
+maximum_lookback_sessions: 60
+warm_start_sessions: 65
+minimum_cross_section: 200
+minimum_mean_amount_20d: 10000000
+action_refresh_max_sessions: 5
+cost_assumption:
+  commission_rate: 0.0003
+  minimum_commission: 5
+  half_spread_rate: 0.0005
+  slippage_rate: 0.0005
+  sell_tax_rate: 0.0005
+  transfer_fee_rate: 0.00001
+evaluation:
+  minimum_fully_prospective_days: 60
+  minimum_evaluation_coverage: 0.5
+  minimum_direction_consistency: 0.5
+  require_positive_mean_rank_ic: true
+network_scope: free_public_research_capture_only
+forbidden_uses: [historical_qualification, bt_001, csi500, live_order]

@@ -1,0 +1,17 @@
+schema_version: 1
+rule_id: CN-SHADOW-RULES-V1
+effective_from: 2026-01-01
+settlement: T+1
+long_only: true
+leverage_allowed: false
+boards:
+  main: {minimum_buy_quantity: 100, buy_increment: 100}
+  chinext: {minimum_buy_quantity: 100, buy_increment: 100}
+  star: {minimum_buy_quantity: 200, buy_increment: 1}
+sources:
+  - https://www.sse.com.cn/lawandrules/sselawsrules2025/stocks/exchange/c/c_20260424_10816482.shtml
+  - https://edu.sse.com.cn/tib/qa/
+execution_policy:
+  order_time_in_force: next_session_day
+  replace_failed_selection: false
+  one_price_limit_detection: raw_open_equals_high_equals_low_with_direction

@@ -113,6 +113,24 @@ from quant_stack_v2.pit import (
     persist_pit_qualification,
     qualify_pit_universe,
 )
+from quant_stack_v2.prospective_capture import source_probe, write_probe
+from quant_stack_v2.prospective_diagnostics import build_diagnostics
+from quant_stack_v2.prospective_runner import (
+    bootstrap as bootstrap_prospective,
+)
+from quant_stack_v2.prospective_runner import latest_status as latest_prospective_status
+from quant_stack_v2.prospective_runner import rebuild_status as rebuild_prospective_status
+from quant_stack_v2.prospective_runner import run_daily as run_prospective_daily
+from quant_stack_v2.prospective_shadow import (
+    archive_current_snapshot,
+)
+from quant_stack_v2.prospective_shadow import (
+    build_signal as build_prospective_shadow_signal,
+)
+from quant_stack_v2.prospective_shadow import (
+    load_config as load_prospective_shadow_config,
+)
+from quant_stack_v2.prospective_shadow import run_paper_day as run_prospective_paper_day
 from quant_stack_v2.qlib_import import (
     QlibImportReport,
     import_qlib_archive,
@@ -148,6 +166,7 @@ v2_strategy_app = typer.Typer(help="V2 research strategy signals and blocked res
 v2_baseline_app = typer.Typer(help="Frozen Qlib baseline precommits and sealed evidence.")
 v2_external_app = typer.Typer(help="Fail-closed V2 external-history qualification.")
 v2_paper_app = typer.Typer(help="Isolated V2 Champion paper-account commands.")
+v2_prospective_app = typer.Typer(help="Forward-only CN shadow signals; no broker transport.")
 v2_tushare_app = typer.Typer(help="Tushare Pro raw-response capture for V2 qualification.")
 v2_baostock_app = typer.Typer(help="Free BaoStock evidence capture for V2 qualification.")
 v2_sse_suspension_app = typer.Typer(help="SSE official suspension evidence capture.")
@@ -165,6 +184,7 @@ v2_app.add_typer(v2_strategy_app, name="strategy")
 v2_app.add_typer(v2_baseline_app, name="baseline")
 v2_app.add_typer(v2_external_app, name="external")
 v2_app.add_typer(v2_paper_app, name="paper")
+v2_app.add_typer(v2_prospective_app, name="prospective")
 v2_app.add_typer(v2_tushare_app, name="tushare")
 v2_app.add_typer(v2_baostock_app, name="baostock")
 v2_app.add_typer(v2_sse_suspension_app, name="sse-suspension")
@@ -1067,6 +1087,165 @@ def initialize_v2_paper(
             sort_keys=True,
         )
     )
+
+
+@v2_prospective_app.command("archive-snapshot")
+def archive_prospective_snapshot(
+    source: Annotated[Path, typer.Option(exists=True, readable=True)],
+    provider: Annotated[str, typer.Option()],
+    data_root: Annotated[Path, typer.Option()] = Path("data/prospective/cn_shadow_v1"),
+) -> None:
+    """Content-address one already captured current CN snapshot without downloading anything."""
+    receipt = archive_current_snapshot(source, data_root, provider=provider)
+    typer.echo(str(receipt))
+
+
+@v2_prospective_app.command("build-signal")
+def build_prospective_signal(
+    receipt: Annotated[Path, typer.Option(exists=True, readable=True)],
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Rank the frozen factors after T close; output remains local and paper-only."""
+    try:
+        result = build_prospective_shadow_signal(
+            load_prospective_shadow_config(config), receipt, artifact_root
+        )
+    except ValueError as error:
+        typer.echo(f"prospective signal failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(str(result))
+
+
+@v2_prospective_app.command("source-probe")
+def probe_prospective_sources(
+    allow_network: Annotated[bool, typer.Option()] = False,
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Probe the bounded free-provider surface and retain one diagnostic result."""
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required for a source probe")
+    try:
+        path = write_probe(artifact_root / "source_probes", source_probe())
+    except (ValueError, OSError, RuntimeError) as error:
+        typer.echo(f"prospective source probe failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(str(path))
+
+
+@v2_prospective_app.command("bootstrap")
+def bootstrap_prospective_command(
+    through: Annotated[str, typer.Option()],
+    allow_network: Annotated[bool, typer.Option()] = False,
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    data_root: Annotated[Path, typer.Option()] = Path("data/prospective/cn_shadow_v1"),
+    calendar_root: Annotated[Path, typer.Option()] = Path("configs/calendars"),
+) -> None:
+    """Capture a retrospective, explicitly non-formal feature warm start."""
+    try:
+        receipts = bootstrap_prospective(
+            config,
+            data_root,
+            through=date.fromisoformat(through),
+            calendar_root=calendar_root,
+            allow_network=allow_network,
+        )
+    except (ValueError, OSError, RuntimeError) as error:
+        typer.echo(f"prospective bootstrap failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(f"archived warm-start sessions: {len(receipts)}")
+
+
+@v2_prospective_app.command("run-daily")
+def run_prospective_daily_command(
+    allow_network: Annotated[bool, typer.Option()] = False,
+    session: Annotated[str | None, typer.Option()] = None,
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    data_root: Annotated[Path, typer.Option()] = Path("data/prospective/cn_shadow_v1"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+    calendar_root: Annotated[Path, typer.Option()] = Path("configs/calendars"),
+    rules: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_rules_v1.yaml"
+    ),
+) -> None:
+    """Run the complete capture-to-report local shadow loop once."""
+    try:
+        report = run_prospective_daily(
+            config,
+            data_root,
+            artifact_root,
+            calendar_root=calendar_root,
+            rules_path=rules,
+            allow_network=allow_network,
+            session=date.fromisoformat(session) if session else None,
+        )
+    except (ValueError, OSError, RuntimeError) as error:
+        typer.echo(f"prospective daily run failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(str(report))
+
+
+@v2_prospective_app.command("status")
+def show_prospective_status(
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Print the latest consolidated prospective status without network access."""
+    typer.echo(json.dumps(latest_prospective_status(artifact_root), ensure_ascii=False, indent=2))
+
+
+@v2_prospective_app.command("rebuild")
+def rebuild_prospective_command(
+    through: Annotated[str | None, typer.Option()] = None,
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Reconcile the ledger and hash the immutable prospective artifact set."""
+    result = rebuild_prospective_status(
+        config, artifact_root, through=date.fromisoformat(through) if through else None
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+@v2_prospective_app.command("run-paper-day")
+def run_prospective_paper(
+    receipt: Annotated[Path, typer.Option(exists=True, readable=True)],
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Run the local-only T+1 paper ledger from an archived prospective snapshot."""
+    try:
+        result = run_prospective_paper_day(
+            load_prospective_shadow_config(config), receipt, artifact_root
+        )
+    except ValueError as error:
+        typer.echo(f"prospective paper run failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(str(result))
+
+
+@v2_prospective_app.command("report-diagnostics")
+def report_prospective_diagnostics(
+    through: Annotated[str, typer.Option()],
+    data_root: Annotated[Path, typer.Option()] = Path("data/prospective/cn_shadow_v1"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Compute delayed IC/Rank-IC only from archived forward snapshots and signals."""
+    try:
+        result = build_diagnostics(data_root, artifact_root, date.fromisoformat(through))
+    except (ValueError, OSError) as error:
+        typer.echo(f"prospective diagnostics failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(str(result))
 
 
 @v2_baseline_app.command("precommit")

@@ -1,0 +1,12 @@
+[Unit]
+Description=Quant Stack prospective CSI300 shadow daily processing
+After=network-online.target
+Wants=network-online.target
+OnFailure=quant-paper-failure@%n.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/quant-stack/prospective.env
+ExecStart=/usr/bin/bash ${QUANT_STACK_REPO}/scripts/run_prospective_systemd.sh
+TimeoutStartSec=30min
+Nice=10

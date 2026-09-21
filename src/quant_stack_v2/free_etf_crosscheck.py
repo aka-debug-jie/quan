@@ -239,7 +239,9 @@ def _sources(value: list[Any]) -> list[dict[str, str]]:
             raise FreeETFCrosscheckError("crosscheck source is not an approved public host")
         output.append({"id": item["id"], "url": item["url"]})
     if len({item["id"] for item in output}) != len(output) or len(output) < 5:
-        raise FreeETFCrosscheckError("crosscheck source plan must contain at least five unique sources")
+        raise FreeETFCrosscheckError(
+            "crosscheck source plan must contain at least five unique sources"
+        )
     return output
 
 

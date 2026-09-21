@@ -16,6 +16,7 @@ from quant_stack.data.models import CorporateActionEvent, CorporateActionKind
 from quant_stack.models import Side
 from quant_stack.paper_models import (
     PaperBrokerConfig,
+    PaperExecutionRule,
     PaperFill,
     PaperOrder,
     PaperRejection,
@@ -90,6 +91,8 @@ class PaperBroker:
         corporate_actions: Mapping[str, Iterable[CorporateActionEvent]]
         | Iterable[CorporateActionEvent] = (),
         *,
+        execution_block_reasons: Mapping[str, str] | None = None,
+        execution_rules: Mapping[str, PaperExecutionRule] | None = None,
         generated_at: datetime | None = None,
         is_backfill: bool = False,
     ) -> PaperSnapshot:
@@ -124,7 +127,15 @@ class PaperBroker:
             state = self._rebuild(connection)
             self._apply_actions(connection, trading_date, actions, state.positions, "pre_open")
             state = self._rebuild(connection)
-            self._fill_orders(connection, trading_date, raw_opens, manifest_id, state)
+            self._fill_orders(
+                connection,
+                trading_date,
+                raw_opens,
+                manifest_id,
+                state,
+                execution_block_reasons or {},
+                execution_rules or {},
+            )
             state = self._rebuild(connection)
             self._apply_actions(connection, trading_date, actions, state.positions, "record_close")
             self._apply_actions(connection, trading_date, actions, state.positions, "payment_close")
@@ -364,6 +375,8 @@ class PaperBroker:
         raw_opens: Mapping[str, Decimal],
         manifest_id: str,
         state: PaperSnapshot,
+        execution_block_reasons: Mapping[str, str],
+        execution_rules: Mapping[str, PaperExecutionRule],
     ) -> None:
         orders = connection.execute(
             "SELECT event_id, payload FROM events WHERE event_type = 'order' ORDER BY sequence"
@@ -376,21 +389,61 @@ class PaperBroker:
                 (f'%"order_id":"{order_id}"%',),
             ).fetchone():
                 continue
+            if connection.execute(
+                "SELECT 1 FROM events WHERE event_type = 'rejected_order' AND payload LIKE ?",
+                (f'%"order_id":"{order_id}"%',),
+            ).fetchone():
+                continue
             payload = json.loads(payload_text)
             if date.fromisoformat(payload["earliest_execution_date"]) > trading_date:
                 continue
             symbol = payload["symbol"]
+            if symbol in execution_block_reasons:
+                self._append_event(
+                    connection,
+                    self._stable_id(f"reject:{order_id}:{trading_date.isoformat()}"),
+                    "rejected_order",
+                    trading_date,
+                    {
+                        "order_id": str(order_id),
+                        "trading_date": trading_date.isoformat(),
+                        "symbol": symbol,
+                        "reason": execution_block_reasons[symbol],
+                    },
+                )
+                continue
             if symbol not in raw_opens:
                 raise PaperLedgerError(f"raw open missing for {symbol}")
             side = Side(payload["side"])
             requested = Decimal(payload["quantity"])
+            rule = execution_rules.get(symbol)
+            if (
+                side is Side.BUY
+                and rule is not None
+                and not self._valid_buy_quantity(requested, rule)
+            ):
+                self._append_event(
+                    connection,
+                    self._stable_id(f"reject:{order_id}:{trading_date.isoformat()}"),
+                    "rejected_order",
+                    trading_date,
+                    {
+                        "order_id": str(order_id),
+                        "trading_date": trading_date.isoformat(),
+                        "symbol": symbol,
+                        "reason": "invalid_board_quantity",
+                    },
+                )
+                continue
             if side is Side.SELL and requested > positions.get(symbol, Decimal("0")):
                 raise PaperLedgerError("paper sell would create a short position")
             raw_price = raw_opens[symbol]
-            fill_price, commission, spread, slippage = self._fill_terms(raw_price, requested, side)
+            fill_price, commission, spread, slippage, tax, transfer = self._fill_terms(
+                raw_price, requested, side
+            )
             notional = fill_price * requested
             if side is Side.BUY:
-                affordable = self._affordable_quantity(cash, raw_price)
+                affordable = self._affordable_quantity(cash, raw_price, rule)
                 quantity = min(requested, affordable)
                 if quantity <= 0:
                     self._append_event(
@@ -406,24 +459,26 @@ class PaperBroker:
                         },
                     )
                     continue
-                fill_price, commission, spread, slippage = self._fill_terms(
+                fill_price, commission, spread, slippage, tax, transfer = self._fill_terms(
                     raw_price, quantity, side
                 )
                 notional = fill_price * quantity
-                if notional + commission > cash:
-                    quantity = quantity.next_minus()
+                if notional + commission + transfer > cash:
+                    quantity = (
+                        quantity.next_minus() if rule is None else quantity - rule.buy_increment
+                    )
                     if quantity <= 0:
                         continue
-                    fill_price, commission, spread, slippage = self._fill_terms(
+                    fill_price, commission, spread, slippage, tax, transfer = self._fill_terms(
                         raw_price, quantity, side
                     )
                     notional = fill_price * quantity
-                if notional + commission > cash:
+                if notional + commission + transfer > cash:
                     raise PaperLedgerError("paper affordability calculation produced negative cash")
-                cash -= notional + commission  # fill price embeds spread/slippage.
+                cash -= notional + commission + transfer  # fill price embeds spread/slippage.
             else:
                 quantity = requested
-                cash += notional - commission
+                cash += notional - commission - tax - transfer
             positions[symbol] = positions.get(symbol, Decimal("0")) + (
                 quantity if side is Side.BUY else -quantity
             )
@@ -448,13 +503,15 @@ class PaperBroker:
                         spread,
                         slippage,
                         manifest_id,
+                        tax,
+                        transfer,
                     )
                 ),
             )
 
     def _fill_terms(
         self, raw_price: Decimal, quantity: Decimal, side: Side
-    ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    ) -> tuple[Decimal, Decimal, Decimal, Decimal, Decimal, Decimal]:
         if raw_price <= 0:
             raise PaperLedgerError("raw price must be positive")
         rate = self.config.costs.half_spread_rate + self.config.costs.slippage_rate
@@ -463,26 +520,54 @@ class PaperBroker:
         commission = max(
             notional * self.config.costs.commission_rate, self.config.costs.minimum_commission
         )
+        tax = notional * self.config.costs.sell_tax_rate if side is Side.SELL else Decimal("0")
+        transfer = notional * self.config.costs.transfer_fee_rate
         return (
             fill_price,
             commission,
             raw_price * quantity * self.config.costs.half_spread_rate,
             raw_price * quantity * self.config.costs.slippage_rate,
+            tax,
+            transfer,
         )
 
-    def _affordable_quantity(self, cash: Decimal, raw_price: Decimal) -> Decimal:
+    def _affordable_quantity(
+        self, cash: Decimal, raw_price: Decimal, rule: PaperExecutionRule | None
+    ) -> Decimal:
         # Solve with the minimum-commission branch conservatively; Decimal permits fractional units.
         rate = self.config.costs.half_spread_rate + self.config.costs.slippage_rate
         unit = raw_price * (Decimal("1") + rate)
+        charged_unit = unit * (Decimal("1") + self.config.costs.transfer_fee_rate)
         if cash <= self.config.costs.minimum_commission:
             return Decimal("0")
-        quantity = (cash - self.config.costs.minimum_commission) / unit
+        quantity = (cash - self.config.costs.minimum_commission) / charged_unit
         if (
             unit * quantity * self.config.costs.commission_rate
             > self.config.costs.minimum_commission
         ):
-            quantity = cash / (unit * (Decimal("1") + self.config.costs.commission_rate))
-        return max(quantity, Decimal("0"))
+            quantity = cash / (
+                unit
+                * (
+                    Decimal("1")
+                    + self.config.costs.commission_rate
+                    + self.config.costs.transfer_fee_rate
+                )
+            )
+        quantity = max(quantity, Decimal("0"))
+        if rule is None:
+            return quantity
+        if quantity < rule.minimum_buy_quantity:
+            return Decimal("0")
+        steps = (quantity - rule.minimum_buy_quantity) // rule.buy_increment
+        return rule.minimum_buy_quantity + steps * rule.buy_increment
+
+    @staticmethod
+    def _valid_buy_quantity(quantity: Decimal, rule: PaperExecutionRule) -> bool:
+        """Return whether a requested buy respects the board's minimum and increment."""
+        return (
+            quantity >= rule.minimum_buy_quantity
+            and (quantity - rule.minimum_buy_quantity) % rule.buy_increment == 0
+        )
 
     def _append_snapshot(
         self,
@@ -564,14 +649,23 @@ class PaperBroker:
                     quantity if side is Side.BUY else -quantity
                 )
                 cash += (
-                    -(Decimal(payload["notional"]) + Decimal(payload["commission"]))
+                    -(
+                        Decimal(payload["notional"])
+                        + Decimal(payload["commission"])
+                        + Decimal(payload.get("transfer_fee", "0"))
+                    )
                     if side is Side.BUY
-                    else Decimal(payload["notional"]) - Decimal(payload["commission"])
+                    else Decimal(payload["notional"])
+                    - Decimal(payload["commission"])
+                    - Decimal(payload.get("tax_cost", "0"))
+                    - Decimal(payload.get("transfer_fee", "0"))
                 )
                 fees += (
                     Decimal(payload["commission"])
                     + Decimal(payload["spread_cost"])
                     + Decimal(payload["slippage_cost"])
+                    + Decimal(payload.get("tax_cost", "0"))
+                    + Decimal(payload.get("transfer_fee", "0"))
                 )
             elif event_type == "split":
                 positions[payload["symbol"]] = positions.get(
@@ -691,6 +785,8 @@ def _fill_payload(fill: PaperFill) -> dict[str, str]:
         "spread_cost": _text(fill.spread_cost),
         "slippage_cost": _text(fill.slippage_cost),
         "manifest_id": fill.manifest_id,
+        "tax_cost": _text(fill.tax_cost),
+        "transfer_fee": _text(fill.transfer_fee),
     }
 
 
@@ -709,6 +805,8 @@ def _fill_from_payload(payload: Mapping[str, str]) -> PaperFill:
         Decimal(payload["spread_cost"]),
         Decimal(payload["slippage_cost"]),
         payload["manifest_id"],
+        Decimal(payload.get("tax_cost", "0")),
+        Decimal(payload.get("transfer_fee", "0")),
     )
 
 

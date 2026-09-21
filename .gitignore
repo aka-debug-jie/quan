@@ -16,6 +16,7 @@ data/features/**
 data/manifests/**
 data/canonical/**
 data/reports/**
+data/prospective/**
 !data/raw/.gitkeep
 !data/normalized/.gitkeep
 !data/features/.gitkeep
