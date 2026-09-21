@@ -20,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 quant = "quant_stack.cli:app"
+quant-v3 = "quant_stack_v3.cli:app"
 
 [dependency-groups]
 dev = [
@@ -41,9 +42,8 @@ v2 = [
 v2-free-data = [
   "baostock==0.8.9",
 ]
-
 [tool.hatch.build.targets.wheel]
-packages = ["src/quant_stack", "src/quant_stack_v2"]
+packages = ["src/quant_stack", "src/quant_stack_v2", "src/quant_stack_v3"]
 
 [tool.ruff]
 target-version = "py311"
@@ -63,7 +63,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["quant_stack", "quant_stack_v2"]
+source = ["quant_stack", "quant_stack_v2", "quant_stack_v3"]
 
 [tool.coverage.report]
 show_missing = true

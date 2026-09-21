@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "PREREGISTERED_BEFORE_PORTFOLIO_RETURNS",
+  "protocol_sha256": "2fccc22b09e78f385f25513e76876a6dfe6585b6f0d1a98063f6ccb2f9dd641d",
+  "bundle_sha256": "80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139",
+  "extracted_tree_sha256": "9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620",
+  "normalized_bars_sha256": "98ee7b8defbc5c14bb2e120b782570ca60484a96d056e5c07a389f5a740c5432",
+  "score_cache_identity": "a921820e5be6a511c3fb72312250c60b5da900b2a1f624f9dde792fc68ea8b3d",
+  "scores_sha256": "af8ec419ce5a93349fd8ff9ac81b5c9f0707360754655e33cbdcfb7b07b40992",
+  "evaluation_sessions": 2674,
+  "score_rows": 802200,
+  "minimum_cross_section": 300,
+  "maximum_cross_section": 300,
+  "csi500": "NOT_READ",
+  "portfolio_returns": "NOT_READ_AT_PREFLIGHT"
+}

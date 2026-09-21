@@ -131,6 +131,32 @@ def test_dividend_record_payment_and_split_rebuild_exact_state(tmp_path: Path) -
     assert broker.reconcile().snapshot == final
 
 
+def test_provider_declared_position_transfer_preserves_share_value(tmp_path: Path) -> None:
+    broker = _broker(tmp_path)
+    broker.initialize()
+    broker.place_order(_order())
+    broker.run_daily(
+        "buy-old", date(2026, 1, 5), {"ETF": Decimal("10")}, {"ETF": Decimal("10")}, "a" * 64
+    )
+    broker.transfer_position(
+        "provider-transfer",
+        date(2026, 1, 6),
+        "ETF",
+        "NEW",
+        Decimal("2"),
+    )
+    final = broker.run_daily(
+        "after-transfer",
+        date(2026, 1, 6),
+        {"NEW": Decimal("5")},
+        {"NEW": Decimal("5")},
+        "b" * 64,
+    )
+    assert final.positions == {"NEW": Decimal("200")}
+    assert final.net_asset_value < Decimal("100000")
+    assert broker.reconcile().snapshot == final
+
+
 def test_held_dividend_without_payment_date_stops_before_snapshot(tmp_path: Path) -> None:
     broker = _broker(tmp_path)
     broker.initialize()

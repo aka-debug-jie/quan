@@ -1,0 +1,64 @@
+schema_version: 1
+protocol_id: CN-HISTORICAL-RESEARCH-V3
+status: PREREGISTERED_BEFORE_PORTFOLIO_RETURNS
+scope: HISTORICAL_RESEARCH_ONLY
+data:
+  primary: rqalpha_monthly_bundle_202609
+  source_url: https://bundle.assets.ricequant.com/bundles_v4/rqbundle_202609.tar.bz2
+  bundle_sha256: 80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139
+  tree_sha256: 9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620
+  normalized_bars_sha256: 98ee7b8defbc5c14bb2e120b782570ca60484a96d056e5c07a389f5a740c5432
+  fallback: qlib_cn_community_20260910_signal_only
+  commercial_use: false
+  redistribution: false
+research:
+  start: 2015-01-05
+  end: 2025-12-31
+  touched_development_end: 2020-12-31
+  maximum_lookback_sessions: 60
+  minimum_listing_sessions: 252
+universe:
+  kind: dynamic_liquidity_top_n
+  size: 300
+  minimum_cross_section: 300
+  amount_rank_window: 60
+  minimum_mean_amount_window: 20
+  minimum_mean_amount: 10000000
+  exclude_st: true
+  exclude_suspended: true
+signal:
+  model: equal_weight_zscore
+  alpha_ids: [CN_REV_001, CN_REV_003, CN_PV_003, CN_RANGE_001, CN_VOL_003, CN_VOL_002, CN_PV_004]
+  selection_count: 20
+  label: close[T+2] / close[T+1] - 1
+  tie_break: symbol_ascending
+execution:
+  earliest_delay_sessions: 1
+  initial_cash: 1000000
+  long_only: true
+  leverage: false
+  maximum_trailing_amount_fraction: 0.01
+  order_time_in_force: execution_session_day
+  replace_failed_selection: false
+costs:
+  commission_rate: 0.0003
+  minimum_commission: 5
+  half_spread_rate: 0.0005
+  slippage_rate: 0.0005
+  transfer_fee_before_2022_04_29: 0.00002
+  transfer_fee_from_2022_04_29: 0.00001
+  sell_tax_before_2023_08_28: 0.001
+  sell_tax_from_2023_08_28: 0.0005
+strategies:
+  - {id: B00_LIQ20_D20, kind: liquidity, rebalance_sessions: 20, exit_rank: 20}
+  - {id: A01_AF7_D1, kind: af7, rebalance_sessions: 1, exit_rank: 20}
+  - {id: A02_AF7_D1_B40, kind: af7, rebalance_sessions: 1, exit_rank: 40}
+  - {id: A03_AF7_D5, kind: af7, rebalance_sessions: 5, exit_rank: 20}
+  - {id: A04_AF7_D20, kind: af7, rebalance_sessions: 20, exit_rank: 20}
+  - {id: A05_AF7_D20_B40, kind: af7, rebalance_sessions: 20, exit_rank: 40}
+stress_tests:
+  - {id: P01_A01_FRICTION_X2, base: A01_AF7_D1, kind: friction_x2}
+  - {id: P02_A01_T2, base: A01_AF7_D1, kind: execution_t2}
+  - {id: P03_A02_B30, base: A02_AF7_D1_B40, kind: exit_rank, value: 30}
+  - {id: P04_A02_B50, base: A02_AF7_D1_B40, kind: exit_rank, value: 50}
+forbidden_uses: [csi500, sealed_test, model_search, factor_search, promotion, paper_deployment, live_order]

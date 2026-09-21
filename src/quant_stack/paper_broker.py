@@ -81,6 +81,40 @@ class PaperBroker:
             )
         return order
 
+    def transfer_position(
+        self,
+        transfer_id: str,
+        effective_date: date,
+        predecessor: str,
+        successor: str,
+        ratio: Decimal,
+    ) -> None:
+        """Record one provider-declared code/share transformation without a market fill."""
+        if (
+            not transfer_id
+            or not predecessor
+            or not successor
+            or predecessor == successor
+            or ratio <= 0
+        ):
+            raise ValueError("position transfer requires distinct symbols and a positive ratio")
+        with self._connection() as connection:
+            self._require_initialized(connection)
+            state = self._rebuild(connection)
+            if state.positions.get(predecessor, Decimal("0")) <= 0:
+                return
+            self._append_event(
+                connection,
+                transfer_id,
+                "position_transfer",
+                effective_date,
+                {
+                    "predecessor": predecessor,
+                    "successor": successor,
+                    "ratio": _text(ratio),
+                },
+            )
+
     def run_daily(
         self,
         run_id: str,
@@ -677,6 +711,13 @@ class PaperBroker:
                 positions[payload["symbol"]] = positions.get(
                     payload["symbol"], Decimal("0")
                 ) * Decimal(payload["ratio"])
+            elif event_type == "position_transfer":
+                predecessor = str(payload["predecessor"])
+                successor = str(payload["successor"])
+                quantity = positions.pop(predecessor, Decimal("0"))
+                positions[successor] = positions.get(successor, Decimal("0")) + quantity * Decimal(
+                    payload["ratio"]
+                )
             elif event_type == "entitlement":
                 receivable += Decimal(payload["quantity"]) * Decimal(payload["cash_per_unit"])
             elif event_type == "dividend_payment":
