@@ -132,6 +132,7 @@ def compile_matrix(results: dict[str, dict[str, object]]) -> dict[str, object]:
 def _comparison(result: dict[str, object], benchmark: dict[str, object]) -> dict[str, object]:
     metrics = _mapping(result["metrics"])
     base = _mapping(benchmark["metrics"])
+    execution = _mapping(result["execution"])
     years = _mapping(_mapping(result["periods"])["calendar_year_returns"])
     base_years = _mapping(_mapping(benchmark["periods"])["calendar_year_returns"])
     common = sorted(set(years) & set(base_years))
@@ -145,6 +146,11 @@ def _comparison(result: dict[str, object], benchmark: dict[str, object]) -> dict
         "maximum_drawdown": metrics["maximum_drawdown"],
         "turnover": metrics["turnover"],
         "total_transaction_costs": metrics["total_transaction_costs"],
+        "trade_count": execution["fills"],
+        "rebalances": metrics["rebalances"],
+        "direct_cost_fraction_initial_cash": execution["direct_cost_fraction_initial_cash"],
+        "same_quantity_direct_gross_return": _number(metrics["total_return"])
+        + _number(execution["direct_cost_fraction_initial_cash"]),
         "excess_cagr": _number(metrics["cagr"]) - _number(base["cagr"]),
         "sharpe_difference": _number(metrics["sharpe_ratio"]) - _number(base["sharpe_ratio"]),
         "maximum_drawdown_difference": _number(metrics["maximum_drawdown"])
