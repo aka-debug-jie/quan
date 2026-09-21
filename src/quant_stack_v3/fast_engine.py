@@ -300,8 +300,11 @@ class HistoricalAccount:
                     action.kind is CorporateActionKind.SHARE_SPLIT
                     and action.effective_date == trading_date
                 ):
+                    quantity = self.positions.get(symbol, Decimal("0"))
+                    if quantity <= 0:
+                        continue
                     ratio = action.split_ratio or Decimal("0")
-                    self.positions[symbol] = self.positions.get(symbol, Decimal("0")) * ratio
+                    self.positions[symbol] = quantity * ratio
                     self._append(
                         "split",
                         trading_date,

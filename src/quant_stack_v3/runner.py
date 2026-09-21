@@ -147,7 +147,14 @@ def run_strategy(
                 transfer.successor,
                 transfer.ratio,
             )
+        target = targets.get(session)
+        needed_symbols = {
+            symbol for symbol, quantity in account.positions.items() if quantity > 0
+        } | {order.symbol for order in account.orders if order.execution_date == session}
+        if target is not None:
+            needed_symbols.update(target.symbols)
         today = _daily_rows(bars, session)
+        today = today.loc[today.index.intersection(sorted(needed_symbols))]
         raw_opens = {str(symbol): Decimal(str(row.raw_open)) for symbol, row in today.iterrows()}
         raw_closes = {str(symbol): Decimal(str(row.raw_close)) for symbol, row in today.iterrows()}
         last_closes.update(raw_closes)
@@ -183,7 +190,6 @@ def run_strategy(
             blocks,
             rules,
         )
-        target = targets.get(session)
         if target is not None:
             execution_index = index_by_session[session] + options.delay_sessions
             if execution_index < len(sessions):
