@@ -232,8 +232,10 @@ class HistoricalAccount:
         raw_price = raw_opens[order.symbol]
         quantity = order.quantity
         if order.side is Side.SELL:
-            if quantity > self.positions.get(order.symbol, Decimal("0")):
-                raise ValueError("historical sell would create a short position")
+            quantity = min(quantity, self.positions.get(order.symbol, Decimal("0")))
+            if quantity <= 0:
+                self._reject(order, trading_date, "insufficient_position")
+                return
         else:
             rule = rules[order.symbol]
             quantity = min(quantity, self._affordable_quantity(raw_price, costs, rule))

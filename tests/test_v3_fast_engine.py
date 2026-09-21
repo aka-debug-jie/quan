@@ -58,3 +58,41 @@ def test_single_pass_engine_matches_paper_broker_buy_accounting(tmp_path: Path) 
     assert fast.fills[0].commission == paper.fills()[0].commission
     assert fast.fills[0].transfer_fee == paper.fills()[0].transfer_fee
     assert fast.reconcile().event_count > 0
+
+
+def test_overlapping_delayed_sells_cannot_create_short_position() -> None:
+    costs = CostModel(Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"))
+    account = HistoricalAccount("delayed", Decimal("1000"))
+    account.positions["sh600000"] = Decimal("100")
+    execution = date(2020, 1, 3)
+    account.place_order(
+        HistoricalOrder(
+            "sell-one",
+            "sh600000",
+            Side.SELL,
+            Decimal("100"),
+            date(2020, 1, 1),
+            execution,
+        )
+    )
+    account.place_order(
+        HistoricalOrder(
+            "sell-two",
+            "sh600000",
+            Side.SELL,
+            Decimal("100"),
+            date(2020, 1, 2),
+            execution,
+        )
+    )
+    snapshot = account.run_day(
+        execution,
+        {"sh600000": Decimal("10")},
+        {"sh600000": Decimal("10")},
+        costs,
+        {},
+        {},
+        {"sh600000": PaperExecutionRule(Decimal("100"), Decimal("100"))},
+    )
+    assert snapshot.positions["sh600000"] == 0
+    assert account.rejections[0].reason == "insufficient_position"
