@@ -126,6 +126,13 @@ def compile_matrix(results: dict[str, dict[str, object]]) -> dict[str, object]:
         "result_identities": {
             key: str(value["run_identity"]) for key, value in sorted(results.items())
         },
+        "limitations": [
+            "direct cost addback holds executed quantities fixed and is not a "
+            "self-financing gross backtest",
+            "single-vendor final-revised historical research; no independent "
+            "market-data confirmation",
+            "dynamic liquidity universe; not historical CSI300",
+        ],
     }
 
 
@@ -149,7 +156,7 @@ def _comparison(result: dict[str, object], benchmark: dict[str, object]) -> dict
         "trade_count": execution["fills"],
         "rebalances": metrics["rebalances"],
         "direct_cost_fraction_initial_cash": execution["direct_cost_fraction_initial_cash"],
-        "same_quantity_direct_gross_return": _number(metrics["total_return"])
+        "same_quantity_direct_cost_addback_return": _number(metrics["total_return"])
         + _number(execution["direct_cost_fraction_initial_cash"]),
         "excess_cagr": _number(metrics["cagr"]) - _number(base["cagr"]),
         "sharpe_difference": _number(metrics["sharpe_ratio"]) - _number(base["sharpe_ratio"]),
