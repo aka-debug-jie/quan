@@ -69,6 +69,30 @@ def test_empty_provider_and_unreconciled_factor_remain_blocked() -> None:
     result = replay(payload, {"compiled_scope": "a" * 64, "legacy_qualification": "b" * 64})
     assert result["status"] == "BLOCKED_DATA"
     assert result["residual"][0]["blocking_evidence"] == ["raw_execution", "corporate_actions"]
+    assert result["residual_blocking_summary"] == {
+        "corporate_actions": {
+            "key_count": 1,
+            "symbol_date_bounds": [
+                {
+                    "symbol": "sz000001",
+                    "first_signal_session": "2020-01-02",
+                    "last_signal_session": "2020-01-02",
+                    "key_count": 1,
+                }
+            ],
+        },
+        "raw_execution": {
+            "key_count": 1,
+            "symbol_date_bounds": [
+                {
+                    "symbol": "sz000001",
+                    "first_signal_session": "2020-01-02",
+                    "last_signal_session": "2020-01-02",
+                    "key_count": 1,
+                }
+            ],
+        },
+    }
 
 
 def test_unchecked_full_domain_blocks_even_if_exact_residual_key_is_valid() -> None:

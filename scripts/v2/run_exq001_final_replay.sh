@@ -58,4 +58,24 @@ if [[ "$first" != "$second" ]]; then
   echo "non-deterministic EXQ final replay" >&2
   exit 1
 fi
-printf '{"replay":%s,"tencent_verification_sha256":"%s"}\n' "$first" "$verification_sha"
+summary_sha=$(printf '%s' "$first" | "$repo_root/.venv/bin/python" -c 'import json,sys; print(json.load(sys.stdin)["summary_sha256"])')
+summary_path="$result_root/candidate_scope_qualification/$summary_sha.json"
+"$repo_root/.venv/bin/python" - "$first" "$summary_path" "$verification_sha" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+replay = json.loads(sys.argv[1])
+summary = json.loads(Path(sys.argv[2]).read_bytes())
+print(
+    json.dumps(
+        {
+            "replay": replay,
+            "residual_blocking_summary": summary["residual_blocking_summary"],
+            "status": summary["status"],
+            "tencent_verification_sha256": sys.argv[3],
+        },
+        sort_keys=True,
+    )
+)
+PY

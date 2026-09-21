@@ -117,6 +117,30 @@ def _derive_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _residual_bounds(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Summarize each residual domain by exact key count and per-symbol date bounds."""
+    by_domain: dict[str, dict[str, list[str]]] = {}
+    for row in rows:
+        symbol, signal_session, _ = _key(row)
+        for name in cast(list[str], row["blocking_evidence"]):
+            by_domain.setdefault(name, {}).setdefault(symbol, []).append(signal_session)
+    return {
+        name: {
+            "key_count": sum(len(sessions) for sessions in symbols.values()),
+            "symbol_date_bounds": [
+                {
+                    "symbol": symbol,
+                    "first_signal_session": min(sessions),
+                    "last_signal_session": max(sessions),
+                    "key_count": len(sessions),
+                }
+                for symbol, sessions in sorted(symbols.items())
+            ],
+        }
+        for name, symbols in sorted(by_domain.items())
+    }
+
+
 def replay(payload: dict[str, Any], input_identities: dict[str, str]) -> dict[str, Any]:
     """Produce a canonical candidate matrix and a status derived from its rows."""
     if payload.get("schema_version") != 1 or payload.get("scope") != "EXQ001_CANDIDATE_SCOPE_V1":
@@ -165,6 +189,7 @@ def replay(payload: dict[str, Any], input_identities: dict[str, str]) -> dict[st
         },
         "domain_evidence": domain_states,
         "domain_blocking_evidence": domain_blocking,
+        "residual_blocking_summary": _residual_bounds(residual),
         "FORMAL_PIT_STATUS": "BLOCKED_DATA",
         "FORMAL_RESEARCH_STATUS": "BLOCKED_DATA",
         "CSI500": "NOT_STARTED",
