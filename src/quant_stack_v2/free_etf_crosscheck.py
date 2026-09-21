@@ -83,6 +83,57 @@ def persist_source_capture(result: dict[str, Any], artifact_root: Path) -> str:
     return write_blob(artifact_root / "free_source_capture", canonical(result))
 
 
+def initialize_normalization_templates(
+    config: dict[str, Any], source_capture_path: Path, template_root: Path
+) -> dict[str, str]:
+    """Publish source-bound templates that are intentionally invalid as crosscheck inputs."""
+    source_hashes = sorted(_source_hashes(source_capture_path, template_root.parent, config))
+    start, end = _window(cast(dict[str, Any], config["window"]))
+    universe = _universe(cast(list[Any], config["universe"]))
+    coverage = {"start": start.isoformat(), "end": end.isoformat()}
+    templates = {
+        "calendar_template_sha256": write_blob(
+            template_root / "calendar_templates",
+            canonical(
+                {
+                    "schema_version": 1,
+                    "kind": "v2_nyse_arca_calendar_template_not_input",
+                    "coverage": coverage,
+                    "required_source_sha256": source_hashes,
+                    "required_fields": ["sessions", "source_sha256"],
+                }
+            ),
+        ),
+        "issuer_actions_template_sha256": write_blob(
+            template_root / "issuer_action_templates",
+            canonical(
+                {
+                    "schema_version": 1,
+                    "kind": "v2_global_etf_issuer_actions_template_not_input",
+                    "coverage": coverage,
+                    "symbols": sorted(universe),
+                    "required_source_sha256": source_hashes,
+                    "required_fields": ["symbol_source_sha256", "events"],
+                }
+            ),
+        ),
+        "universe_template_sha256": write_blob(
+            template_root / "universe_templates",
+            canonical(
+                {
+                    "schema_version": 1,
+                    "kind": "v2_global_etf_static_universe_template_not_input",
+                    "coverage": coverage,
+                    "universe": universe,
+                    "required_source_sha256": source_hashes,
+                    "required_fields": ["instruments"],
+                }
+            ),
+        ),
+    }
+    return templates
+
+
 def crosscheck(
     config: dict[str, Any],
     yahoo_root: Path,

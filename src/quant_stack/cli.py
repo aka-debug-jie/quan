@@ -99,6 +99,7 @@ from quant_stack_v2.free_etf_audit import audit_archive, persist_audit
 from quant_stack_v2.free_etf_crosscheck import (
     capture_sources,
     crosscheck,
+    initialize_normalization_templates,
     persist_crosscheck,
     persist_source_capture,
 )
@@ -980,6 +981,27 @@ def capture_v2_global_etf_free_crosscheck_sources(
     typer.echo(
         json.dumps({"source_capture_sha256": identity, "status": result["status"]}, sort_keys=True)
     )
+
+
+@v2_external_app.command("initialize-free-crosscheck-inputs")
+def initialize_v2_global_etf_free_crosscheck_inputs(
+    config: Annotated[Path, typer.Option(exists=True, readable=True)],
+    source_capture: Annotated[Path, typer.Option(exists=True, readable=True)],
+    source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+) -> None:
+    """Create source-bound templates that cannot be mistaken for normalized evidence."""
+    _require_v2_external_config(config)
+    _require_v2_external_data_path(source_root)
+    try:
+        result = initialize_normalization_templates(
+            load_free_crosscheck_config(config),
+            source_capture,
+            source_root / "normalization_templates",
+        )
+    except ValueError as error:
+        typer.echo(f"V2 free crosscheck template initialization failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(result, sort_keys=True))
 
 
 @v2_external_app.command("free-research-crosscheck")

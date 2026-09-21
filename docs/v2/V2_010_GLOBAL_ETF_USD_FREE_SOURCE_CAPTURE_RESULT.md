@@ -20,3 +20,11 @@ The capture is deliberately not a calendar or corporate-action ledger. The
 second-layer crosscheck accepts only separately normalized local inputs that
 bind their sessions, events and static-universe records to these source hashes.
 Until those inputs exist, no Yahoo event or raw session is declared confirmed.
+
+Three content-addressed, intentionally non-input templates now bind the exact
+window, frozen universe and captured source identities: calendar
+`4073e3d1285f40cacbd4b6765d5d24ef8c1c2bd9331ead82c0ebfe643efcab09`, issuer
+actions `e4e9d95605b5459e157befedab49a4b6a2e56a5b0ae897d954b549ce8a3edaf9`, and
+universe `373fe1ee0db5e1d3c772baa1ab0500af1f1df2b8430b873b520c784eee74a346`.
+They are rejected by the crosscheck until a later source-bound normalization
+replaces them with actual evidence records.

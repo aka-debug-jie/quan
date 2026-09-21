@@ -14,6 +14,7 @@ from quant_stack_v2.free_etf_crosscheck import (
     FreeETFCrosscheckError,
     capture_sources,
     crosscheck,
+    initialize_normalization_templates,
     load_config,
 )
 
@@ -196,3 +197,17 @@ def test_config_rejects_non_frozen_window(tmp_path: Path) -> None:
     path.write_text(json.dumps(value))
     with pytest.raises(FreeETFCrosscheckError, match="window"):
         load_config(path)
+
+
+def test_normalization_templates_are_source_bound_and_not_crosscheck_inputs(tmp_path: Path) -> None:
+    config, _, _, _, _, capture, source_root = _inputs(tmp_path)
+    identities = initialize_normalization_templates(
+        config, capture, source_root / "normalization_templates"
+    )
+    assert set(identities) == {
+        "calendar_template_sha256",
+        "issuer_actions_template_sha256",
+        "universe_template_sha256",
+    }
+    calendar = next((source_root / "normalization_templates/calendar_templates").glob("*.json"))
+    assert "template_not_input" in calendar.read_text()
