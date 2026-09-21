@@ -16,8 +16,20 @@ legacy="$development_root/exq001/candidate_scope_qualification/$legacy_sha.json"
 raw_probe="$development_root/exq001/qlib_raw_probe/$raw_probe_sha.json"
 history="$repo_root/artifacts/v2/exq_history_revalidation_20260919/$history_sha.json"
 result_root="$development_root/exq001_final_replay"
+tencent_root="$sealed_root/artifacts/v2/exq001_candidate_scope/tencent_history_raw"
 
 export PYTHONPATH="$repo_root/src"
+test -d "$tencent_root"
+verification=$(
+  "$repo_root/.venv/bin/python" -m quant_stack_v2.exq_tencent_history_verify \
+    --development-root "$development_root" \
+    --sealed-root "$sealed_root" \
+    --repo-root "$repo_root" \
+    --registry "$repo_root/configs/v2/qualification/exq_001_candidate_scope_v1.yaml" \
+    --result-root "$result_root"
+)
+verification_sha=$(printf '%s' "$verification" | "$repo_root/.venv/bin/python" -c 'import json,sys; print(json.load(sys.stdin)["verification_sha256"])')
+verification_path="$result_root/tencent_raw_verification/$verification_sha.json"
 compiled=$(
   "$repo_root/.venv/bin/python" -m quant_stack_v2.exq_current_evidence_compile \
     --development-root "$development_root" \
@@ -26,6 +38,8 @@ compiled=$(
     --registry "$repo_root/configs/v2/qualification/exq_001_candidate_scope_v1.yaml" \
     --raw-probe "$raw_probe" --raw-probe-sha256 "$raw_probe_sha" \
     --history "$history" --history-sha256 "$history_sha" \
+    --tencent-verification "$verification_path" \
+    --tencent-verification-sha256 "$verification_sha" \
     --corporate-ledger "$repo_root/configs/v2/qualification/exq_001_corporate_ledger_v1.yaml" \
     --result-root "$result_root"
 )
@@ -44,4 +58,4 @@ if [[ "$first" != "$second" ]]; then
   echo "non-deterministic EXQ final replay" >&2
   exit 1
 fi
-printf '%s\n' "$first"
+printf '{"replay":%s,"tencent_verification_sha256":"%s"}\n' "$first" "$verification_sha"

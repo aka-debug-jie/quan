@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -11,10 +12,16 @@ from typing import Any
 from quant_stack_v2.af002 import _blob, _mapping, _string
 from quant_stack_v2.af003 import DEV001_SUMMARY_SHA256
 from quant_stack_v2.dev_contract import canonical, write_blob
-from quant_stack_v2.dev_real_staged_view import load_staged_view
+from quant_stack_v2.dev_real_staged_view import VerifiedStagedView, load_staged_view
 from quant_stack_v2.exq001 import EXQ001Error, qualify
 from quant_stack_v2.exq_akshare_history_capture import scope_requests
-from quant_stack_v2.tencent_provider import capture_history_batch
+from quant_stack_v2.tencent_provider import (
+    TencentFailure,
+    TencentManifest,
+    capture_history_batch,
+)
+
+HistoryRequest = tuple[str, date, date]
 
 
 def capture(
@@ -28,6 +35,34 @@ def capture(
     """Archive only the frozen DEV-001 access scope without exporting raw rows."""
     if not allow_network:
         raise EXQ001Error("--allow-network is required for Tencent history capture")
+    qualification, identities, view, requests = resolve_scope(
+        development_root, sealed_root, repo_root, registry_path
+    )
+    manifests, failures = capture_history_batch(
+        sealed_root / "artifacts/v2/exq001_candidate_scope/tencent_history_raw",
+        requests=requests,
+        allow_network=True,
+        provider_version="akshare-installed",
+        workers=2,
+    )
+    return _receipt(
+        qualification,
+        identities,
+        view,
+        requests,
+        manifests,
+        failures,
+        sha256(registry_path.read_bytes()).hexdigest(),
+    )
+
+
+def resolve_scope(
+    development_root: Path,
+    sealed_root: Path,
+    repo_root: Path,
+    registry_path: Path,
+) -> tuple[dict[str, Any], dict[str, Any], VerifiedStagedView, tuple[HistoryRequest, ...]]:
+    """Resolve the frozen scope without contacting a provider."""
     qualification = qualify(development_root, sealed_root, repo_root, registry_path)
     summary = _blob(development_root / "dev001" / "summaries", DEV001_SUMMARY_SHA256)
     identities = _mapping(summary, "identities")
@@ -40,13 +75,18 @@ def capture(
     )
     span = view.access.raw_dependency_span
     requests = scope_requests(view.access.symbols, span.start, span.end)
-    manifests, failures = capture_history_batch(
-        sealed_root / "artifacts/v2/exq001_candidate_scope/tencent_history_raw",
-        requests=requests,
-        allow_network=True,
-        provider_version="akshare-installed",
-        workers=2,
-    )
+    return qualification, identities, view, requests
+
+
+def _receipt(
+    qualification: dict[str, Any],
+    identities: dict[str, Any],
+    view: VerifiedStagedView,
+    requests: tuple[HistoryRequest, ...],
+    manifests: tuple[TencentManifest, ...],
+    failures: tuple[TencentFailure, ...],
+    registry_sha256: str,
+) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "kind": "exq001_tencent_history_raw_capture",
@@ -63,11 +103,12 @@ def capture(
         "FORMAL_RESEARCH_STATUS": "BLOCKED_DATA",
         "CSI500": "NOT_STARTED",
         "provenance": {
-            "registry_sha256": sha256(registry_path.read_bytes()).hexdigest(),
+            "registry_sha256": registry_sha256,
             "dev001_summary_sha256": DEV001_SUMMARY_SHA256,
             "contract_sha256": _string(identities, "contract_sha256"),
             "evidence_sha256": _string(identities, "evidence_sha256"),
             "view_sha256": view.manifest_sha256,
+            "access_scope_sha256": view.manifest.access_scope_sha256,
         },
     }
 

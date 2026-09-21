@@ -11,9 +11,12 @@ from typing import Any
 
 import yaml
 
+from quant_stack_v2.af002 import _string
+from quant_stack_v2.af003 import DEV001_SUMMARY_SHA256
 from quant_stack_v2.dev_contract import canonical, write_blob
-from quant_stack_v2.exq001 import qualify
 from quant_stack_v2.exq_candidate_replay import REQUIRED_EVIDENCE
+from quant_stack_v2.exq_tencent_history_capture import HistoryRequest, resolve_scope
+from quant_stack_v2.exq_tencent_history_verify import request_scope_sha256
 
 
 def _pinned(path: Path, digest: str) -> dict[str, Any]:
@@ -49,6 +52,38 @@ def _ledger(path: Path) -> str:
     return sha256(raw).hexdigest()
 
 
+def _validated_tencent_state(
+    receipt: dict[str, Any],
+    requests: tuple[HistoryRequest, ...],
+    expected_provenance: dict[str, str],
+) -> str:
+    """Accept raw execution only from the exact frozen-scope validator receipt."""
+    if (
+        receipt.get("schema_version") != 1
+        or receipt.get("kind") != "exq001_tencent_history_raw_verification"
+        or receipt.get("scope") != "FROZEN_DEV001_ACCESS_SCOPE_ONLY"
+        or receipt.get("status") != "VALID"
+        or receipt.get("raw_execution") != "VALID"
+        or receipt.get("provider") != "tencent_finance_via_akshare"
+        or receipt.get("provider_evidence_level") != "INDEPENDENT_PROVIDER_CONFIRMED_NOT_OFFICIAL"
+        or receipt.get("request_count") != len(requests)
+        or receipt.get("verified_manifest_count") != len(requests)
+        or receipt.get("verified_response_count") != len(requests)
+        or not isinstance(receipt.get("verified_rows"), int)
+        or receipt["verified_rows"] < len(requests)
+        or receipt.get("request_scope_sha256") != request_scope_sha256(requests)
+        or receipt.get("FORMAL_PIT_STATUS") != "BLOCKED_DATA"
+        or receipt.get("FORMAL_RESEARCH_STATUS") != "BLOCKED_DATA"
+        or receipt.get("CSI500") != "NOT_STARTED"
+        or receipt.get("provenance") != expected_provenance
+    ):
+        raise ValueError("Tencent verification receipt does not match the frozen EXQ scope")
+    manifest_set_sha256 = receipt.get("manifest_set_sha256")
+    if not isinstance(manifest_set_sha256, str) or len(manifest_set_sha256) != 64:
+        raise ValueError("Tencent verification receipt lacks a manifest-set identity")
+    return "VALID"
+
+
 def compile_current(
     development_root: Path,
     sealed_root: Path,
@@ -58,12 +93,17 @@ def compile_current(
     raw_probe_sha256: str,
     history: Path,
     history_sha256: str,
+    tencent_verification: Path,
+    tencent_verification_sha256: str,
     corporate_ledger: Path,
 ) -> dict[str, Any]:
     """Compile only evidence mechanically available in the current artifacts."""
-    qualification = qualify(development_root, sealed_root, repo_root, registry)
+    qualification, identities, view, requests = resolve_scope(
+        development_root, sealed_root, repo_root, registry
+    )
     probe = _pinned(raw_probe, raw_probe_sha256)
     history_value = _pinned(history, history_sha256)
+    tencent_value = _pinned(tencent_verification, tencent_verification_sha256)
     ledger_sha256 = _ledger(corporate_ledger)
     if probe.get("status") != "DIAGNOSTIC_ONLY_NOT_EXECUTION_QUALIFIED":
         raise ValueError("unexpected Qlib raw probe status")
@@ -78,7 +118,15 @@ def compile_current(
     raw_counts = probe.get("status_counts")
     if not isinstance(raw_counts, dict):
         raise ValueError("Qlib raw probe lacks status counts")
-    raw_state = "MISSING" if raw_counts.get("MISSING_OR_NONFINITE") else "EMPTY_PROVIDER_RESPONSE"
+    expected_provenance = {
+        "registry_sha256": sha256(registry.read_bytes()).hexdigest(),
+        "dev001_summary_sha256": DEV001_SUMMARY_SHA256,
+        "contract_sha256": _string(identities, "contract_sha256"),
+        "evidence_sha256": _string(identities, "evidence_sha256"),
+        "view_sha256": view.manifest_sha256,
+        "access_scope_sha256": view.manifest.access_scope_sha256,
+    }
+    raw_state = _validated_tencent_state(tencent_value, requests, expected_provenance)
     evidence = {
         "raw_execution": raw_state,
         "corporate_actions": "FACTOR_RECONCILIATION_PENDING",
@@ -127,6 +175,7 @@ def compile_current(
             "legacy_qualification_code_sha256": code_sha256,
             "raw_probe_sha256": raw_probe_sha256,
             "history_sha256": history_sha256,
+            "tencent_verification_sha256": tencent_verification_sha256,
             "corporate_ledger_sha256": ledger_sha256,
             "registry_sha256": sha256(registry.read_bytes()).hexdigest(),
         },
@@ -144,6 +193,8 @@ def main() -> None:
     parser.add_argument("--raw-probe-sha256", required=True)
     parser.add_argument("--history", type=Path, required=True)
     parser.add_argument("--history-sha256", required=True)
+    parser.add_argument("--tencent-verification", type=Path, required=True)
+    parser.add_argument("--tencent-verification-sha256", required=True)
     parser.add_argument("--corporate-ledger", type=Path, required=True)
     parser.add_argument("--result-root", type=Path, required=True)
     args = parser.parse_args()
@@ -156,6 +207,8 @@ def main() -> None:
         args.raw_probe_sha256,
         args.history,
         args.history_sha256,
+        args.tencent_verification,
+        args.tencent_verification_sha256,
         args.corporate_ledger,
     )
     identity = write_blob(args.result_root / "compiled_scope", canonical(result))
