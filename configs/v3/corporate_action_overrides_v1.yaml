@@ -101,3 +101,13 @@ events:
     rights_ratio: 0.30
     source_url: https://www.sse.com.cn/aboutus/publication/yearly/documents/c/10061072/files/dfca40e586304401b1f7a55c22684bc5.pdf
     source_sha256: cce82ab46b1897c22455c57bde4291e938d10543bec10e5d0ccb581871368966
+  - symbol: sh600803
+    effective_date: 2018-02-12
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2018-02-01
+    listing_date: 2018-02-28
+    subscription_price: 9.33
+    rights_ratio: 0.25
+    source_url: https://static.sse.com.cn/disclosure/listedinfo/announcement/c/2018-01-30/600803_20180130_4.pdf
+    source_sha256: 2ca3001304cf8d4d68d7fc4b0fad1604068d9d93f2728fc8e0f634d775e745f6
