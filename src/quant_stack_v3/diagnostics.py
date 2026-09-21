@@ -79,6 +79,7 @@ def build_signal_diagnostics(
         "SHADOW_SIGNAL_STATUS": "HISTORICAL_SIGNAL_DIAGNOSTICS_COMPLETE",
         "scores_sha256": _file_sha256(scores_path),
         "bars_sha256": _file_sha256(bars_path),
+        "diagnostics_code_sha256": _file_sha256(Path(__file__)),
         "summaries": summaries,
         "limitations": [
             "historical final-revised development data",

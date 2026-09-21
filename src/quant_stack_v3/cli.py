@@ -17,7 +17,9 @@ from quant_stack_v3.bundle import (
     inspect_bundle,
 )
 from quant_stack_v3.crosscheck import run_crosscheck
+from quant_stack_v3.diagnostics import build_signal_diagnostics
 from quant_stack_v3.market import MarketDataError, normalize_bundle
+from quant_stack_v3.matrix import MatrixPaths, run_matrix
 from quant_stack_v3.protocol import load_protocol
 from quant_stack_v3.runner import RunOptions, run_strategy
 from quant_stack_v3.signals import build_signal_cache
@@ -174,6 +176,29 @@ def build_signals(
     )
 
 
+@signal_app.command("diagnostics")
+def signal_diagnostics(
+    bars_path: Annotated[Path, typer.Option()],
+    scores_path: Annotated[Path, typer.Option()],
+    output_root: Annotated[Path, typer.Option()],
+) -> None:
+    """Build IC, Rank-IC, and explicit holding-horizon diagnostics."""
+    try:
+        path, report = build_signal_diagnostics(bars_path, scores_path, output_root)
+    except ValueError as error:
+        typer.echo(f"historical signal diagnostics failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report": path.as_posix(),
+                "status": report["SHADOW_SIGNAL_STATUS"],
+            },
+            indent=2,
+        )
+    )
+
+
 @run_app.command("one")
 def run_one(
     strategy_id: Annotated[str, typer.Option()],
@@ -213,6 +238,39 @@ def run_one(
                 "strategy_id": result["strategy_id"],
                 "HISTORICAL_RUN_STATUS": result["HISTORICAL_RUN_STATUS"],
                 "RESEARCH_VALIDITY": result["RESEARCH_VALIDITY"],
+            },
+            indent=2,
+        )
+    )
+
+
+@run_app.command("matrix")
+def run_frozen_matrix(
+    bundle_root: Annotated[Path, typer.Option()],
+    bundle_sha256: Annotated[str, typer.Option()],
+    bars_path: Annotated[Path, typer.Option()],
+    scores_path: Annotated[Path, typer.Option()],
+    artifact_root: Annotated[Path, typer.Option()],
+    protocol_path: Annotated[Path, typer.Option()] = Path(
+        "configs/v3/cn_historical_research_v3.yaml"
+    ),
+) -> None:
+    """Run the exact six-main plus four-stress matrix and retain all results."""
+    try:
+        path, report = run_matrix(
+            load_protocol(protocol_path),
+            protocol_path,
+            MatrixPaths(bundle_root, bundle_sha256, bars_path, scores_path, artifact_root),
+        )
+    except ValueError as error:
+        typer.echo(f"historical matrix failed: {error}", err=True)
+        raise typer.Exit(1) from error
+    typer.echo(
+        json.dumps(
+            {
+                "report": path.as_posix(),
+                "HISTORICAL_RUN_STATUS": report["HISTORICAL_RUN_STATUS"],
+                "ECONOMIC_OUTCOME": report["ECONOMIC_OUTCOME"],
             },
             indent=2,
         )

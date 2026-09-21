@@ -112,6 +112,7 @@ def compile_matrix(results: dict[str, dict[str, object]]) -> dict[str, object]:
     )
     return {
         "schema_version": 1,
+        "matrix_code_sha256": _file_sha256(Path(__file__)),
         "IMPLEMENTATION_STATUS": "IMPLEMENTED_REAL_DATA_PATH",
         "HISTORICAL_RUN_STATUS": "COMPLETE_REAL_DATA" if valid else "PARTIAL_REAL_DATA",
         "DATA_USE_LEVEL": "RQALPHA_SINGLE_SOURCE_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY",
@@ -185,3 +186,11 @@ def _number(value: object) -> float:
     if not isinstance(value, (int, float, str)):
         raise ValueError("historical matrix metric must be numeric")
     return float(value)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
