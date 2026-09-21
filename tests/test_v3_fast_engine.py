@@ -30,9 +30,7 @@ def test_single_pass_engine_matches_paper_broker_buy_accounting(tmp_path: Path) 
         PaperBrokerConfig("reference", costs, Decimal("100000")),
     )
     paper.initialize()
-    paper.place_order(
-        PaperOrder("order", "sh600000", Side.BUY, Decimal("100"), signal, execution)
-    )
+    paper.place_order(PaperOrder("order", "sh600000", Side.BUY, Decimal("100"), signal, execution))
     paper_snapshot = paper.run_daily(
         "run",
         execution,

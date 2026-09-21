@@ -8,6 +8,8 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+import yaml
+
 from quant_stack.data.models import (
     CorporateActionEvent,
     CorporateActionKind,
@@ -140,6 +142,27 @@ def unexplained_factor_events(
                 ):
                     output.setdefault(effective, []).append(symbol)
     return {session: tuple(sorted(set(symbols))) for session, symbols in sorted(output.items())}
+
+
+def load_no_participation_overrides(path: Path) -> set[tuple[str, date]]:
+    """Load evidence-backed rights issues that credit no synthetic cash or shares."""
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise ValueError("corporate-action override file is invalid")
+    events = payload.get("events")
+    if not isinstance(events, list):
+        raise ValueError("corporate-action overrides require an event list")
+    output: set[tuple[str, date]] = set()
+    for item in events:
+        if (
+            not isinstance(item, dict)
+            or item.get("kind") != "rights_issue"
+            or item.get("policy") != "no_participation_no_synthetic_cash_or_shares"
+            or len(str(item.get("source_sha256", ""))) != 64
+        ):
+            raise ValueError("unsupported corporate-action override")
+        output.add((str(item["symbol"]), date.fromisoformat(str(item["effective_date"]))))
+    return output
 
 
 def _load_transfers(path: Path, start: date, end: date) -> dict[date, tuple[PositionTransfer, ...]]:

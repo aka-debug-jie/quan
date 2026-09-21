@@ -1,0 +1,13 @@
+schema_version: 1
+status: DATA_SEMANTICS_CORRECTION_BEFORE_COMPLETED_BENCHMARK
+events:
+  - symbol: sh601099
+    effective_date: 2016-01-25
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2016-01-14
+    listing_date: 2016-02-02
+    subscription_price: 4.24
+    rights_ratio: 0.30
+    source_url: https://static.cninfo.com.cn/finalpage/2016-01-28/1201949738.PDF
+    source_sha256: 8827f8cf453207478d7a07a6d5ae8b7380fbbce8c8527c485f3367f8bccf1bf2

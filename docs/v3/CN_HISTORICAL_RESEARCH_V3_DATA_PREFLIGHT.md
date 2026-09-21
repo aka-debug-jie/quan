@@ -13,6 +13,7 @@ Status: `REAL_DATA_PREFLIGHT_COMPLETE_BEFORE_PORTFOLIO_RETURNS`.
 - Frozen scoring coverage before portfolio evaluation: 2,674 sessions and exactly 300 securities per session. The final score artifact identity is recorded by the protocol-freeze commit's generated preflight manifest.
 - Of 34,760 common-stock adjustment-factor events in the evaluation window, 91 do not share an effective date with a cash-distribution or split record. The runner fails closed if a portfolio actually holds an affected symbol on such a date; it does not manufacture an entitlement.
 - The fixed 36-key BaoStock cross-check made two bounded attempts. The provider process produced no response rows and was terminated after the bounded timeout; no third provider was added. Data use therefore remains single-vendor historical research rather than independently cross-checked history.
+- The first B00 attempt stopped before completion on `sh601099@2016-01-25`. SSE/CNInfo evidence identifies the unmatched factor change as a 10-for-3 rights issue at CNY 4.24, record date 2016-01-14 and new-share listing 2016-02-02. V3 freezes a no-participation policy: no synthetic cash or shares are credited, and the raw ex-right price remains the portfolio mark. Evidence SHA-256 is `8827f8cf453207478d7a07a6d5ae8b7380fbbce8c8527c485f3367f8bccf1bf2`.
 
 The vendor archive is final-revised history and is allowed only for private,
 non-commercial, non-redistributed historical research. It is not official PIT

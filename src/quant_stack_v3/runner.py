@@ -21,7 +21,11 @@ from quant_stack.models import Side
 from quant_stack.paper_models import PaperExecutionRule
 from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
-from quant_stack_v3.actions import load_actions, unexplained_factor_events
+from quant_stack_v3.actions import (
+    load_actions,
+    load_no_participation_overrides,
+    unexplained_factor_events,
+)
 from quant_stack_v3.fast_engine import (
     HistoricalAccount,
     HistoricalOrder,
@@ -59,6 +63,7 @@ def run_strategy(
         raise ValueError("V3 run options exceed the preregistered stress budget")
     bars_sha = _file_sha256(bars_path)
     scores_sha = _file_sha256(scores_path)
+    action_overrides_path = protocol_path.with_name("corporate_action_overrides_v1.yaml")
     identity_payload = {
         "protocol_sha256": sha256(protocol_path.read_bytes()).hexdigest(),
         "strategy": strategy.model_dump(mode="json"),
@@ -76,6 +81,7 @@ def run_strategy(
             Path(__file__).parents[1] / "quant_stack" / "evaluation.py"
         ),
         "fast_engine_sha256": _file_sha256(Path(__file__).with_name("fast_engine.py")),
+        "action_overrides_sha256": _file_sha256(action_overrides_path),
     }
     run_identity = sha256(canonical_json(identity_payload)).hexdigest()
     run_root = artifact_root / "runs" / run_identity
@@ -118,6 +124,11 @@ def run_strategy(
         start=protocol.research.start,
         end=protocol.research.end,
     )
+    no_participation = load_no_participation_overrides(action_overrides_path)
+    unexplained_actions = {
+        session: tuple(symbol for symbol in symbols if (symbol, session) not in no_participation)
+        for session, symbols in unexplained_actions.items()
+    }
     account_id = f"historical-v3-{run_identity}"
     account = HistoricalAccount(account_id, protocol.execution.initial_cash)
     last_closes: dict[str, Decimal] = {}
@@ -289,6 +300,7 @@ def run_strategy(
             "direct_cost_fraction_initial_cash": costs / protocol.execution.initial_cash,
             "maximum_stale_sessions": maximum_stale,
             "stale_valuation_observations": stale_observations,
+            "no_participation_rights_issue_overrides": len(no_participation),
         },
         "identities": identity_payload
         | {
