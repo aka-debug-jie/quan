@@ -1,0 +1,18 @@
+schema_version: 1
+dataset_id: yahoo_global_etf_research_v1
+window: {start: '2025-01-01', end: '2026-09-10'}
+universe:
+  - {symbol: SPY, issuer: STATE_STREET, exchange: NYSE_ARCA}
+  - {symbol: GLD, issuer: STATE_STREET, exchange: NYSE_ARCA}
+  - {symbol: BIL, issuer: STATE_STREET, exchange: NYSE_ARCA}
+  - {symbol: EFA, issuer: ISHARES, exchange: NYSE_ARCA}
+  - {symbol: IEF, issuer: ISHARES, exchange: NYSE_ARCA}
+  - {symbol: MCHI, issuer: ISHARES, exchange: NYSE_ARCA}
+  - {symbol: DBC, issuer: INVESCO, exchange: NYSE_ARCA}
+sources:
+  - {id: nyse_calendar, url: 'https://www.nyse.com/trade/hours-calendars'}
+  - {id: ssga_distributions, url: 'https://www.ssga.com/us/en/individual/resources/documents/etf-dividend-distributions'}
+  - {id: ssga_gld, url: 'https://www.ssga.com/us/en/individual/etfs/spdr-gold-shares-gld'}
+  - {id: ishares_distributions, url: 'https://www.ishares.com/us/library/financial-legal-tax'}
+  - {id: invesco_etf_tax, url: 'https://www.invesco.com/us/en/accounts/tax-center/etf-tax-center.html'}
+forbidden_uses: [execution, backtest, paper_broker, promotion, live_order]

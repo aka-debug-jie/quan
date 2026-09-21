@@ -96,6 +96,15 @@ from quant_stack_v2.external_validation import (
 )
 from quant_stack_v2.foundation_gate import GateEvidence, persist_qualification, qualify_foundation
 from quant_stack_v2.free_etf_audit import audit_archive, persist_audit
+from quant_stack_v2.free_etf_crosscheck import (
+    capture_sources,
+    crosscheck,
+    persist_crosscheck,
+    persist_source_capture,
+)
+from quant_stack_v2.free_etf_crosscheck import (
+    load_config as load_free_crosscheck_config,
+)
 from quant_stack_v2.paper import initialize_v2_paper_account
 from quant_stack_v2.pit import (
     build_pit_universe,
@@ -931,6 +940,79 @@ def audit_v2_global_etf_free_research(
             },
             sort_keys=True,
         )
+    )
+
+
+def _require_v2_external_config(path: Path) -> None:
+    expected = (REPOSITORY_ROOT / "configs" / "v2" / "external").resolve()
+    if not path.resolve().is_relative_to(expected):
+        raise typer.BadParameter("V2 external configuration must be below configs/v2/external")
+
+
+def _require_v2_external_data_path(path: Path) -> None:
+    expected = (REPOSITORY_ROOT / "data" / "external").resolve()
+    if not path.resolve().is_relative_to(expected):
+        raise typer.BadParameter("V2 free crosscheck inputs must be below data/external")
+
+
+@v2_external_app.command("capture-free-crosscheck-sources")
+def capture_v2_global_etf_free_crosscheck_sources(
+    config: Annotated[Path, typer.Option(exists=True, readable=True)],
+    source_root: Annotated[Path, typer.Option()] = Path(
+        "data/external/global_etf_usd_free_crosscheck_v1"
+    ),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/external"),
+    allow_network: Annotated[bool, typer.Option()] = False,
+) -> None:
+    """Archive only the five configured public source bodies after explicit network approval."""
+    _require_v2_external_config(config)
+    _require_v2_external_data_path(source_root)
+    if not allow_network:
+        raise typer.BadParameter("--allow-network is required to capture public crosscheck sources")
+    try:
+        result = capture_sources(
+            load_free_crosscheck_config(config), source_root, allow_network=True
+        )
+        identity = persist_source_capture(result, _v2_artifact_root(artifact_root))
+    except ValueError as error:
+        typer.echo(f"V2 free crosscheck source capture failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps({"source_capture_sha256": identity, "status": result["status"]}, sort_keys=True)
+    )
+
+
+@v2_external_app.command("free-research-crosscheck")
+def crosscheck_v2_global_etf_free_research(
+    config: Annotated[Path, typer.Option(exists=True, readable=True)],
+    yahoo_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    calendar: Annotated[Path, typer.Option(exists=True, readable=True)],
+    issuer_actions: Annotated[Path, typer.Option(exists=True, readable=True)],
+    universe: Annotated[Path, typer.Option(exists=True, readable=True)],
+    source_capture: Annotated[Path, typer.Option(exists=True, readable=True)],
+    source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/external"),
+) -> None:
+    """Crosscheck pinned free inputs without qualifying data, execution, or a backtest."""
+    _require_v2_external_config(config)
+    for path in (yahoo_root, calendar, issuer_actions, universe, source_root):
+        _require_v2_external_data_path(path)
+    try:
+        result = crosscheck(
+            load_free_crosscheck_config(config),
+            yahoo_root,
+            calendar,
+            issuer_actions,
+            universe,
+            source_capture,
+            source_root,
+        )
+        identity = persist_crosscheck(result, _v2_artifact_root(artifact_root))
+    except ValueError as error:
+        typer.echo(f"V2 free research crosscheck failed: {error}", err=True)
+        raise typer.Exit(code=1) from error
+    typer.echo(
+        json.dumps({"crosscheck_sha256": identity, "status": result["status"]}, sort_keys=True)
     )
 
 
