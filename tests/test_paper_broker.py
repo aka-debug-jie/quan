@@ -310,6 +310,33 @@ def test_same_day_rebalance_sells_before_buys_even_when_buy_was_written_first(
     assert broker.reconcile().snapshot == snapshot
 
 
+def test_zero_position_does_not_require_future_valuation_price(tmp_path: Path) -> None:
+    broker = _broker(tmp_path)
+    broker.initialize()
+    broker.place_order(_order())
+    broker.run_daily(
+        "buy", date(2026, 1, 5), {"ETF": Decimal("10")}, {"ETF": Decimal("10")}, "a" * 64
+    )
+    broker.place_order(
+        PaperOrder(
+            "sell-all",
+            "ETF",
+            Side.SELL,
+            Decimal("100"),
+            date(2026, 1, 5),
+            date(2026, 1, 6),
+        )
+    )
+    broker.run_daily(
+        "sell", date(2026, 1, 6), {"ETF": Decimal("10")}, {"ETF": Decimal("10")}, "b" * 64
+    )
+    later = broker.run_daily(
+        "later", date(2026, 1, 7), {"OTHER": Decimal("5")}, {"OTHER": Decimal("5")}, "c" * 64
+    )
+    assert later.positions["ETF"] == 0
+    assert broker.reconcile().snapshot == later
+
+
 def test_record_date_entitlement_uses_post_fill_close_holdings(tmp_path: Path) -> None:
     dividend = _action(
         CorporateActionKind.CASH_DISTRIBUTION,

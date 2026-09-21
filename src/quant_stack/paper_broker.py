@@ -620,13 +620,18 @@ class PaperBroker:
         generated_at: datetime,
         is_backfill: bool,
     ) -> PaperSnapshot:
-        if set(state.positions) - set(raw_closes):
+        held_symbols = {symbol for symbol, quantity in state.positions.items() if quantity > 0}
+        if held_symbols - set(raw_closes):
             raise PaperLedgerError("raw close missing for a held position")
         nav = (
             state.cash
             + state.receivable_dividends
             + sum(
-                (quantity * raw_closes[symbol] for symbol, quantity in state.positions.items()),
+                (
+                    quantity * raw_closes[symbol]
+                    for symbol, quantity in state.positions.items()
+                    if quantity > 0
+                ),
                 Decimal("0"),
             )
         )
