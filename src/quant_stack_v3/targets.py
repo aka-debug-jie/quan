@@ -42,13 +42,17 @@ def build_targets(
         raise ValueError("score table lacks target-generation columns")
     if not sessions or tuple(sorted(set(sessions))) != sessions:
         raise ValueError("target sessions must be unique and ascending")
+    daily_scores = {
+        date.fromisoformat(str(session)[:10]): frame
+        for session, frame in scores.groupby("session", sort=True)
+    }
     selected: tuple[str, ...] = ()
     targets: list[TargetSet] = []
     weight = Decimal("1") / Decimal(selection_count)
     for ordinal, session in enumerate(sessions):
         if ordinal % strategy.rebalance_sessions:
             continue
-        daily = scores.loc[scores["session"] == pd.Timestamp(session)].copy()
+        daily = daily_scores.get(session, pd.DataFrame()).copy()
         if len(daily) < selection_count:
             continue
         rank_column = "liquidity_rank" if strategy.kind == "liquidity" else "score_rank"
