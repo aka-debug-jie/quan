@@ -240,6 +240,50 @@ def test_invalid_board_buy_quantity_expires_without_fill(tmp_path: Path) -> None
     assert broker.rejections()[0].reason == "invalid_board_quantity"
 
 
+def test_same_day_rebalance_sells_before_buys_even_when_buy_was_written_first(
+    tmp_path: Path,
+) -> None:
+    broker = _broker(tmp_path)
+    broker.initialize()
+    broker.place_order(
+        PaperOrder("buy-old", "OLD", Side.BUY, Decimal("9000"), date(2026, 1, 2), date(2026, 1, 5))
+    )
+    broker.run_daily(
+        "initial-position",
+        date(2026, 1, 5),
+        {"OLD": Decimal("10")},
+        {"OLD": Decimal("10")},
+        "a" * 64,
+    )
+    broker.place_order(
+        PaperOrder("buy-new", "NEW", Side.BUY, Decimal("9000"), date(2026, 1, 5), date(2026, 1, 6))
+    )
+    broker.place_order(
+        PaperOrder(
+            "sell-old",
+            "OLD",
+            Side.SELL,
+            Decimal("9000"),
+            date(2026, 1, 5),
+            date(2026, 1, 6),
+        )
+    )
+
+    snapshot = broker.run_daily(
+        "rebalance",
+        date(2026, 1, 6),
+        {"NEW": Decimal("10"), "OLD": Decimal("10")},
+        {"NEW": Decimal("10"), "OLD": Decimal("10")},
+        "b" * 64,
+    )
+
+    day_fills = [fill for fill in broker.fills() if fill.trading_date == date(2026, 1, 6)]
+    assert [fill.side for fill in day_fills] == [Side.SELL, Side.BUY]
+    assert day_fills[1].quantity == Decimal("9000")
+    assert snapshot.positions == {"OLD": Decimal("0"), "NEW": Decimal("9000")}
+    assert broker.reconcile().snapshot == snapshot
+
+
 def test_record_date_entitlement_uses_post_fill_close_holdings(tmp_path: Path) -> None:
     dividend = _action(
         CorporateActionKind.CASH_DISTRIBUTION,

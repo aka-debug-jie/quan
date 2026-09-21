@@ -118,6 +118,9 @@ from quant_stack_v2.prospective_diagnostics import build_diagnostics
 from quant_stack_v2.prospective_runner import (
     bootstrap as bootstrap_prospective,
 )
+from quant_stack_v2.prospective_runner import (
+    build_acceptance_manifest as build_prospective_acceptance_manifest,
+)
 from quant_stack_v2.prospective_runner import latest_status as latest_prospective_status
 from quant_stack_v2.prospective_runner import rebuild_status as rebuild_prospective_status
 from quant_stack_v2.prospective_runner import run_daily as run_prospective_daily
@@ -1107,11 +1110,15 @@ def build_prospective_signal(
         "configs/v2/prospective/cn_shadow_v1.yaml"
     ),
     artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+    calendar_root: Annotated[Path, typer.Option()] = Path("configs/calendars"),
 ) -> None:
     """Rank the frozen factors after T close; output remains local and paper-only."""
     try:
         result = build_prospective_shadow_signal(
-            load_prospective_shadow_config(config), receipt, artifact_root
+            load_prospective_shadow_config(config),
+            receipt,
+            artifact_root,
+            calendar_root=calendar_root,
         )
     except ValueError as error:
         typer.echo(f"prospective signal failed: {error}", err=True)
@@ -1212,6 +1219,36 @@ def rebuild_prospective_command(
         config, artifact_root, through=date.fromisoformat(through) if through else None
     )
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+@v2_prospective_app.command("acceptance-status")
+def prospective_acceptance_status(
+    validated_commit: Annotated[str | None, typer.Option()] = None,
+    ci_url: Annotated[str | None, typer.Option()] = None,
+    ci_head_sha: Annotated[str | None, typer.Option()] = None,
+    ci_conclusion: Annotated[str | None, typer.Option()] = None,
+    tests_passed: Annotated[int | None, typer.Option()] = None,
+    coverage_percent: Annotated[int | None, typer.Option()] = None,
+    config: Annotated[Path, typer.Option(exists=True, readable=True)] = Path(
+        "configs/v2/prospective/cn_shadow_v1.yaml"
+    ),
+    data_root: Annotated[Path, typer.Option()] = Path("data/prospective/cn_shadow_v1"),
+    artifact_root: Annotated[Path, typer.Option()] = Path("artifacts/v2/prospective/cn_shadow_v1"),
+) -> None:
+    """Print a redacted RC-or-closed acceptance manifest without provider access."""
+    result = build_prospective_acceptance_manifest(
+        config,
+        data_root,
+        artifact_root,
+        REPOSITORY_ROOT,
+        validated_commit=validated_commit,
+        ci_url=ci_url,
+        ci_head_sha=ci_head_sha,
+        ci_conclusion=ci_conclusion,
+        tests_passed=tests_passed,
+        coverage_percent=coverage_percent,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 @v2_prospective_app.command("run-paper-day")

@@ -379,11 +379,17 @@ class PaperBroker:
         execution_rules: Mapping[str, PaperExecutionRule],
     ) -> None:
         orders = connection.execute(
-            "SELECT event_id, payload FROM events WHERE event_type = 'order' ORDER BY sequence"
+            "SELECT event_id, payload, sequence FROM events WHERE event_type = 'order'"
         ).fetchall()
+        orders.sort(
+            key=lambda row: (
+                0 if Side(json.loads(row[1])["side"]) is Side.SELL else 1,
+                int(row[2]),
+            )
+        )
         positions = dict(state.positions)
         cash = state.cash
-        for order_id, payload_text in orders:
+        for order_id, payload_text, _ in orders:
             if connection.execute(
                 "SELECT 1 FROM events WHERE event_type = 'fill' AND payload LIKE ?",
                 (f'%"order_id":"{order_id}"%',),

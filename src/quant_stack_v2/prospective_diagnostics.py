@@ -15,7 +15,12 @@ import pandas as pd
 from quant_stack.paper_broker import PaperBroker
 from quant_stack.paper_models import PaperBrokerConfig
 from quant_stack.snapshot import write_immutable
-from quant_stack_v2.prospective_shadow import ShadowConfig, _history
+from quant_stack_v2.prospective_shadow import (
+    FORMAL_ACCOUNT_PHASE,
+    FORMAL_DATABASE,
+    ShadowConfig,
+    _history,
+)
 
 
 def build_diagnostics(
@@ -145,18 +150,25 @@ def _signal_decision(
 def _paper_metrics(
     data_root: Path, artifact_root: Path, config: ShadowConfig | None
 ) -> dict[str, object]:
-    reports = []
+    selected_reports: dict[date, tuple[int, str, dict[str, object]]] = {}
     for path in sorted((artifact_root / "reports").glob("*.json")):
         value = json.loads(path.read_bytes())
-        if value.get("INPUT_STATUS") == "FULLY_PROSPECTIVE_INPUT":
-            reports.append(value)
+        if value.get("paper_account_phase") == FORMAL_ACCOUNT_PHASE:
+            trading_date = date.fromisoformat(str(value["trading_date"]))
+            candidate = (int(str(value.get("schema_version", 0))), path.name, value)
+            if (
+                trading_date not in selected_reports
+                or candidate[:2] > selected_reports[trading_date][:2]
+            ):
+                selected_reports[trading_date] = candidate
+    reports = [item[2] for _, item in sorted(selected_reports.items())]
     if not reports:
         return {}
     frame = (
         pd.DataFrame(
             {
                 "date": [date.fromisoformat(str(row["trading_date"])) for row in reports],
-                "nav": [float(row["nav"]) for row in reports],
+                "nav": [float(str(row["nav"])) for row in reports],
             }
         )
         .drop_duplicates("date", keep="first")
@@ -172,10 +184,15 @@ def _paper_metrics(
     )
     trades = 0
     turnover_notional = 0.0
-    if config is not None and (artifact_root / "paper" / "strategy.sqlite3").exists():
+    formal_path = artifact_root / "paper" / FORMAL_DATABASE
+    if config is not None and formal_path.exists():
         broker = PaperBroker(
-            artifact_root / "paper" / "strategy.sqlite3",
-            PaperBrokerConfig(config.strategy_id, config.costs, config.initial_cash),
+            formal_path,
+            PaperBrokerConfig(
+                f"{config.strategy_id}:{FORMAL_ACCOUNT_PHASE}",
+                config.costs,
+                config.initial_cash,
+            ),
         )
         fills = broker.fills()
         trades = len(fills)
@@ -219,13 +236,20 @@ def _benchmark_closes(data_root: Path) -> dict[date, float]:
 
 
 def _signals_by_date(artifact_root: Path, through: date) -> dict[date, dict[str, object]]:
-    result: dict[date, dict[str, object]] = {}
+    selected: dict[date, tuple[int, str, dict[str, object]]] = {}
     for path in sorted((artifact_root / "signals").glob("*.json")):
         value = json.loads(path.read_bytes())
         signal_day = date.fromisoformat(str(value["trading_date"]))
-        if signal_day <= through and signal_day not in result:
-            result[signal_day] = cast(dict[str, object], value)
-    return result
+        candidate = (
+            int(str(value.get("schema_version", 0))),
+            path.name,
+            cast(dict[str, object], value),
+        )
+        if signal_day <= through and (
+            signal_day not in selected or candidate[:2] > selected[signal_day][:2]
+        ):
+            selected[signal_day] = candidate
+    return {signal_day: item[2] for signal_day, item in selected.items()}
 
 
 def _mean(rows: list[dict[str, object]], field: str) -> float | None:

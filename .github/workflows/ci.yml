@@ -3,7 +3,8 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "codex/**", "issue/**", "research/**"]
+    branches: [main, "codex/**", "issue/**", "research/**", "prospective/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read

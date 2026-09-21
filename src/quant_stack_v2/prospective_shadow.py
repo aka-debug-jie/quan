@@ -44,6 +44,10 @@ RAW_FIELDS = (
     "exchange",
     "board",
 )
+ENGINEERING_ACCOUNT_PHASE = "engineering_warm_start"
+FORMAL_ACCOUNT_PHASE = "fully_prospective_v1"
+ENGINEERING_DATABASE = "strategy.sqlite3"
+FORMAL_DATABASE = "fully_prospective_v1.sqlite3"
 
 
 class ProspectiveShadowError(ValueError):
@@ -74,6 +78,11 @@ def load_config(path: Path) -> ShadowConfig:
         raise ProspectiveShadowError("must retain the frozen seven AF-003 factors")
     if value.get("selected_model") != "equal_weight_zscore":
         raise ProspectiveShadowError("must retain equal_weight_zscore")
+    if _mapping(value, "paper_accounts") != {
+        "engineering": ENGINEERING_ACCOUNT_PHASE,
+        "fully_prospective": FORMAL_ACCOUNT_PHASE,
+    }:
+        raise ProspectiveShadowError("prospective paper-account isolation changed")
     if value.get("forbidden_uses") != [
         "historical_qualification",
         "bt_001",
@@ -143,21 +152,40 @@ def archive_current_snapshot(source: Path, data_root: Path, *, provider: str) ->
     return archive_snapshot_payload(_payload(source), data_root, provider=provider)
 
 
-def build_signal(config: ShadowConfig, receipt: Path, artifact_root: Path) -> Path:
+def build_signal(
+    config: ShadowConfig,
+    receipt: Path,
+    artifact_root: Path,
+    *,
+    calendar_root: Path = Path("configs/calendars"),
+) -> Path:
     """Compute a T-close ranking from snapshots captured no later than T's run."""
     identity = _payload(receipt)
     payload = _payload(Path(str(identity["snapshot_path"])))
     session = _session(payload)
-    history = _history(receipt.parent.parent, session)
+    captured = _captured(payload)
+    history = _history(receipt.parent.parent, session, as_of=captured)
     score = _score(history, session, config)
     top = score.head(config.selection_count)
-    input_status = _input_status(history, tuple(top.symbol), session, config)
+    action_view, action_view_sha256, late_actions, conflicts = _action_view(
+        receipt.parent.parent, captured
+    )
+    capture_status = _capture_status(payload, conflicts)
+    input_status = _input_status(
+        history,
+        tuple(score.symbol),
+        session,
+        config,
+        calendar_root,
+        capture_status,
+    )
     result = {
-        "schema_version": 2,
+        "schema_version": 3,
         "strategy_id": config.strategy_id,
         "trading_date": session.isoformat(),
         "ENGINEERING_STATUS": "SIGNAL_STAGE_COMPLETE",
         "INPUT_STATUS": input_status,
+        "DATA_CAPTURE_STATUS": capture_status,
         "SHADOW_SIGNAL_STATUS": "SIGNAL_EMITTED"
         if len(top) == config.selection_count
         else "INSUFFICIENT_LOOKBACK",
@@ -165,6 +193,10 @@ def build_signal(config: ShadowConfig, receipt: Path, artifact_root: Path) -> Pa
         "PROFITABILITY_STATUS": "INSUFFICIENT_PROSPECTIVE_EVIDENCE",
         "execution_not_before": "next exchange session open",
         "receipt_sha256": receipt.stem,
+        "corporate_action_view_sha256": action_view_sha256,
+        "corporate_action_records": len(action_view),
+        "late_corporate_action_records": len(late_actions),
+        "corporate_action_conflicts": sorted(conflicts),
         "coverage": len(score),
         "scores": score[["symbol", "score"]].to_dict(orient="records") if len(score) else [],
         "top": top[["symbol", "score"]].to_dict(orient="records") if len(top) else [],
@@ -187,13 +219,42 @@ def run_paper_day(
     identity = _payload(receipt)
     payload = _payload(Path(str(identity["snapshot_path"])))
     session = _session(payload)
-    history = _history(receipt.parent.parent, session)
+    captured = _captured(payload)
+    data_root = receipt.parent.parent
+    history = _history(data_root, session, as_of=captured)
     today = history.loc[history["session"] == pd.Timestamp(session)]
     opens = {str(row.symbol): Decimal(str(row.open)) for row in today.itertuples()}
     closes = {str(row.symbol): Decimal(str(row.close)) for row in today.itertuples()}
+    full_score = _score(history, session, config)
+    score = full_score.head(config.selection_count)
+    action_view, action_view_sha256, late_actions, conflicts = _action_view(data_root, captured)
+    capture_status = _capture_status(payload, conflicts)
+    input_status = _input_status(
+        history,
+        tuple(full_score.symbol),
+        session,
+        config,
+        calendar_root,
+        capture_status,
+    )
+    paper_root = artifact_root / "paper"
+    formal_path = paper_root / FORMAL_DATABASE
+    account_phase = (
+        FORMAL_ACCOUNT_PHASE
+        if formal_path.exists() or input_status == "FULLY_PROSPECTIVE_INPUT"
+        else ENGINEERING_ACCOUNT_PHASE
+    )
+    database = (
+        formal_path if account_phase == FORMAL_ACCOUNT_PHASE else paper_root / ENGINEERING_DATABASE
+    )
+    account_id = (
+        f"{config.strategy_id}:{FORMAL_ACCOUNT_PHASE}"
+        if account_phase == FORMAL_ACCOUNT_PHASE
+        else config.strategy_id
+    )
     broker = PaperBroker(
-        artifact_root / "paper" / "strategy.sqlite3",
-        PaperBrokerConfig(config.strategy_id, config.costs, config.initial_cash),
+        database,
+        PaperBrokerConfig(account_id, config.costs, config.initial_cash),
     )
     initial = broker.initialize()
     unknown_actions = (
@@ -208,20 +269,39 @@ def run_paper_day(
     )
     if unknown_actions & set(initial.positions):
         raise ProspectiveShadowError("held position has unresolved corporate-action status")
+    late_today = {
+        str(item["symbol"])
+        for item in late_actions
+        if str(item["discovered_at"])[:10] == captured.date().isoformat()
+        and date.fromisoformat(str(item["effective_date"])) < session
+    }
+    action_reconciliation_required = bool(late_today & set(initial.positions))
     rules = _execution_rules(today, rules_path)
     blocks = _execution_blocks(today, broker.orders(), session)
+    run_identity = (
+        f"{config.strategy_id}/{session}/{receipt.stem}"
+        if account_phase == ENGINEERING_ACCOUNT_PHASE
+        else f"{config.strategy_id}/{account_phase}/{session}/{receipt.stem}"
+    )
     snapshot = broker.run_daily(
-        sha256(f"{config.strategy_id}/{session}/{receipt.stem}".encode()).hexdigest(),
+        sha256(run_identity.encode()).hexdigest(),
         session,
         opens,
         closes,
         receipt.stem,
-        _paper_actions(payload, session),
+        _paper_actions(action_view, session),
         execution_block_reasons=blocks,
         execution_rules=rules,
     )
-    score = _score(history, session, config).head(config.selection_count)
-    if len(score) == config.selection_count:
+    allow_new_orders = (
+        len(score) == config.selection_count
+        and not action_reconciliation_required
+        and (
+            account_phase == ENGINEERING_ACCOUNT_PHASE
+            or (input_status == "FULLY_PROSPECTIVE_INPUT" and capture_status == "COMPLETE")
+        )
+    )
+    if allow_new_orders:
         desired = _desired_positions(score, today, closes, snapshot.net_asset_value, config, rules)
         calendar = ExchangeCalendarStore(calendar_root)
         sse_next = calendar.next_session(Exchange.SSE, session)
@@ -242,11 +322,15 @@ def run_paper_day(
                     + ((quantity - rule.minimum_buy_quantity) // rule.buy_increment)
                     * rule.buy_increment
                 )
+            order_identity = (
+                f"{config.strategy_id}/{session}/{symbol}/{side.value}/{quantity}"
+                if account_phase == ENGINEERING_ACCOUNT_PHASE
+                else f"{config.strategy_id}/{account_phase}/{session}/{symbol}/"
+                f"{side.value}/{quantity}"
+            )
             broker.place_order(
                 PaperOrder(
-                    sha256(
-                        f"{config.strategy_id}/{session}/{symbol}/{side.value}/{quantity}".encode()
-                    ).hexdigest(),
+                    sha256(order_identity.encode()).hexdigest(),
                     symbol,
                     side,
                     quantity,
@@ -254,26 +338,35 @@ def run_paper_day(
                     sse_next,
                 )
             )
-    input_status = _input_status(history, tuple(score.symbol), session, config)
+    fills_today = [item for item in broker.fills() if item.trading_date == session]
     report = {
-        "schema_version": 2,
+        "schema_version": 3,
         "trading_date": session.isoformat(),
         "ENGINEERING_STATUS": "DAILY_RUN_COMPLETE",
         "INPUT_STATUS": input_status,
+        "DATA_CAPTURE_STATUS": capture_status,
         "SHADOW_SIGNAL_STATUS": "SIGNAL_EMITTED"
         if len(score) == config.selection_count
         else "INSUFFICIENT_LOOKBACK",
-        "PAPER_ACCOUNT_STATUS": "RECONCILED_LOCAL_ONLY",
+        "PAPER_ACCOUNT_STATUS": "ACTION_RECONCILIATION_REQUIRED"
+        if action_reconciliation_required
+        else "RECONCILED_LOCAL_ONLY",
+        "paper_account_phase": account_phase,
         "PROFITABILITY_STATUS": "INSUFFICIENT_PROSPECTIVE_EVIDENCE",
         "nav": str(snapshot.net_asset_value),
         "cash": str(snapshot.cash),
         "positions": {key: str(value) for key, value in snapshot.positions.items()},
-        "fills_today": sum(item.trading_date == session for item in broker.fills()),
+        "fills_today": len(fills_today),
+        "buy_fills_today": sum(item.side is Side.BUY for item in fills_today),
+        "sell_fills_today": sum(item.side is Side.SELL for item in fills_today),
         "rejections_today": [
             item.reason for item in broker.rejections() if item.trading_date == session
         ],
         "ledger_head": broker.reconcile().head_hash,
         "receipt_sha256": receipt.stem,
+        "corporate_action_view_sha256": action_view_sha256,
+        "late_corporate_action_records": len(late_actions),
+        "corporate_action_conflicts": sorted(conflicts),
         "rules_sha256": sha256(rules_path.read_bytes()).hexdigest(),
         "calendar_sha256": ExchangeCalendarStore(calendar_root).fingerprint(
             Exchange.SSE, session, session
@@ -285,7 +378,7 @@ def run_paper_day(
     return path
 
 
-def _history(data_root: Path, through: date) -> pd.DataFrame:
+def _history(data_root: Path, through: date, *, as_of: datetime | None = None) -> pd.DataFrame:
     selected: dict[date, tuple[datetime, dict[str, object]]] = {}
     for manifest in sorted((data_root / "raw").glob("*/manifest.json")):
         meta = _payload(manifest)
@@ -297,9 +390,15 @@ def _history(data_root: Path, through: date) -> pd.DataFrame:
         captured = _captured(payload)
         if session <= through and (session not in selected or captured < selected[session][0]):
             selected[session] = (captured, payload)
+    if not selected:
+        raise ProspectiveShadowError("raw snapshot history is empty")
+    action_view, _, _, _ = _action_view(
+        data_root, as_of or max(captured for captured, _ in selected.values())
+    )
+    actions_by_session = {session: _actions_on(action_view, session) for session in selected}
     rows: list[dict[str, object]] = []
     for session, (_, payload) in sorted(selected.items()):
-        actions = _actions_on(payload, session)
+        actions = actions_by_session[session]
         mode = str(payload.get("observation_mode", "WARM_START_NON_FORMAL"))
         for row in _records(payload):
             cash, ratio = actions.get(str(row["symbol"]), (0.0, 1.0))
@@ -406,10 +505,16 @@ def _score(history: pd.DataFrame, session: date, config: ShadowConfig) -> pd.Dat
 
 
 def _input_status(
-    history: pd.DataFrame, symbols: tuple[str, ...], session: date, config: ShadowConfig
+    history: pd.DataFrame,
+    symbols: tuple[str, ...],
+    session: date,
+    config: ShadowConfig,
+    calendar_root: Path,
+    capture_status: str,
 ) -> str:
     if not symbols:
         return "WARM_START_NON_FORMAL"
+    expected = _expected_sessions(calendar_root, session, config.maximum_lookback_sessions)
     modes: list[str] = []
     for symbol in symbols:
         rows = history.loc[
@@ -417,12 +522,33 @@ def _input_status(
         ].tail(config.maximum_lookback_sessions)
         if len(rows) < config.maximum_lookback_sessions:
             return "WARM_START_NON_FORMAL"
+        observed = tuple(cast(pd.Timestamp, item).date() for item in rows.session.tolist())
+        if observed != expected:
+            return "MIXED_PROSPECTIVE_INPUT"
         modes.extend(cast(list[str], rows.observation_mode.tolist()))
-    if all(mode == "PROSPECTIVE" for mode in modes):
+    if all(mode == "PROSPECTIVE" for mode in modes) and capture_status == "COMPLETE":
         return "FULLY_PROSPECTIVE_INPUT"
     if any(mode == "PROSPECTIVE" for mode in modes):
         return "MIXED_PROSPECTIVE_INPUT"
     return "WARM_START_NON_FORMAL"
+
+
+def _expected_sessions(root: Path, session: date, count: int) -> tuple[date, ...]:
+    calendar = ExchangeCalendarStore(root)
+
+    def window(exchange: Exchange) -> tuple[date, ...]:
+        values = [session]
+        cursor = session
+        for _ in range(count - 1):
+            cursor = calendar.previous_session(exchange, cursor)
+            values.append(cursor)
+        return tuple(reversed(values))
+
+    sse = window(Exchange.SSE)
+    szse = window(Exchange.SZSE)
+    if sse != szse:
+        raise ProspectiveShadowError("SSE and SZSE lookback sessions differ")
+    return sse
 
 
 def _desired_positions(
@@ -483,34 +609,124 @@ def _execution_blocks(
     return blocked
 
 
-def _actions_on(payload: dict[str, object], session: date) -> dict[str, tuple[float, float]]:
-    actions = payload.get("corporate_actions", [])
-    if not isinstance(actions, list):
-        raise ProspectiveShadowError("corporate_actions must be a list")
+def _action_view(
+    data_root: Path, as_of: datetime
+) -> tuple[list[dict[str, object]], str, list[dict[str, object]], set[str]]:
+    observations: list[tuple[datetime, dict[str, object]]] = []
+    for path in sorted((data_root / "action_ledgers").glob("*.json")):
+        ledger = _payload(path)
+        try:
+            captured = datetime.fromisoformat(str(ledger["captured_at"])).astimezone(UTC)
+        except (KeyError, ValueError) as error:
+            raise ProspectiveShadowError("action ledger captured_at is invalid") from error
+        if captured > as_of:
+            continue
+        actions = ledger.get("actions", [])
+        if not isinstance(actions, list):
+            raise ProspectiveShadowError("action ledger actions must be a list")
+        observations.extend(
+            (captured, cast(dict[str, object], action))
+            for action in actions
+            if isinstance(action, dict)
+        )
+    for manifest in sorted((data_root / "raw").glob("*/manifest.json")):
+        meta = _payload(manifest)
+        files = meta.get("files")
+        if not isinstance(files, list) or not files or not isinstance(files[0], dict):
+            continue
+        payload = _payload(manifest.parent / str(files[0]["relative_path"]))
+        captured = _captured(payload)
+        if captured > as_of:
+            continue
+        actions = payload.get("corporate_actions", [])
+        if isinstance(actions, list):
+            observations.extend(
+                (captured, cast(dict[str, object], action))
+                for action in actions
+                if isinstance(action, dict)
+            )
+
+    versions: dict[tuple[str, str, str], dict[str, tuple[datetime, dict[str, object]]]] = {}
+    first_seen: dict[tuple[str, str, str], datetime] = {}
+    for captured, action in observations:
+        try:
+            key = (
+                str(action["symbol"]),
+                str(action["kind"]),
+                str(action["effective_date"]),
+            )
+        except KeyError as error:
+            raise ProspectiveShadowError("corporate action identity is incomplete") from error
+        canonical = {
+            field: value
+            for field, value in action.items()
+            if field not in {"discovered_at", "version_observed_at"}
+        }
+        economic = {field: value for field, value in canonical.items() if field != "source_sha256"}
+        version = sha256(_json(economic)).hexdigest()
+        candidates = versions.setdefault(key, {})
+        if version not in candidates or captured > candidates[version][0]:
+            candidates[version] = (captured, canonical)
+        first_seen[key] = min(first_seen.get(key, captured), captured)
+
+    view: list[dict[str, object]] = []
+    conflicts: set[str] = set()
+    for key, candidates in sorted(versions.items()):
+        if len(candidates) > 1:
+            conflicts.add(key[0])
+        _, (observed, selected) = max(candidates.items(), key=lambda item: (item[1][0], item[0]))
+        view.append(
+            {
+                **selected,
+                "discovered_at": first_seen[key].isoformat(),
+                "version_observed_at": observed.isoformat(),
+            }
+        )
+    late = [
+        item
+        for item in view
+        if date.fromisoformat(str(item["effective_date"]))
+        < datetime.fromisoformat(str(item["discovered_at"])).date()
+    ]
+    return view, sha256(_json(view)).hexdigest(), late, conflicts
+
+
+def _capture_status(payload: dict[str, object], conflicts: set[str]) -> str:
+    declared = payload.get("data_capture_status")
+    if declared is None:
+        declared = (
+            "WARM_START_NON_FORMAL"
+            if payload.get("observation_mode") != "PROSPECTIVE"
+            else "COMPLETE"
+        )
+    records = _records(payload)
+    unknown_actions = any(str(item.get("action_status", "")) == "unknown" for item in records)
+    unavailable = payload.get("unavailable", [])
+    if conflicts or unknown_actions or (isinstance(unavailable, list) and unavailable):
+        return "DEGRADED_PROVIDER_FAILURES"
+    return str(declared)
+
+
+def _actions_on(actions: list[dict[str, object]], session: date) -> dict[str, tuple[float, float]]:
     result: dict[str, tuple[float, float]] = {}
     for action in actions:
-        if not isinstance(action, dict) or action.get("effective_date") != session.isoformat():
+        if action.get("effective_date") != session.isoformat():
             continue
         symbol = str(action["symbol"])
         cash, ratio = result.get(symbol, (0.0, 1.0))
         if action["kind"] == "cash_distribution":
-            cash += float(action["cash_per_unit"])
+            cash += float(str(action["cash_per_unit"]))
         elif action["kind"] == "share_split":
-            ratio *= float(action["split_ratio"])
+            ratio *= float(str(action["split_ratio"]))
         result[symbol] = (cash, ratio)
     return result
 
 
 def _paper_actions(
-    payload: dict[str, object], session: date
+    raw: list[dict[str, object]], session: date
 ) -> dict[str, tuple[CorporateActionEvent, ...]]:
-    raw = payload.get("corporate_actions", [])
-    if not isinstance(raw, list):
-        raise ProspectiveShadowError("corporate_actions must be a list")
     result: dict[str, list[CorporateActionEvent]] = {}
     for item in raw:
-        if not isinstance(item, dict):
-            raise ProspectiveShadowError("corporate action must be an object")
         relevant_dates = {
             str(item.get("effective_date", "")),
             str(item.get("record_date", "")),

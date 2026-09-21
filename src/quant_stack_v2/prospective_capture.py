@@ -144,11 +144,20 @@ def capture_live_session(
         if local.date() == session and local.timetz().replace(tzinfo=None) >= wall_time(16, 0)
         else "WARM_START_NON_FORMAL"
     )
+    capture_status = (
+        "COMPLETE"
+        if not unavailable
+        and not unresolved_actions
+        and spot_warning is None
+        and benchmark_warning is None
+        else "DEGRADED_PROVIDER_FAILURES"
+    )
     payload: dict[str, object] = {
         "schema_version": 2,
         "trading_date": session.isoformat(),
         "captured_at": captured.isoformat(),
         "observation_mode": mode,
+        "data_capture_status": capture_status,
         "records": records,
         "corporate_actions": actions,
         "benchmark": benchmark,
@@ -206,6 +215,7 @@ def bootstrap_live_history(
             "trading_date": session.isoformat(),
             "captured_at": captured.isoformat(),
             "observation_mode": "WARM_START_NON_FORMAL",
+            "data_capture_status": "WARM_START_NON_FORMAL",
             "records": records,
             "corporate_actions": actions,
             "benchmark": benchmark,

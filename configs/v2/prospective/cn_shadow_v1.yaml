@@ -8,6 +8,9 @@ lot_size: 100
 initial_cash: 1000000
 maximum_lookback_sessions: 60
 warm_start_sessions: 65
+paper_accounts:
+  engineering: engineering_warm_start
+  fully_prospective: fully_prospective_v1
 minimum_cross_section: 200
 minimum_mean_amount_20d: 10000000
 action_refresh_max_sessions: 5

@@ -222,6 +222,8 @@ def test_complete_daily_runner_bootstraps_and_reports_offline(tmp_path: Path) ->
     payload = json.loads(report.read_text())
     assert payload["ENGINEERING_STATUS"] == "DAILY_RUN_COMPLETE"
     assert payload["INPUT_STATUS"] == "MIXED_PROSPECTIVE_INPUT"
+    assert payload["DATA_CAPTURE_STATUS"] == "COMPLETE"
+    assert payload["capture_receipt_policy"] == "FIRST_IMMUTABLE_RECEIPT"
     assert payload["SHADOW_SIGNAL_STATUS"] == "SIGNAL_EMITTED"
     assert payload["PAPER_ACCOUNT_STATUS"] == "RECONCILED_LOCAL_ONLY"
     repeated = run_daily(
