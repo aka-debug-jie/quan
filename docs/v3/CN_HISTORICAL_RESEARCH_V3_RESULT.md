@@ -98,6 +98,8 @@ Local validation used an isolated Python 3.11 runtime: Ruff passed, format check
 passed, strict mypy passed on 132 source files, and all 471 offline tests passed.
 Branch-aware total coverage was 65%. Real data, ledgers, NAV and symbol-level
 artifacts remain ignored; only hashes and aggregate evidence are committed.
+GitHub CI run `35624309945` independently passed the full checks, V2 environment,
+and new V3 historical environment jobs.
 
 CSI500 was not read. EXQ-001, BT-001, the V2 no-formal-qualification closure,
 the prospective timer, prospective data, paper accounts and live-order boundary

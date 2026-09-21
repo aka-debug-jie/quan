@@ -25,7 +25,13 @@
     "pytest_passed": 471,
     "branch_coverage_percent": 65
   },
-  "remote_ci": "PENDING_PUSH",
+  "remote_ci": {
+    "run_id": 35624309945,
+    "head_sha": "2a8b26456c74a1761f35a8e423a1056e53d8c256",
+    "conclusion": "success",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35624309945",
+    "jobs": ["checks", "v2-environment", "v3-historical-environment"]
+  },
   "prospective_isolation_evidence": {
     "observed_at": "2026-09-22T00:12:55+08:00",
     "live_branch": "prospective/cn-shadow-v1",
