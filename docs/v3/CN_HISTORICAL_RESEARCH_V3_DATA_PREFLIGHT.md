@@ -19,6 +19,7 @@ Status: `REAL_DATA_PREFLIGHT_COMPLETE_BEFORE_PORTFOLIO_RETURNS`.
 - A static pre-run intersection of all six frozen target schedules with the remaining 91 unmatched factor dates found one additional possible held event: `sh601377@2016-01-07`. SSE evidence confirms a CNY 8.19 rights issue with 2015-12-28 record date and 2016-01-18 listing; it receives the same no-participation treatment (evidence `ad55fa27…f5c49`). No remaining unmatched factor date intersects any frozen main target schedule before execution failures.
 - The first all-matrix execution exposed `sh600489@2016-05-24` because an earlier failed exit left the security held beyond its nominal target schedule. CNInfo evidence confirms a 10-for-1.8 rights issue at CNY 6.22, record date 2016-05-13 and listing 2016-06-01. It receives the same no-participation policy (evidence `fe26109e…ecfff`).
 - The next matrix attempt exposed `sh600459@2019-03-01`, another rights issue. Its evidenced 2019 event (CNY 10.38, 10-for-3) and already published 2022 event (CNY 10.91, 10-for-3) are both bound to no participation, with evidence hashes `0bfb46c5…cb24b` and `5c1b8382…fb34b`.
+- A subsequent matrix path exposed `sh601015@2021-07-08`; the SSE annual market record identifies a CNY 3.53, 10-for-3 rights issue with 2021-06-29 record date and 2021-07-16 listing. It is bound to no participation with evidence `cce82ab4…68966`.
 
 The vendor archive is final-revised history and is allowed only for private,
 non-commercial, non-redistributed historical research. It is not official PIT

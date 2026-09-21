@@ -91,3 +91,13 @@ events:
     rights_ratio: 0.30
     source_url: https://static.cninfo.com.cn/finalpage/2022-12-09/1215303848.PDF
     source_sha256: 5c1b83825f19591afdd5ccf836b02fb402b8949eee1f023efb03b699684fb34b
+  - symbol: sh601015
+    effective_date: 2021-07-08
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2021-06-29
+    listing_date: 2021-07-16
+    subscription_price: 3.53
+    rights_ratio: 0.30
+    source_url: https://www.sse.com.cn/aboutus/publication/yearly/documents/c/10061072/files/dfca40e586304401b1f7a55c22684bc5.pdf
+    source_sha256: cce82ab46b1897c22455c57bde4291e938d10543bec10e5d0ccb581871368966
