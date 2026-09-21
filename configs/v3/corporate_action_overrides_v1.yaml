@@ -71,3 +71,23 @@ events:
     rights_ratio: 0.18
     source_url: https://static.cninfo.com.cn/finalpage/2016-05-24/1202335054.PDF
     source_sha256: fe26109e5e7d6ee553487a1259068f458d34df76dfeb78c8f1f19dd25bcecfff
+  - symbol: sh600459
+    effective_date: 2019-03-01
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2019-02-20
+    listing_date: 2019-03-12
+    subscription_price: 10.38
+    rights_ratio: 0.30
+    source_url: https://epaper.cs.com.cn/zgzqb/images/2019-03/01/B044/ZQBXP0440301C.pdf
+    source_sha256: 0bfb46c5e2aacaed9e0d0cf57a120ab7c69736e5dade26b9eb6021b7e83cb24b
+  - symbol: sh600459
+    effective_date: 2022-12-22
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2022-12-13
+    listing_date: 2023-01-04
+    subscription_price: 10.91
+    rights_ratio: 0.30
+    source_url: https://static.cninfo.com.cn/finalpage/2022-12-09/1215303848.PDF
+    source_sha256: 5c1b83825f19591afdd5ccf836b02fb402b8949eee1f023efb03b699684fb34b
