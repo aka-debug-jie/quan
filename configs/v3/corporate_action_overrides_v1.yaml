@@ -51,3 +51,13 @@ events:
     rights_ratio: 0.1177945
     source_url: https://static.cninfo.com.cn/finalpage/2020-03-06/1207347972.PDF
     source_sha256: 574c1e93890a79e5c6000bb6f58c5a771db2e747244839bd99bd5ba2ce4c1b70
+  - symbol: sh601377
+    effective_date: 2016-01-07
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2015-12-28
+    listing_date: 2016-01-18
+    subscription_price: 8.19
+    rights_ratio: 0.2878214758
+    source_url: https://static.sse.com.cn/disclosure/listedinfo/announcement/c/2015-12-24/601377_20151224_5.pdf
+    source_sha256: ad55fa272b6b5413efc6250bbce8cecbd12fa613d5a49cc03d5d470e016f5c49
