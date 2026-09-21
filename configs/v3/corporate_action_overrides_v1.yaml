@@ -61,3 +61,13 @@ events:
     rights_ratio: 0.2878214758
     source_url: https://static.sse.com.cn/disclosure/listedinfo/announcement/c/2015-12-24/601377_20151224_5.pdf
     source_sha256: ad55fa272b6b5413efc6250bbce8cecbd12fa613d5a49cc03d5d470e016f5c49
+  - symbol: sh600489
+    effective_date: 2016-05-24
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2016-05-13
+    listing_date: 2016-06-01
+    subscription_price: 6.22
+    rights_ratio: 0.18
+    source_url: https://static.cninfo.com.cn/finalpage/2016-05-24/1202335054.PDF
+    source_sha256: fe26109e5e7d6ee553487a1259068f458d34df76dfeb78c8f1f19dd25bcecfff
