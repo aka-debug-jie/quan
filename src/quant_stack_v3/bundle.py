@@ -187,7 +187,7 @@ def inspect_bundle(
     root: Path, bundle_sha256: str, tree_digest: str | None = None
 ) -> BundleInspection:
     """Read only bounded metadata from a previously extracted bundle."""
-    import h5py  # type: ignore[import-untyped]
+    import h5py  # type: ignore
 
     missing = [name for name in REQUIRED_FILES if not (root / name).is_file()]
     if missing:

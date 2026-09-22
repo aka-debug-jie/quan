@@ -40,7 +40,7 @@ def load_actions(
     dict[date, tuple[PositionTransfer, ...]],
 ]:
     """Load dated cash, split, and code-conversion events from one verified bundle."""
-    import h5py  # type: ignore[import-untyped]
+    import h5py  # type: ignore
 
     by_date: dict[date, dict[str, list[CorporateActionEvent]]] = {}
     with h5py.File(bundle_root / "dividends.h5", "r") as handle:
