@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "base_commit": "886144b74d9a25dbaeb25e38cce21e805ffb7994",
-  "validated_code_commit": "2579b6e520fb6803ea30b5b2eafebfbf4b3dd48f",
+  "validated_code_commit": "9f7d1b56663aa85cb8366f83b6534d90c72f7b7a",
   "branch": "console/quant-console-v1.5",
-  "real_snapshot_id": "646780e4009982deeb0baebfae3d17e376f22887b0ff39dc7ac163b1a7db5bdd",
+  "real_snapshot_id": "0f207ddc8be89d52e5391d5c5221b4a501e267cf3bd776e7f78e849c219c1b88",
   "source_results": {
     "displayed_runs": 61,
     "upgrade_registered_runs": 51,
@@ -24,10 +24,19 @@
     "matched_benchmark_comparability": "MATCHED_BENCHMARK_NOT_EVALUABLE",
     "economic_outcome": "NOT_EVALUABLE"
   },
+  "reporting_contract": {
+    "cagr": true,
+    "annualized_volatility": true,
+    "sharpe_ratio": true,
+    "maximum_drawdown": true,
+    "turnover": true,
+    "trade_count": true,
+    "benchmark_state": true
+  },
   "read_model": {
     "schema_version": 2,
     "component_files": 67,
-    "total_bytes": 10468538,
+    "total_bytes": 10516017,
     "stable_no_change_rebuild": true,
     "experiment_ledger": "PARQUET_REBUILDABLE",
     "lazy_series": true
@@ -48,15 +57,15 @@
       "health_median": 37.8
     },
     "v1_5_ms": {
-      "snapshot_median": 1.55,
-      "overview_median": 3,
-      "experiments_median": 11.26,
-      "prospective_median": 3.25,
-      "health_median": 3.2
+      "snapshot_median": 2.06,
+      "overview_median": 1.67,
+      "experiments_median": 7.94,
+      "prospective_median": 2.62,
+      "health_median": 2.16
     },
     "v1_initial_javascript_bytes": 646838,
     "v1_5_initial_javascript_bytes": 276157,
-    "v1_5_total_dist_bytes": 1693946,
+    "v1_5_total_dist_bytes": 1695194,
     "synthetic_10000_rows": {
       "status": "PASS",
       "pytest_elapsed_seconds": 0.68,
@@ -72,7 +81,7 @@
     "root_pytest_skipped": 3,
     "root_branch_coverage_percent": 61,
     "console_backend_pytest_passed": 11,
-    "console_backend_branch_coverage_percent": 82.44,
+    "console_backend_branch_coverage_percent": 82.26,
     "frontend_lint": "PASS",
     "frontend_typecheck": "PASS",
     "frontend_unit_tests_passed": 3,
@@ -92,8 +101,8 @@
     "frontend_package_lock_sha256": "429e33ccec983e8f4494bacd79d91c034bdd55bfceafbb7dd6a9f25504e53d51"
   },
   "browser_evidence": {
-    "desktop_screenshot_sha256": "7997d7a17394168c97f1850d221c67329043797dc10857e46c33aade2b885986",
-    "mobile_screenshot_sha256": "f0d642125cd5020bd6ca9f1f43692a621e9f74e27a64a430ad583e8cf1a1562d",
+    "desktop_screenshot_sha256": "081f2c6c2656ae1346580782bb27bd9098d252071ca1899e2915d0b9450fdad9",
+    "mobile_screenshot_sha256": "bdc3ca38af3440f8a694c5c398581627d8de9d794855315133f2ddc6e4517d78",
     "screenshots_committed": false,
     "reason": "real restricted research views remain local"
   },
@@ -103,7 +112,7 @@
     "prospective_sqlite_accesses": 0,
     "sealed_or_csi500_accesses": 0,
     "provider_runner_systemctl_execs": 0,
-    "strace_set_sha256": "a0bf1654966ab34c1006e9d8864d192646da318e775de369d44f9f1cff7f8fff",
+    "strace_set_sha256": "5805ac8e2eb9b6a8be360f715ad274eb1770d67d16d5cee5225a5944489186e0",
     "live_branch": "prospective/cn-shadow-v1",
     "live_head": "68011e807d5e7f921384f2b1c6d136b717b68bf8",
     "service_unit_sha256": "813505ed166ee9f3282322d822010550430a58a3ad46f370c6746ddc6e1c1b39",
@@ -123,9 +132,9 @@
   },
   "remote_ci": {
     "status": "PASS",
-    "run_id": 35757742999,
-    "head_sha": "2579b6e520fb6803ea30b5b2eafebfbf4b3dd48f",
-    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35757742999",
+    "run_id": 35774635972,
+    "head_sha": "9f7d1b56663aa85cb8366f83b6534d90c72f7b7a",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35774635972",
     "jobs": [
       "checks",
       "v2-environment",
@@ -151,4 +160,3 @@
   "LIVE_TRADING": "FORBIDDEN",
   "CSI500": "NOT_READ"
 }
-

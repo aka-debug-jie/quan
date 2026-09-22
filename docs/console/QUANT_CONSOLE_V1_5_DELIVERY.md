@@ -24,12 +24,12 @@ research only.
 
 | Measurement | V1 | V1.5 |
 |---|---:|---:|
-| Current snapshot response median | 41.47 ms | 1.55 ms |
-| Overview median | 36.97 ms | 3.00 ms |
-| Experiment list median | 43.85 ms | 11.26 ms |
-| Prospective median | 37.43 ms | 3.25 ms |
-| Health median | 37.80 ms | 3.20 ms |
-| Initial JavaScript | 646,838 bytes | 276,166 bytes |
+| Current snapshot response median | 41.47 ms | 2.06 ms |
+| Overview median | 36.97 ms | 1.67 ms |
+| Experiment list median | 43.85 ms | 7.94 ms |
+| Prospective median | 37.43 ms | 2.62 ms |
+| Health median | 37.80 ms | 2.16 ms |
+| Initial JavaScript | 646,838 bytes | 276,157 bytes |
 
 V1.5 list responses are larger because every metric now carries explicit unit, validity and
 provenance. Detail and 77,546 NAV points are no longer embedded in the list. ECharts and
@@ -38,7 +38,7 @@ on the acceptance host.
 
 ## Validation summary
 
-- Backend strict ruff/mypy and 11 tests pass with 82.44% branch coverage.
+- Backend strict ruff/mypy and 11 tests pass with 82.26% branch coverage.
 - Frontend lint, typecheck, three unit tests and production build pass.
 - Synthetic Playwright: six desktop/mobile tests pass; real-only cases are skipped.
 - Real Playwright: two desktop/mobile journeys pass; synthetic-only cases are skipped.
@@ -52,4 +52,3 @@ on the acceptance host.
 `STRATEGY_PROMOTION=NOT_AUTHORIZED`, `LIVE_TRADING=FORBIDDEN`, `CSI500=NOT_READ`.
 V1 and prospective deployments remain separate and unchanged. Optional component decisions
 are recorded in `QUANT_CONSOLE_V1_5_DECISIONS.md`.
-
