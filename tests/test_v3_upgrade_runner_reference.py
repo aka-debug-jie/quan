@@ -76,6 +76,7 @@ def test_corrected_runner_matches_independent_reference(tmp_path: Path) -> None:
         bars_path,
         scores_path,
         artifacts,
+        ROOT / "configs/v3/cn_historical_research_v3.yaml",
         ROOT / "configs/upgrade/cn_quant_research_upgrade_v1.yaml",
         ROOT / "configs/v3/corporate_action_overrides_v1.yaml",
     )

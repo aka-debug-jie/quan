@@ -11,7 +11,7 @@ import pandas as pd
 
 from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
-from quant_stack_v3.upgrade_protocol import CANDIDATE_IDS
+from quant_stack_v3.upgrade_protocol import CANDIDATE_IDS, ScaleSelectionSpec
 
 BENCHMARKS = {
     candidate: "B100_LIQ100_D20" if candidate == "AF7_LOW_AVOID100_D20" else "B50_LIQ50_D20"
@@ -21,7 +21,7 @@ BENCHMARKS = {
 
 def select_scale_candidates(
     results: dict[str, dict[str, object]],
-    artifact_root: Path,
+    selection: ScaleSelectionSpec,
 ) -> tuple[str, ...]:
     """Apply the preregistered, non-tuning scale-stress gate to at most two candidates."""
     qualified: list[tuple[float, str]] = []
@@ -29,17 +29,22 @@ def select_scale_candidates(
         benchmark = BENCHMARKS[candidate]
         result = results[f"{candidate}__REAL_T1_1M"]
         base = results[f"{benchmark}__REAL_T1_1M"]
+        if not (_valid(result) and _valid(base)):
+            continue
         active_years = _active_years(result, base)
         active_cagr = _metric(result, "cagr") - _metric(base, "cagr")
         if (
-            active_cagr > 0
-            and _metric(result, "sharpe_ratio") >= _metric(base, "sharpe_ratio")
-            and _metric(result, "maximum_drawdown") - _metric(base, "maximum_drawdown") >= -0.05
-            and sum(value > 0 for value in active_years.values()) >= 7
+            active_cagr > selection.active_cagr_greater_than
+            and _metric(result, "sharpe_ratio") - _metric(base, "sharpe_ratio")
+            >= selection.sharpe_difference_at_least
+            and _metric(result, "maximum_drawdown") - _metric(base, "maximum_drawdown")
+            >= selection.maximum_drawdown_difference_at_least
+            and sum(value > 0 for value in active_years.values())
+            >= selection.positive_active_years_at_least
         ):
             qualified.append((active_cagr, candidate))
     qualified.sort(key=lambda item: (-item[0], item[1]))
-    return tuple(item[1] for item in qualified[:2])
+    return tuple(item[1] for item in qualified[: selection.maximum_candidates])
 
 
 def build_robustness_report(
@@ -56,31 +61,63 @@ def build_robustness_report(
         raise ValueError("upgrade robustness parameters are frozen")
     active_frames: dict[str, pd.Series] = {}
     observed: dict[str, float] = {}
+    invalid: dict[str, str] = {}
     for candidate in CANDIDATE_IDS:
         benchmark = BENCHMARKS[candidate]
-        candidate_nav = _nav(results[f"{candidate}__REAL_T1_1M"], artifact_root)
-        benchmark_nav = _nav(results[f"{benchmark}__REAL_T1_1M"], artifact_root)
+        required = (
+            results[f"{candidate}__REAL_T1_1M"],
+            results[f"{benchmark}__REAL_T1_1M"],
+            results[f"{candidate}__DOUBLE_ASSUMPTION_T1_1M"],
+            results[f"{benchmark}__DOUBLE_ASSUMPTION_T1_1M"],
+            results[f"{candidate}__REAL_T2_1M"],
+            results[f"{benchmark}__REAL_T2_1M"],
+        )
+        if not all(_valid(value) for value in required):
+            invalid[candidate] = "candidate or matched benchmark scenario is not evaluable"
+            continue
+        candidate_nav = _nav(required[0], artifact_root)
+        benchmark_nav = _nav(required[1], artifact_root)
+        if (
+            not candidate_nav.index.is_unique
+            or not benchmark_nav.index.is_unique
+            or not candidate_nav.index.equals(benchmark_nav.index)
+        ):
+            invalid[candidate] = "candidate and benchmark NAV calendars differ"
+            continue
         joined = pd.concat(
-            [np.log(candidate_nav).diff(), np.log(benchmark_nav).diff()], axis=1, join="inner"
+            [np.log(candidate_nav).diff(), np.log(benchmark_nav).diff()], axis=1
         ).dropna()
-        active = joined.iloc[:, 0] - joined.iloc[:, 1]
-        active_frames[candidate] = active
-        observed[candidate] = float(active.mean())
-    common = sorted(set.intersection(*(set(value.index) for value in active_frames.values())))
-    matrix = np.column_stack(
-        [active_frames[candidate].loc[common].to_numpy(dtype=float) for candidate in CANDIDATE_IDS]
-    )
-    boot = _block_bootstrap_means(matrix, replicates, block_sessions, seed)
-    p_values: dict[str, float] = {}
-    intervals: dict[str, tuple[float, float]] = {}
-    for column, candidate in enumerate(CANDIDATE_IDS):
-        values = matrix[:, column]
-        centered = values - values.mean()
-        null_boot = _block_bootstrap_means(centered[:, None], replicates, block_sessions, seed)[
-            :, 0
-        ]
+        active_frames[candidate] = joined.iloc[:, 0] - joined.iloc[:, 1]
+    valid_candidates = tuple(candidate for candidate in CANDIDATE_IDS if candidate in active_frames)
+    if valid_candidates:
+        common_index = active_frames[valid_candidates[0]].index
+        for candidate in valid_candidates[1:]:
+            if not active_frames[candidate].index.equals(common_index):
+                raise ValueError("valid candidate active-return calendars are not identical")
+        matrix = np.column_stack(
+            [active_frames[candidate].to_numpy(dtype=float) for candidate in valid_candidates]
+        )
+        observed.update(
+            {
+                candidate: float(matrix[:, column].mean())
+                for column, candidate in enumerate(valid_candidates)
+            }
+        )
+        boot = _block_bootstrap_means(matrix, replicates, block_sessions, seed)
+        centered_boot = _block_bootstrap_means(
+            matrix - matrix.mean(axis=0), replicates, block_sessions, seed
+        )
+    else:
+        boot = np.empty((replicates, 0), dtype=float)
+        centered_boot = np.empty((replicates, 0), dtype=float)
+    p_values: dict[str, float] = {candidate: 1.0 for candidate in CANDIDATE_IDS}
+    intervals: dict[str, tuple[float, float] | None] = {
+        candidate: None for candidate in CANDIDATE_IDS
+    }
+    for column, candidate in enumerate(valid_candidates):
         p_values[candidate] = float(
-            (1 + np.count_nonzero(null_boot >= observed[candidate])) / (replicates + 1)
+            (1 + np.count_nonzero(centered_boot[:, column] >= observed[candidate]))
+            / (replicates + 1)
         )
         intervals[candidate] = (
             float(np.quantile(boot[:, column], 0.025)),
@@ -90,6 +127,16 @@ def build_robustness_report(
     rows: dict[str, object] = {}
     for candidate in CANDIDATE_IDS:
         benchmark = BENCHMARKS[candidate]
+        if candidate in invalid:
+            rows[candidate] = {
+                "benchmark": benchmark,
+                "outcome": "NOT_EVALUABLE",
+                "reason": invalid[candidate],
+                "one_sided_bootstrap_p": 1.0,
+                "holm_adjusted_p": adjusted[candidate],
+                "paired_block_bootstrap_95_interval": None,
+            }
+            continue
         real = results[f"{candidate}__REAL_T1_1M"]
         base_real = results[f"{benchmark}__REAL_T1_1M"]
         active_years = _active_years(real, base_real)
@@ -103,15 +150,7 @@ def build_robustness_report(
         drawdown_difference = _metric(real, "maximum_drawdown") - _metric(
             base_real, "maximum_drawdown"
         )
-        valid = all(
-            str(value.get("RESEARCH_VALIDITY", "")).startswith("VALID_")
-            for value in (
-                real,
-                base_real,
-                results[f"{candidate}__DOUBLE_ASSUMPTION_T1_1M"],
-                results[f"{candidate}__REAL_T2_1M"],
-            )
-        )
+        valid = True
         positive_years = sum(value > 0 for value in active_years.values())
         median_year = float(np.median(list(active_years.values())))
         retain = (
@@ -214,6 +253,10 @@ def _active_years(result: dict[str, object], benchmark: dict[str, object]) -> di
 
 def _metric(result: dict[str, object], name: str) -> float:
     return _number(_mapping(result["metrics"])[name])
+
+
+def _valid(result: dict[str, object]) -> bool:
+    return str(result.get("RESEARCH_VALIDITY", "")).startswith("VALID_")
 
 
 def _number(value: object) -> float:

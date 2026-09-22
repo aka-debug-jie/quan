@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from hashlib import sha256
 
 from quant_stack.research_json import canonical_json
+from quant_stack.snapshot import write_immutable
 from quant_stack_v3.protocol import Protocol
 from quant_stack_v3.upgrade_portfolio import policy_for
 from quant_stack_v3.upgrade_runner import (
@@ -72,15 +73,40 @@ def _run_forked(spec: UpgradeRunSpec) -> tuple[str, dict[str, object]]:
     if run_root.exists() and any(run_root.iterdir()):
         raise ValueError(f"incomplete upgrade run directory already exists: {run_identity}")
     run_root.mkdir(parents=True, exist_ok=True)
-    _, result = _run_loaded(
-        base_protocol,
-        spec,
-        policy_for(spec.strategy_id),
-        inputs,
-        identities,
-        run_identity,
-        run_root,
-        result_path,
-        prepared,
-    )
+    try:
+        _, result = _run_loaded(
+            base_protocol,
+            spec,
+            policy_for(spec.strategy_id),
+            inputs,
+            identities,
+            run_identity,
+            run_root,
+            result_path,
+            prepared,
+        )
+    except ValueError as error:
+        message = str(error)
+        if not message.startswith(
+            (
+                "held position has unexplained action",
+                "unexplained held valuation missing",
+                "upgrade signal was not evaluable",
+            )
+        ):
+            raise
+        result = {
+            "schema_version": 1,
+            "run_identity": run_identity,
+            "experiment_id": spec.experiment_id,
+            "strategy_id": spec.strategy_id,
+            "scenario_id": spec.scenario_id,
+            "IMPLEMENTATION_STATUS": "IMPLEMENTED_CORRECTED_REAL_DATA_PATH",
+            "HISTORICAL_RUN_STATUS": "NOT_EVALUABLE_REAL_DATA",
+            "DATA_USE_LEVEL": "RQALPHA_SINGLE_SOURCE_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY",
+            "RESEARCH_VALIDITY": "NOT_EVALUABLE_DATA_OR_CORPORATE_ACTION",
+            "failure": message,
+            "identities": identities,
+        }
+        write_immutable(result_path, canonical_json(result) + b"\n")
     return spec.experiment_id, result

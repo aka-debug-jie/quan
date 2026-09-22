@@ -7,6 +7,7 @@ data:
   bundle_sha256: 80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139
   tree_sha256: 9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620
   normalized_bars_sha256: d0b4f72f8bc95539582f129ed1ad1e9c22c4dbb49f98413566bec9c1e5a3cc8f
+  base_scores_sha256: 2fa925b04971254fdcec72a24a04d18684e1fc36495ff13ed5e65cf274f1e958
 references:
   - id: B00_LIQ20_D20
     description: Liquidity top 20, rebalance every 20 sessions.
@@ -54,4 +55,11 @@ budget:
   maximum_scale_candidates: 2
   maximum_scale_runs: 4
   maximum_total_runs: 55
+scale_selection:
+  active_cagr_greater_than: 0.0
+  sharpe_difference_at_least: 0.0
+  maximum_drawdown_difference_at_least: -0.05
+  positive_active_years_at_least: 7
+  maximum_candidates: 2
+  order: active_cagr_desc_then_strategy_id
 forbidden_uses: [csi500, sealed_test, paid_data, live_order, paper_deployment]

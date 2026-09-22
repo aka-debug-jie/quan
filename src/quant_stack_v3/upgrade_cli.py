@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 from decimal import Decimal
 from hashlib import sha256
@@ -20,6 +21,7 @@ from quant_stack_v3.upgrade_artifacts import (
 from quant_stack_v3.upgrade_parallel import run_upgrade_registry_parallel
 from quant_stack_v3.upgrade_protocol import (
     ExperimentSpec,
+    UpgradeProtocol,
     expand_experiment_registry,
     load_upgrade_protocol,
 )
@@ -108,27 +110,39 @@ def run(
     ),
 ) -> None:
     """Run the exact matrix, conditional scale gate, references and robustness report."""
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    lock_handle = (artifact_root / ".upgrade-run.lock").open("a", encoding="utf-8")
+    try:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError as error:
+        lock_handle.close()
+        raise ValueError("another upgrade run already owns this artifact root") from error
     base = load_protocol(base_protocol_path)
     upgrade = load_upgrade_protocol(upgrade_protocol_path)
+    _validate_inputs(
+        upgrade,
+        bundle_root=bundle_root,
+        bundle_sha256=bundle_sha256,
+        bars_path=bars_path,
+        scores_path=scores_path,
+    )
     inputs = UpgradeInputs(
         bundle_root,
         bundle_sha256,
         bars_path,
         scores_path,
         artifact_root,
+        base_protocol_path,
         upgrade_protocol_path,
         action_overrides_path,
     )
     fixed_registry = expand_experiment_registry(upgrade)
     results = run_upgrade_registry_parallel(base, _runtime_specs(fixed_registry), inputs)
-    scale_candidates = select_scale_candidates(results, artifact_root)
-    final_registry = expand_experiment_registry(upgrade, scale_candidates)
-    if len(final_registry) > len(fixed_registry):
-        results = run_upgrade_registry_parallel(base, _runtime_specs(final_registry), inputs)
-    robustness_path, robustness = build_robustness_report(results, artifact_root, artifact_root)
     references: dict[str, object] = {}
     for strategy_id in ("B00_LIQ20_D20", "A04_AF7_TOP20_D20"):
         result = results[f"{strategy_id}__REAL_T1_1M"]
+        if not str(result.get("RESEARCH_VALIDITY", "")).startswith("VALID_"):
+            raise ValueError(f"{strategy_id} is not evaluable for independent reference")
         reference_path, reference = audit_reference_run(
             primary_run_root=artifact_root / "runs" / str(result["run_identity"]),
             bundle_root=bundle_root,
@@ -141,6 +155,11 @@ def run(
             "path": reference_path.as_posix(),
             "status": reference["status"],
         }
+    scale_candidates = select_scale_candidates(results, upgrade.scale_selection)
+    final_registry = expand_experiment_registry(upgrade, scale_candidates)
+    if len(final_registry) > len(fixed_registry):
+        results = run_upgrade_registry_parallel(base, _runtime_specs(final_registry), inputs)
+    robustness_path, robustness = build_robustness_report(results, artifact_root, artifact_root)
     aggregate: dict[str, object] = {
         "schema_version": 1,
         "status": "CN_QUANT_RESEARCH_UPGRADE_COMPLETE",
@@ -158,6 +177,8 @@ def run(
     encoded = canonical_json(aggregate) + b"\n"
     matrix_path = artifact_root / "matrix" / f"{sha256(encoded).hexdigest()}.json"
     write_immutable(matrix_path, encoded)
+    fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+    lock_handle.close()
     typer.echo(json.dumps({"matrix": matrix_path.as_posix(), **aggregate}, indent=2))
 
 
@@ -200,6 +221,36 @@ def _runtime_specs(values: tuple[ExperimentSpec, ...]) -> tuple[UpgradeRunSpec, 
         )
         for value in values
     )
+
+
+def _validate_inputs(
+    protocol: UpgradeProtocol,
+    *,
+    bundle_root: Path,
+    bundle_sha256: str,
+    bars_path: Path,
+    scores_path: Path,
+) -> None:
+    """Bind CLI paths to the content identities authorized by the protocol."""
+    data = protocol.data
+    if bundle_sha256 != data.bundle_sha256 or bundle_root.name != data.tree_sha256:
+        raise ValueError("upgrade bundle identity is not authorized by the protocol")
+    if _file_sha256(bars_path) != data.normalized_bars_sha256:
+        raise ValueError("upgrade normalized bars differ from the frozen protocol")
+    scores_sha = _file_sha256(scores_path)
+    if scores_path.parent.name != scores_sha:
+        raise ValueError("upgrade score cache path is not content-addressed")
+    report_path = scores_path.with_name("report.json")
+    if not report_path.exists():
+        raise ValueError("upgrade score cache lacks its build report")
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if (
+        report.get("status") != "UPGRADE_SIGNALS_COMPLETE"
+        or report.get("scores_sha256") != scores_sha
+        or report.get("bars_sha256") != data.normalized_bars_sha256
+        or report.get("base_scores_sha256") != data.base_scores_sha256
+    ):
+        raise ValueError("upgrade score cache authorization chain is incomplete")
 
 
 def _mapping(value: object) -> dict[str, object]:

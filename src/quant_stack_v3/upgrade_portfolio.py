@@ -138,3 +138,19 @@ def apply_weight_policy(
         if lower <= current_weight <= upper:
             return current_quantity
     return current_quantity + (target_quantity - current_quantity) * policy.step_fraction
+
+
+def round_gradual_sell_target(
+    current_quantity: Decimal,
+    intermediate_target: Decimal,
+    *,
+    minimum_quantity: Decimal,
+    sell_increment: Decimal,
+) -> Decimal:
+    """Avoid creating odd lots while allowing an existing odd remainder to persist."""
+    if not Decimal("0") <= intermediate_target < current_quantity:
+        raise ValueError("gradual sell target must reduce a positive holding")
+    if intermediate_target < minimum_quantity:
+        return Decimal("0")
+    sell_quantity = ((current_quantity - intermediate_target) // sell_increment) * sell_increment
+    return current_quantity - sell_quantity

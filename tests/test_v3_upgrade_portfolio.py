@@ -7,6 +7,7 @@ import pandas as pd
 from quant_stack_v3.upgrade_portfolio import (
     apply_weight_policy,
     policy_for,
+    round_gradual_sell_target,
     select_portfolio,
 )
 
@@ -59,4 +60,34 @@ def test_weight_band_and_gradual_step_are_distinct() -> None:
             policy=gradual,
         )
         == 125
+    )
+
+
+def test_gradual_policy_contract_uses_twenty_five_percent_step() -> None:
+    policy = policy_for("AF7_TOP50_D5_STEP25")
+    assert policy.step_fraction == Decimal("0.25")
+    assert policy.rebalance_sessions == 5
+
+
+def test_gradual_sell_does_not_create_an_ordinary_odd_lot() -> None:
+    assert round_gradual_sell_target(
+        Decimal("1000"),
+        Decimal("875"),
+        minimum_quantity=Decimal("100"),
+        sell_increment=Decimal("100"),
+    ) == Decimal("900")
+    assert round_gradual_sell_target(
+        Decimal("1050"),
+        Decimal("787.5"),
+        minimum_quantity=Decimal("100"),
+        sell_increment=Decimal("100"),
+    ) == Decimal("850")
+    assert (
+        round_gradual_sell_target(
+            Decimal("105"),
+            Decimal("78.75"),
+            minimum_quantity=Decimal("100"),
+            sell_increment=Decimal("100"),
+        )
+        == 0
     )

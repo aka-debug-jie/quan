@@ -34,6 +34,7 @@ from quant_stack_v3.upgrade_portfolio import (
     PortfolioPolicy,
     apply_weight_policy,
     policy_for,
+    round_gradual_sell_target,
     select_portfolio,
 )
 
@@ -59,6 +60,7 @@ class UpgradeInputs:
     bars_path: Path
     scores_path: Path
     artifact_root: Path
+    base_protocol_path: Path
     protocol_path: Path
     action_overrides_path: Path
 
@@ -152,12 +154,17 @@ def run_upgrade_registry(
 def _identities(spec: UpgradeRunSpec, inputs: UpgradeInputs) -> dict[str, object]:
     return {
         "upgrade_protocol_sha256": _file_sha256(inputs.protocol_path),
+        "base_protocol_sha256": _file_sha256(inputs.base_protocol_path),
         "bundle_sha256": inputs.bundle_sha256,
         "bars_sha256": _file_sha256(inputs.bars_path),
         "scores_sha256": _file_sha256(inputs.scores_path),
         "runner_sha256": _file_sha256(Path(__file__)),
         "engine_sha256": _file_sha256(Path(__file__).with_name("fast_engine.py")),
         "portfolio_sha256": _file_sha256(Path(__file__).with_name("upgrade_portfolio.py")),
+        "actions_sha256": _file_sha256(Path(__file__).with_name("actions.py")),
+        "diagnostics_sha256": _file_sha256(Path(__file__).with_name("upgrade_diagnostics.py")),
+        "signals_sha256": _file_sha256(Path(__file__).with_name("upgrade_signals.py")),
+        "base_protocol_code_sha256": _file_sha256(Path(__file__).with_name("protocol.py")),
         "action_overrides_sha256": _file_sha256(inputs.action_overrides_path),
         "experiment": asdict(spec),
     }
@@ -439,8 +446,16 @@ def _place_orders(
             target_weight=weights[symbol],
             policy=policy,
         )
+        rule = _execution_rule(str(row.board))
         if intermediate >= current:
-            intermediate = _lot_quantity(intermediate, _execution_rule(str(row.board)))
+            intermediate = _lot_quantity(intermediate, rule)
+        elif intermediate > 0:
+            intermediate = round_gradual_sell_target(
+                current,
+                intermediate,
+                minimum_quantity=rule.minimum_buy_quantity,
+                sell_increment=rule.buy_increment,
+            )
         desired[symbol] = max(intermediate, Decimal("0"))
     records: list[dict[str, object]] = []
     rank_symbols = set(str(value) for value in daily_scores["symbol"])
@@ -451,8 +466,12 @@ def _place_orders(
             target = current * (Decimal("1") - policy.step_fraction)
             if symbol in today.index:
                 rule = _execution_rule(str(today.loc[symbol].board))
-                if target < rule.minimum_buy_quantity:
-                    target = Decimal("0")
+                target = round_gradual_sell_target(
+                    current,
+                    target,
+                    minimum_quantity=rule.minimum_buy_quantity,
+                    sell_increment=rule.buy_increment,
+                )
         delta = target - current
         if delta == 0:
             continue

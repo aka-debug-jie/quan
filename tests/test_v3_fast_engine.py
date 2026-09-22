@@ -109,6 +109,7 @@ def test_dividend_is_captured_on_record_date_and_accrued_on_ex_date() -> None:
     account.positions["sh600000"] = Decimal("100")
     record_date = date(2020, 1, 2)
     ex_date = date(2020, 1, 3)
+    payment_date = date(2020, 1, 6)
     action = CorporateActionEvent(
         effective_date=ex_date,
         kind=CorporateActionKind.CASH_DISTRIBUTION,
@@ -119,7 +120,7 @@ def test_dividend_is_captured_on_record_date_and_accrued_on_ex_date() -> None:
             published_on=record_date,
         ),
         record_date=record_date,
-        payment_date=ex_date,
+        payment_date=payment_date,
         retrospective_verification=True,
     )
     rule = {"sh600000": PaperExecutionRule(Decimal("100"), Decimal("100"))}
@@ -134,6 +135,16 @@ def test_dividend_is_captured_on_record_date_and_accrued_on_ex_date() -> None:
     )
     assert record.receivable_dividends == 0
     assert record.net_asset_value == Decimal("2000")
+    account.place_order(
+        HistoricalOrder(
+            "sell-after-record",
+            "sh600000",
+            Side.SELL,
+            Decimal("100"),
+            record_date,
+            ex_date,
+        )
+    )
     ex = account.run_day(
         ex_date,
         {"sh600000": Decimal("9.5")},
@@ -143,7 +154,19 @@ def test_dividend_is_captured_on_record_date_and_accrued_on_ex_date() -> None:
         {},
         rule,
     )
-    assert ex.cash == Decimal("1050")
-    assert ex.receivable_dividends == 0
+    assert ex.cash == Decimal("1950.0")
+    assert ex.receivable_dividends == Decimal("50.0")
     assert ex.net_asset_value == Decimal("2000")
+    paid = account.run_day(
+        payment_date,
+        {"sh600000": Decimal("9.5")},
+        {"sh600000": Decimal("9.5")},
+        costs,
+        {"sh600000": (action,)},
+        {},
+        rule,
+    )
+    assert paid.cash == Decimal("2000.0")
+    assert paid.receivable_dividends == 0
+    assert paid.net_asset_value == Decimal("2000")
     assert [event["event_type"] for event in account.events].count("dividend_accrual") == 1

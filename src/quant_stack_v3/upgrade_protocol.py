@@ -51,6 +51,7 @@ class UpgradeDataSpec(StrictModel):
     normalized_bars_sha256: Literal[
         "d0b4f72f8bc95539582f129ed1ad1e9c22c4dbb49f98413566bec9c1e5a3cc8f"
     ]
+    base_scores_sha256: Literal["2fa925b04971254fdcec72a24a04d18684e1fc36495ff13ed5e65cf274f1e958"]
 
 
 class UpgradeStrategySpec(StrictModel):
@@ -122,6 +123,28 @@ class UpgradeBudget(StrictModel):
         return self
 
 
+class ScaleSelectionSpec(StrictModel):
+    """Frozen gate for the two optional capital-scale diagnostics."""
+
+    active_cagr_greater_than: float
+    sharpe_difference_at_least: float
+    maximum_drawdown_difference_at_least: float
+    positive_active_years_at_least: Literal[7]
+    maximum_candidates: Literal[2]
+    order: Literal["active_cagr_desc_then_strategy_id"]
+
+    @model_validator(mode="after")
+    def exact_scale_gate(self) -> ScaleSelectionSpec:
+        """Reject post-result drift in the conditional scale-selection gate."""
+        if (
+            self.active_cagr_greater_than,
+            self.sharpe_difference_at_least,
+            self.maximum_drawdown_difference_at_least,
+        ) != (0.0, 0.0, -0.05):
+            raise ValueError("upgrade scale-selection thresholds drifted")
+        return self
+
+
 class UpgradeProtocol(StrictModel):
     """Frozen 12-by-four core matrix, three audits and conditional scale runs."""
 
@@ -136,6 +159,7 @@ class UpgradeProtocol(StrictModel):
     core_scenarios: tuple[UpgradeScenarioSpec, ...]
     conditional_scale_scenarios: tuple[UpgradeScenarioSpec, ...]
     budget: UpgradeBudget
+    scale_selection: ScaleSelectionSpec
     forbidden_uses: tuple[str, ...]
 
     @model_validator(mode="after")
