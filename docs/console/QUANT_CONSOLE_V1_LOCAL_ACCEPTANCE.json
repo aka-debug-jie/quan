@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "validated_code_commit": "d6b10550a8b8ac3747e9d88b28f2d66d9b65e1d3",
+  "real_snapshot_id": "888350445eb07c80ea47240c9c71f7cd1889ffd5d1871a751172bf8494319619",
+  "source_results": {
+    "upgrade_registered_runs": 51,
+    "upgrade_valid_runs": 19,
+    "upgrade_not_evaluable_runs": 32,
+    "retained_candidates": 0,
+    "legacy_invalid_engineering_runs_excluded": 19,
+    "historical_v3_runs": 10,
+    "latest_prospective_date": "2026-09-22",
+    "prospective_operations_status": "OPERATIONS_LOOP_RC",
+    "prospective_input_status": "MIXED_PROSPECTIVE_INPUT",
+    "fully_prospective_account_status": "NOT_STARTED"
+  },
+  "dual_status_acceptance": {
+    "experiment_id": "AF7_TOP50_D20_EQ__REAL_T1_1M",
+    "absolute_data_evaluability": "VALID",
+    "cagr": -0.05218754030574968,
+    "matched_benchmark_comparability": "MATCHED_BENCHMARK_NOT_EVALUABLE",
+    "economic_outcome": "NOT_EVALUABLE"
+  },
+  "local_validation": {
+    "root_ruff": "PASS",
+    "root_format_check": "PASS",
+    "root_strict_mypy_source_files": 143,
+    "root_pytest_passed": 525,
+    "root_pytest_skipped": 3,
+    "root_branch_coverage_percent": 61,
+    "console_backend_pytest_passed": 7,
+    "console_backend_branch_coverage_percent": 82.05,
+    "frontend_lint": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_unit_tests_passed": 1,
+    "frontend_production_build": "PASS",
+    "synthetic_browser_tests_passed": 4,
+    "real_browser_tests_passed": 2,
+    "desktop_and_mobile": true,
+    "browser_console_errors": 0
+  },
+  "dependency_locks": {
+    "backend_uv_lock_sha256": "a73b7a1286297eb08a296bfc85568cc6532bac2c414db5e0b58ff25bbd07ec66",
+    "frontend_package_lock_sha256": "b020bf1cb272ac807741c2ef1c1eb28fd80f166b643c9add4b52b05be8d88436"
+  },
+  "browser_evidence": {
+    "desktop_screenshot_sha256": "60c5a048f178aa83ab2b3c842cc28d2054ab6e5f83b18ba4f34204ba6ef0bace",
+    "mobile_screenshot_sha256": "de57ece843d27144cbba32de35b2997c51c66e695faefdd145a13dcb34352b80",
+    "screenshots_committed": false,
+    "reason": "real restricted research views remain local"
+  },
+  "read_only_isolation": {
+    "web_reads_normalized_snapshot_only": true,
+    "prospective_sqlite_read": false,
+    "source_write_syscalls": 0,
+    "sealed_or_csi500_accesses": 0,
+    "strace_set_sha256": "305729f99cc99d890f41b64590c7f92e6083869bbd2d2f4d3eb354ae14936032",
+    "live_branch": "prospective/cn-shadow-v1",
+    "live_head": "68011e807d5e7f921384f2b1c6d136b717b68bf8",
+    "live_worktree_clean": true,
+    "service_unit_sha256": "813505ed166ee9f3282322d822010550430a58a3ad46f370c6746ddc6e1c1b39",
+    "timer_unit_sha256": "3b6a5c76f335d8a9697f1a5f68f3058f661e22d8e2dac81ae4cfce5deb7b7754"
+  },
+  "remote_ci": {
+    "status": "PENDING_FIRST_PUSH"
+  },
+  "IMPLEMENTATION_STATUS": "COMPLETE",
+  "REAL_DATA_INTEGRATION_STATUS": "PASS",
+  "UI_VERIFICATION_STATUS": "PASS",
+  "READ_ONLY_ISOLATION_STATUS": "PASS",
+  "LOCAL_RELEASE_STATUS": "READY_FOR_LOCAL_USE",
+  "strategy_promotion": "NOT_AUTHORIZED",
+  "live_trading": "FORBIDDEN",
+  "csi500": "NOT_READ"
+}
