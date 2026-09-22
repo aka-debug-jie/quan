@@ -352,6 +352,19 @@ def _run_loaded(
     pd.DataFrame(account.events).to_parquet(ledger_path, index=False, compression="zstd")
     intents_path = run_root / "order_intents.parquet"
     pd.DataFrame(order_intents).to_parquet(intents_path, index=False, compression="zstd")
+    turnover_path = run_root / "daily_turnover.parquet"
+    pd.DataFrame(asdict(item) for item in turnover.daily).to_parquet(
+        turnover_path, index=False, compression="zstd"
+    )
+    turnover_summary = {
+        "annualization_sessions": turnover.annualization_sessions,
+        "initial_nav": turnover.initial_nav,
+        "total": asdict(turnover.total),
+        "yearly": {key: asdict(value) for key, value in turnover.yearly.items()},
+        "legacy_gross_notional_over_mean_close_nav": (
+            turnover.legacy_gross_notional_over_mean_close_nav
+        ),
+    }
     report: dict[str, object] = {
         "schema_version": 1,
         "run_identity": run_identity,
@@ -364,7 +377,7 @@ def _run_loaded(
         "RESEARCH_VALIDITY": "VALID_RETROSPECTIVE_FULLY_TOUCHED_COMPARISON",
         "metrics": _json_numbers(asdict(metrics)),
         "calendar_year_returns": _calendar_year_returns(equity, float(spec.initial_cash)),
-        "turnover_costs": _json_numbers(asdict(turnover)),
+        "turnover_costs": turnover_summary,
         "execution": {
             "orders": len(account.orders),
             "fills": len(fills),
@@ -381,6 +394,7 @@ def _run_loaded(
             "ledger_sha256": _file_sha256(ledger_path),
             "nav_sha256": _file_sha256(nav_path),
             "order_intents_sha256": _file_sha256(intents_path),
+            "daily_turnover_sha256": _file_sha256(turnover_path),
         },
         "limitations": [
             "final-revised single-vendor history; not strict PIT evidence",
