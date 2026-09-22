@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "validated_code_commit": "eab004a0b4f96ca4d7c83bf0c03fbf0d46a3c71a",
+  "validated_code_commit": "dc544824cf228186a6360e0ea7a716bc9369af35",
   "protocol_sha256": "6d205ada00e6206523ee70d3396b20c825647ca096268bcc749cd8e788a9541b",
   "bundle_sha256": "80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139",
   "bundle_tree_sha256": "9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620",
@@ -39,7 +39,12 @@
     "timer_unit_sha256": "3b6a5c76f335d8a9697f1a5f68f3058f661e22d8e2dac81ae4cfce5deb7b7754"
   },
   "remote_ci": {
-    "status": "PENDING_PUSH"
+    "status": "PASS",
+    "run_id": 35720571825,
+    "head_sha": "dc544824cf228186a6360e0ea7a716bc9369af35",
+    "conclusion": "success",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35720571825",
+    "jobs": ["checks", "v2-environment", "v3-historical-environment"]
   },
   "IMPLEMENTATION_STATUS": "COMPLETE_REAL_DATA_RESEARCH_PATH",
   "HISTORICAL_RUN_STATUS": "51_REGISTERED_19_VALID_32_NOT_EVALUABLE",
