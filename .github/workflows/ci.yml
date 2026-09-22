@@ -99,6 +99,25 @@ jobs:
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  console-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11.15"
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.5"
+          cache: npm
+          cache-dependency-path: apps/quant-console/frontend/package-lock.json
+      - run: uv sync --project apps/quant-console/backend --locked --all-groups
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: apps/quant-console/frontend
+      - run: bash apps/quant-console/scripts/check-contract.sh
 
   console-browser:
     runs-on: ubuntu-24.04

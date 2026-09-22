@@ -1,49 +1,90 @@
-# Quant Console V1
+# Quant Console V1.5
 
-中文、本地、只读的 Quant Stack 研究控制台。应用只消费已发布的结构化结果，
-不会初始化账户、重建账本、抓取行情、运行实验、控制 timer 或提交订单。
+中文、本地、只读的 Quant Stack 研究控制台。V1.5 使用强类型 Pydantic/OpenAPI
+契约、生成的 TypeScript 客户端、TanStack Query、AG Grid Community、Radix UI
+primitives 和 ECharts。应用只消费已发布结构化结果，不初始化账户、不重建研究
+账本、不抓取行情、不运行实验、不控制 timer，也不存在下单入口。
 
-## 独立环境
+## 环境与构建
 
-后端要求 Python 3.11，并使用本目录后端自己的 `uv.lock`：
+后端使用 Python 3.11 和本目录独立 `uv.lock`：
 
 ```bash
 uv sync --project apps/quant-console/backend --locked --all-groups
 ```
 
-前端要求 Node 20，并使用 `package-lock.json`：
+前端使用 Node 20.19.5 和独立 `package-lock.json`：
 
 ```bash
 cd apps/quant-console/frontend
-npm ci --no-audit --no-fund
+npm ci --ignore-scripts --no-audit --no-fund
+npm run lint
+npm run typecheck
+npm run test
 npm run build
 ```
 
-把 `dist/` 复制到 Console 独立 runtime 的 `static/`。不要把 runtime、来源配置、
-真实截图或研究数据提交到 Git。
+生成接口契约不得读取真实研究数据：
 
-## 配置和启动
+```bash
+uv run --project apps/quant-console/backend quant-console openapi \
+  --output apps/quant-console/frontend/openapi.json
+cd apps/quant-console/frontend
+npm run generate:api
+cd ../../..
+bash apps/quant-console/scripts/check-contract.sh
+```
 
-复制 `config/sources.example.toml` 到 Console runtime，填入四个已经批准的本机来源。
-source root 只能在启动时配置，浏览器和 API 不接受路径。
+把前端 `dist/` 复制到 Console 独立 runtime 的 `static/`。不要把 runtime、真实
+source 配置、浏览器 trace、截图或研究数据提交到 Git。
+
+## 真实来源初始化
+
+复制 `config/sources.example.toml` 到 Console 自己的 runtime。来源根只可在启动时
+配置；浏览器和 HTTP API 不接受本机路径。授权来源为 Historical V3、Quant
+Upgrade V1、V2 closure/acceptance 和 prospective RC-02 已发布 JSON。应用不读取
+prospective 账户 SQLite。
+
+```bash
+/path/to/python-env/bin/quant-console observe-system \
+  --output /path/to/console-runtime/system-observation.json
+/path/to/python-env/bin/quant-console index \
+  --config /path/to/console-runtime/sources.toml \
+  --runtime /path/to/console-runtime
+```
+
+`index` 在 staging 中校验源哈希，生成 schema v2 Experiment Ledger、详情和时序
+文件，验证后原子切换 `current.json`；失败时保留上一可用快照。
+
+## 启动和停止
 
 ```bash
 bash apps/quant-console/scripts/start-local.sh \
-  /absolute/console/runtime/sources.toml \
-  /absolute/console/runtime \
-  /absolute/console/python-env \
-  /absolute/console/runtime/static
+  /path/to/console-runtime/sources.toml \
+  /path/to/console-runtime \
+  /path/to/python-env \
+  /path/to/console-runtime/static \
+  8766
 ```
 
-打开 `http://127.0.0.1:8765`。停止时在启动终端按 `Ctrl+C`。脚本不会安装或启用
-systemd unit。远程查看使用 SSH 本地转发：
+打开 `http://127.0.0.1:8766`。停止时在启动终端按 `Ctrl+C`。脚本不会安装或启用
+systemd 服务。远程查看只能使用 SSH 本地转发：
 
 ```bash
-ssh -L 8765:127.0.0.1:8765 user@host
+ssh -L 8766:127.0.0.1:8766 user@host
 ```
 
-不要把服务改为 `0.0.0.0`。卸载只删除 Console 自己的工作树、独立环境、npm 缓存、
-浏览器和 runtime；不要删除来源目录。删除前应先停止 Console 并核对目标路径。
+不得改成 `0.0.0.0`。应用发现新快照时会提示切换，不会把旧请求结果静默覆盖到
+当前页面。
+
+## 更新、回退和导出
+
+更新代码后重新执行 locked install、契约检查、前端构建和 `index`。V1.5 runtime
+与 V1 runtime 相互独立；回退时停止 V1.5，按旧 V1 README 启动，不删除研究来源。
+
+实验中心仅导出服务端白名单内的聚合字段，明确区分选中项和全部过滤结果并绑定
+snapshot。CSV 启用公式注入防护。禁止导出原始行情、持仓、订单、账户库、服务器
+配置、sealed/CSI500 内容或本机绝对路径。
 
 ## 验证
 
@@ -62,5 +103,5 @@ npm run build
 npm run e2e
 ```
 
-CI 与演示模式使用合成数据，并始终显示“演示数据，不是研究结果”。真实模式缺少来源
-时直接报错，不会静默切换为演示。
+CI 只使用带明显标识的合成数据。真实模式缺来源时明确失败，绝不静默切换到演示
+模式。演示模式所有页面持续显示“演示数据，不是研究结果”。

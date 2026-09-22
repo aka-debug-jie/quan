@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pyarrow as pa  # type: ignore[import-untyped]
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
@@ -13,117 +14,177 @@ from fastapi.testclient import TestClient
 from quant_console.api import create_app
 from quant_console.config import ConsoleConfigError, load_config
 from quant_console.demo import publish_demo
-from quant_console.snapshot import SnapshotError, build_snapshot, load_current
+from quant_console.models import ExperimentFilters, SortDirection
+from quant_console.repository import SnapshotRepository, SnapshotView
+from quant_console.service import ConsoleService
+from quant_console.snapshot import SnapshotError, build_snapshot
 
 
-def test_demo_api_is_explicit_and_safe(tmp_path: Path) -> None:
+def _client(runtime: Path, config: Path | None = None) -> tuple[TestClient, str]:
+    client = TestClient(create_app(runtime, config))
+    snapshot = client.get("/api/v1/snapshot")
+    assert snapshot.status_code == 200
+    return client, str(snapshot.json()["snapshot_id"])
+
+
+def test_demo_api_is_explicit_typed_and_safe(tmp_path: Path) -> None:
     runtime = tmp_path / "runtime"
     publish_demo(runtime)
-    client = TestClient(create_app(runtime))
-    overview = client.get("/api/v1/overview")
-    assert overview.status_code == 200
-    assert client.get("/api/v1/snapshot").json()["mode"] == "demo"
+    client, snapshot_id = _client(runtime)
+    prefix = f"/api/v1/snapshots/{snapshot_id}"
+    overview = client.get(f"{prefix}/overview")
     assert overview.json()["economic_outcome"] == "DEMO_ONLY"
-    experiments = client.get("/api/v1/experiments?page_size=100").json()
+    experiments = client.get(f"{prefix}/experiments?page_size=100").json()
     artifact_id = experiments["items"][0]["artifact_id"]
-    detail = client.get(f"/api/v1/experiments/{artifact_id}").json()
-    assert detail["nav_series"][0]["nav"] == "1000000"
-    assert "absolute" not in json.dumps(detail).lower()
+    detail = client.get(f"{prefix}/experiments/{artifact_id}").json()
+    assert detail["data_evaluability"] == "VALID"
+    assert len(detail["series"]) == 2
+    series = client.get(f"{prefix}/series/{detail['series'][0]['series_id']}").json()
+    assert series["points"][0]["value"] == "1000000"
+    assert "absolute/" not in json.dumps(detail).lower()
     response = client.post(
-        "/api/v1/exports/experiments",
-        json={"artifact_ids": [artifact_id], "format": "csv"},
+        f"{prefix}/exports/experiments",
+        json={
+            "scope": "selected",
+            "artifact_ids": [artifact_id],
+            "format": "csv",
+        },
     )
     assert response.status_code == 200
-    assert "position" not in response.text.lower()
-    assert client.get("/api/v1/studies").status_code == 200
-    assert client.get("/api/v1/signals").status_code == 200
-    assert client.get("/api/v1/prospective").status_code == 200
-    assert client.get("/api/v1/health").status_code == 200
-    assert client.get("/api/v1/experiments?sort=unsupported").status_code == 422
-    evidence = client.get("/api/v1/evidence/demo:synthetic-run-001")
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    assert response.headers["x-quant-snapshot-id"] == snapshot_id
+    for endpoint in ("studies", "signals", "prospective", "health"):
+        assert client.get(f"{prefix}/{endpoint}").status_code == 200
+    assert client.get(f"{prefix}/experiments?sort=unsupported").status_code == 422
+    evidence = client.get(f"{prefix}/evidence/evidence:demo:synthetic-run-001")
     assert evidence.json()["source_kind"] == "synthetic_fixture"
     comparison = client.post(
-        "/api/v1/comparisons/validate",
+        f"{prefix}/comparisons/validate",
         json={"artifact_ids": [artifact_id, artifact_id]},
     )
-    assert comparison.json()["mode"] == "COMPARABLE"
+    assert comparison.status_code == 422
     assert client.post("/api/v1/snapshot/reload").status_code == 409
 
 
-def test_host_origin_and_unknown_identifiers_are_rejected(tmp_path: Path) -> None:
+def test_host_origin_and_identifiers_are_rejected_safely(tmp_path: Path) -> None:
     runtime = tmp_path / "runtime"
     publish_demo(runtime)
-    client = TestClient(create_app(runtime))
-    assert client.get("/api/v1/overview", headers={"host": "evil.example"}).status_code == 400
+    client, snapshot_id = _client(runtime)
+    assert client.get("/api/v1/snapshot", headers={"host": "evil.example"}).status_code == 400
     assert (
         client.get(
-            "/api/v1/overview",
+            "/api/v1/snapshot",
             headers={"origin": "https://evil.example"},
         ).status_code
         == 403
     )
-    assert client.get("/api/v1/experiments/../../etc/passwd").status_code in {404, 405}
-    assert client.get("/api/v1/evidence/unknown").status_code == 404
+    assert client.get(f"/api/v1/snapshots/{snapshot_id}/experiments/../../etc").status_code in {
+        404,
+        405,
+    }
+    unknown = client.get(f"/api/v1/snapshots/{snapshot_id}/evidence/unknown")
+    assert unknown.status_code == 404
+    assert str(tmp_path) not in unknown.text
+    assert "x-request-id" in unknown.headers
 
 
-def test_comparison_marks_mismatched_scenarios_descriptive_only(tmp_path: Path) -> None:
-    runtime = tmp_path / "runtime"
-    publish_demo(runtime)
-    snapshot = load_current(runtime)
-    first = snapshot["experiments"][0]
-    second = json.loads(json.dumps(first))
-    second["artifact_id"] = "demo:synthetic-run-002"
-    second["experiment_id"] = "SYNTHETIC_B"
-    second["compatibility"]["scenario_id"] = "DEMO_T2"
-    snapshot["experiments"].append(second)
-    snapshot["experiment_details"][second["artifact_id"]] = second
-    pointer = json.loads((runtime / "current.json").read_text())
-    path = runtime / "snapshots" / pointer["snapshot_id"] / "snapshot.json"
-    path.write_text(json.dumps(snapshot), encoding="utf-8")
-    client = TestClient(create_app(runtime))
-    result = client.post(
-        "/api/v1/comparisons/validate",
-        json={"artifact_ids": [first["artifact_id"], second["artifact_id"]]},
-    ).json()
-    assert result["mode"] == "DESCRIPTIVE_ONLY"
-    assert "scenario_id 不一致" in result["reasons"]
-
-
-def test_real_adapter_keeps_absolute_and_benchmark_validity_separate(tmp_path: Path) -> None:
+def test_real_adapter_keeps_absolute_and_benchmark_states_separate(tmp_path: Path) -> None:
     config_path = _fixture_sources(tmp_path)
     runtime = tmp_path / "runtime"
     build_snapshot(load_config(config_path), runtime)
-    snapshot = load_current(runtime)
-    assert snapshot["overview"] == {
-        "current_stage": "CN_QUANT_RESEARCH_UPGRADE_V1_COMPLETE",
-        "registered_runs": 2,
-        "valid_runs": 1,
-        "not_evaluable_runs": 1,
-        "retained_candidates": 0,
-        "legacy_invalid_engineering_runs": 0,
-        "economic_outcome": "NO_PROMOTABLE_CANDIDATE",
-        "latest_prospective_date": "2026-09-22",
-        "prospective_status": "OPERATIONS_LOOP_RC",
-        "warnings": ["DEGRADED_PROVIDER_FAILURES", "MIXED_PROSPECTIVE_INPUT"],
-    }
+    client, snapshot_id = _client(runtime, config_path)
+    prefix = f"/api/v1/snapshots/{snapshot_id}"
+    overview = client.get(f"{prefix}/overview").json()
+    assert overview["registered_runs"] == 3
+    assert overview["valid_runs"] == 2
+    assert overview["not_evaluable_runs"] == 1
+    rows = client.get(f"{prefix}/experiments?page_size=100").json()["items"]
     candidate = next(
-        item for item in snapshot["experiments"] if item["strategy_id"] == "AF7_TOP50_D20_EQ"
+        item for item in rows if item["experiment_id"] == "AF7_TOP50_D20_EQ__REAL_T1_1M"
     )
     assert candidate["data_evaluability"] == "VALID"
     assert candidate["metrics"]["cagr"]["value"] == -0.05
     assert candidate["benchmark_comparability"] == "MATCHED_BENCHMARK_NOT_EVALUABLE"
     assert candidate["economic_outcome"] == "NOT_EVALUABLE"
-    detail = snapshot["experiment_details"][candidate["artifact_id"]]
+    detail = client.get(f"{prefix}/experiments/{candidate['artifact_id']}").json()
     assert detail["benchmark_comparability"] == "MATCHED_BENCHMARK_NOT_EVALUABLE"
-    assert len(detail["nav_series"]) == 2
-    assert snapshot["prospective"]["accounts"]["fully_prospective_v1"]["status"] == "NOT_STARTED"
+    assert len(detail["series"]) == 2
+    prospective = client.get(f"{prefix}/prospective").json()
+    assert prospective["accounts"]["fully_prospective_v1"]["status"] == "NOT_STARTED"
 
 
-def test_hash_conflict_fails_without_replacing_current_snapshot(tmp_path: Path) -> None:
+def test_comparison_modes_keep_scenario_and_evaluability_boundaries(tmp_path: Path) -> None:
+    config_path = _fixture_sources(tmp_path)
+    runtime = tmp_path / "runtime"
+    build_snapshot(load_config(config_path), runtime)
+    client, snapshot_id = _client(runtime, config_path)
+    prefix = f"/api/v1/snapshots/{snapshot_id}"
+    rows = client.get(f"{prefix}/experiments?page_size=100").json()["items"]
+    real = next(
+        item
+        for item in rows
+        if item["scenario_id"] == "REAL_T1_1M" and item["strategy_id"].startswith("AF7")
+    )
+    zero = next(item for item in rows if item["scenario_id"] == "ZERO_ALL_COST_T1_1M")
+    invalid = next(item for item in rows if item["data_evaluability"] == "NOT_EVALUABLE")
+    controlled = client.post(
+        f"{prefix}/comparisons/validate",
+        json={"artifact_ids": [real["artifact_id"], zero["artifact_id"]]},
+    ).json()
+    assert controlled["mode"] == "CONTROLLED_SCENARIO_COMPARISON"
+    assert controlled["changed_fields"] == ["cost_mode"]
+    assert controlled["economic_inference_allowed"] is False
+    not_evaluable = client.post(
+        f"{prefix}/comparisons/validate",
+        json={"artifact_ids": [real["artifact_id"], invalid["artifact_id"]]},
+    ).json()
+    assert not_evaluable["mode"] == "NOT_EVALUABLE"
+
+
+def test_filter_sort_and_export_apply_to_full_scope(tmp_path: Path) -> None:
+    config_path = _fixture_sources(tmp_path)
+    runtime = tmp_path / "runtime"
+    build_snapshot(load_config(config_path), runtime)
+    client, snapshot_id = _client(runtime, config_path)
+    prefix = f"/api/v1/snapshots/{snapshot_id}"
+    response = client.get(
+        f"{prefix}/experiments",
+        params={
+            "q": "AF7",
+            "status": "VALID",
+            "sort": "cagr",
+            "direction": "desc",
+            "page_size": 100,
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 2
+    exported = client.post(
+        f"{prefix}/exports/experiments",
+        json={
+            "scope": "filtered",
+            "format": "json",
+            "filters": {"q": "AF7", "status": "VALID"},
+            "sort": "cagr",
+            "direction": "desc",
+        },
+    )
+    assert exported.status_code == 200
+    payload = exported.json()
+    assert payload["snapshot_id"] == snapshot_id
+    assert len(payload["items"]) == 2
+    assert payload["items"][0]["cagr"] == -0.05
+
+
+def test_snapshot_identity_is_stable_and_atomic_failure_keeps_current(tmp_path: Path) -> None:
     config_path = _fixture_sources(tmp_path)
     runtime = tmp_path / "runtime"
     config = load_config(config_path)
-    build_snapshot(config, runtime)
+    first = build_snapshot(config, runtime)
+    first_id = SnapshotRepository(runtime).current_meta().snapshot_id
+    second = build_snapshot(config, runtime)
+    assert SnapshotRepository(runtime).current_meta().snapshot_id == first_id
+    assert first.parent == second.parent
     previous = (runtime / "current.json").read_bytes()
     matrix = (
         config.upgrade_v1.artifacts
@@ -137,20 +198,113 @@ def test_hash_conflict_fails_without_replacing_current_snapshot(tmp_path: Path) 
     assert _json(runtime / "last_refresh.json")["status"] == "FAIL"
 
 
-def test_config_rejects_demo_and_missing_fields(tmp_path: Path) -> None:
+def test_tampered_snapshot_fails_closed_without_leaking_paths(tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"
+    publish_demo(runtime)
+    repository = SnapshotRepository(runtime)
+    snapshot_id = repository.current_meta().snapshot_id
+    overview = runtime / "snapshots" / snapshot_id / "overview.json"
+    overview.write_text("{}", encoding="utf-8")
+    client = TestClient(create_app(runtime))
+    response = client.get(f"/api/v1/snapshots/{snapshot_id}/overview")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "SNAPSHOT_INVALID"
+    assert str(tmp_path) not in response.text
+
+
+def test_config_rejects_demo_missing_and_sealed_sources(tmp_path: Path) -> None:
     path = tmp_path / "config.toml"
     path.write_text("mode='demo'\n", encoding="utf-8")
     with pytest.raises(ConsoleConfigError):
         load_config(path)
+    sealed = tmp_path / "sealed"
+    sealed.mkdir()
+    manifest = sealed / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    config = tmp_path / "sealed.toml"
+    config.write_text(
+        "\n".join(
+            (
+                'mode = "real"',
+                "[historical_v3]",
+                f'manifest = "{manifest}"',
+                f'artifacts = "{sealed}"',
+                "[upgrade_v1]",
+                f'manifest = "{manifest}"',
+                f'artifacts = "{sealed}"',
+                "[prospective]",
+                f'artifacts = "{sealed}"',
+                f'acceptance_manifest = "{manifest}"',
+            )
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ConsoleConfigError, match="sealed"):
+        load_config(config)
 
 
-def test_web_modules_do_not_import_runners_brokers_or_providers() -> None:
+def test_openapi_has_typed_models_without_reading_data(tmp_path: Path) -> None:
+    app = create_app(tmp_path / "missing")
+    schema = app.openapi()
+    assert "SnapshotMeta" in schema["components"]["schemas"]
+    operation = schema["paths"]["/api/v1/snapshots/{snapshot_id}/experiments"]["get"]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"]
+
+
+def test_client_side_scale_contract_covers_ten_thousand_rows(tmp_path: Path) -> None:
+    runtime = tmp_path / "runtime"
+    publish_demo(runtime)
+    repository = SnapshotRepository(runtime)
+    base = repository.view(repository.current_meta().snapshot_id)
+    template = base.experiments[0]
+    rows = []
+    for index in range(10_000):
+        row = dict(template)
+        row["artifact_id"] = f"demo:scale:{index:05d}"
+        row["experiment_id"] = f"SCALE_{index:05d}"
+        row["run_identity"] = f"{index:064x}"
+        rows.append(row)
+
+    class ScaleRepository:
+        def view(self, _snapshot_id: str) -> SnapshotView:
+            return replace(base, experiments=rows)
+
+    service = ConsoleService(cast(SnapshotRepository, ScaleRepository()))
+    result = service.experiments(
+        base.meta.snapshot_id,
+        filters=ExperimentFilters(q="SCALE_"),
+        page=1,
+        page_size=10_000,
+        sort="experiment_id",
+        direction=SortDirection.DESC,
+    )
+    assert result.total == 10_000
+    assert len(result.items) == 10_000
+    assert result.items[0].experiment_id == "SCALE_09999"
+
+
+def test_web_modules_do_not_import_runners_brokers_providers_or_system_commands() -> None:
     package = Path(__file__).parents[1] / "src" / "quant_console"
     text = "\n".join(
         (package / name).read_text(encoding="utf-8")
-        for name in ("api.py", "snapshot.py", "config.py", "models.py")
+        for name in (
+            "api.py",
+            "repository.py",
+            "service.py",
+            "snapshot.py",
+            "config.py",
+            "models.py",
+        )
     )
-    for forbidden in ("prospective_runner", "paper_broker", "akshare", "requests", "subprocess"):
+    for forbidden in (
+        "prospective_runner",
+        "paper_broker",
+        "akshare",
+        "requests",
+        "sqlite3",
+        "systemctl",
+        "subprocess",
+    ):
         assert forbidden not in text
 
 
@@ -187,8 +341,15 @@ def _fixture_sources(tmp_path: Path) -> Path:
             "DATA_USE_LEVEL": "PRIVATE_RESEARCH_ONLY",
         },
     )
-    candidate_id, benchmark_id = "2" * 64, "3" * 64
+    candidate_id, zero_id, benchmark_id = "2" * 64, "4" * 64, "3" * 64
     _write_run(upgrade_artifacts, candidate_id, "AF7_TOP50_D20_EQ", "REAL_T1_1M", valid=True)
+    _write_run(
+        upgrade_artifacts,
+        zero_id,
+        "AF7_TOP50_D20_EQ",
+        "ZERO_ALL_COST_T1_1M",
+        valid=True,
+    )
     _write_run(upgrade_artifacts, benchmark_id, "B50_LIQ50_D20", "REAL_T1_1M", valid=False)
     upgrade_matrix = {
         "schema_version": 1,
@@ -196,6 +357,7 @@ def _fixture_sources(tmp_path: Path) -> Path:
         "candidate_outcomes": {"AF7_TOP50_D20_EQ": "NOT_EVALUABLE"},
         "result_identities": {
             "AF7_TOP50_D20_EQ__REAL_T1_1M": candidate_id,
+            "AF7_TOP50_D20_EQ__ZERO_ALL_COST_T1_1M": zero_id,
             "B50_LIQ50_D20__REAL_T1_1M": benchmark_id,
         },
     }
@@ -275,6 +437,7 @@ def _write_run(root: Path, identity: str, strategy: str, scenario: str, *, valid
     destination = root / "runs" / identity
     destination.mkdir(parents=True)
     experiment_id = strategy if scenario == "BASE" else f"{strategy}__{scenario}"
+    cost_mode = "zero_all" if scenario.startswith("ZERO_ALL") else "real"
     result: dict[str, Any] = {
         "schema_version": 1,
         "run_identity": identity,
@@ -288,7 +451,15 @@ def _write_run(root: Path, identity: str, strategy: str, scenario: str, *, valid
         "identities": {
             "bars_sha256": "bars",
             "protocol_sha256": "protocol",
-            "experiment": {"initial_cash": "1000000"},
+            "base_protocol_sha256": "base-protocol",
+            "portfolio_sha256": "portfolio",
+            "scores_sha256": "scores",
+            "signals_sha256": "signals",
+            "experiment": {
+                "initial_cash": "1000000",
+                "cost_mode": cost_mode,
+                "execution_delay_sessions": 1,
+            },
         },
     }
     if valid:

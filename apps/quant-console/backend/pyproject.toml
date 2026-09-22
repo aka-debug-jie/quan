@@ -4,14 +4,14 @@ build-backend = "hatchling.build"
 
 [project]
 name = "quant-console"
-version = "0.1.0"
-description = "Local read-only console for Quant Stack research evidence"
+version = "0.2.0"
+description = "Typed local read-only console for Quant Stack research evidence"
 requires-python = ">=3.11,<3.12"
 dependencies = [
-  "fastapi==0.115.12",
-  "pydantic==2.11.7",
-  "pyarrow==23.0.1",
-  "uvicorn==0.34.3",
+  "fastapi==0.141.1",
+  "pydantic==2.13.5",
+  "pyarrow==25.0.1",
+  "uvicorn==0.53.0",
 ]
 
 [project.scripts]
@@ -20,10 +20,11 @@ quant-console = "quant_console.cli:main"
 [dependency-groups]
 dev = [
   "httpx==0.28.1",
-  "mypy==1.17.1",
-  "pytest==8.4.2",
-  "pytest-cov==6.2.1",
-  "ruff==0.12.11",
+  "mypy==2.3.1",
+  "pip-audit==2.10.1",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.8",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -49,7 +50,7 @@ testpaths = ["tests"]
 [tool.coverage.run]
 branch = true
 source = ["quant_console"]
-omit = ["src/quant_console/cli.py", "src/quant_console/observer.py"]
+omit = ["src/quant_console/observer.py"]
 
 [tool.coverage.report]
 show_missing = true

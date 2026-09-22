@@ -7,15 +7,19 @@ import os
 import shutil
 import tempfile
 from datetime import UTC, datetime
+from decimal import Decimal
 from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
+import pyarrow as pa  # type: ignore[import-untyped]
 import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
 from quant_console.config import ConsoleConfig
 
 JSON = dict[str, Any]
+ADAPTER_VERSION = "quant-console-v1.5"
+SNAPSHOT_SCHEMA_VERSION = 2
 
 
 class SnapshotError(ValueError):
@@ -24,9 +28,6 @@ class SnapshotError(ValueError):
 
 def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | None = None) -> Path:
     """Build and atomically publish a coherent application snapshot."""
-    runtime.mkdir(parents=True, exist_ok=True)
-    snapshots = runtime / "snapshots"
-    snapshots.mkdir(parents=True, exist_ok=True)
     try:
         v3 = _load_study(
             "historical_v3", config.historical_v3.manifest, config.historical_v3.artifacts
@@ -35,6 +36,9 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
             "quant_upgrade_v1", config.upgrade_v1.manifest, config.upgrade_v1.artifacts
         )
         prospective = _load_prospective(config.prospective_artifacts, config.prospective_acceptance)
+        prospective_public = {
+            key: value for key, value in prospective.items() if key not in {"evidence", "health"}
+        }
         system = _load_observation(observation)
         experiments = cast(list[JSON], v3["experiments"]) + cast(list[JSON], upgrade["experiments"])
         details = cast(JSON, v3["details"]) | cast(JSON, upgrade["details"])
@@ -46,8 +50,7 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
         )
         not_evaluable = registered - valid
         body: JSON = {
-            "schema_version": 1,
-            "generated_at": datetime.now(UTC).isoformat(),
+            "schema_version": SNAPSHOT_SCHEMA_VERSION,
             "mode": "real",
             "overview": {
                 "current_stage": "CN_QUANT_RESEARCH_UPGRADE_V1_COMPLETE",
@@ -70,7 +73,7 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
                 "measurement": upgrade.get("measurement", {}),
                 "prospective": prospective.get("diagnostics", {}),
             },
-            "prospective": prospective,
+            "prospective": prospective_public,
             "health": {
                 "sources": [v3["health"], upgrade["health"], prospective["health"]],
                 "system_observation": system,
@@ -79,31 +82,7 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
             },
             "evidence": evidence | cast(JSON, prospective.get("evidence", {})),
         }
-        encoded_without_id = _canonical(body)
-        snapshot_id = sha256(encoded_without_id).hexdigest()
-        body["snapshot_id"] = snapshot_id
-        encoded = _canonical(body)
-        temporary = Path(tempfile.mkdtemp(prefix=".snapshot-", dir=snapshots))
-        try:
-            (temporary / "snapshot.json").write_bytes(encoded)
-            destination = snapshots / snapshot_id
-            if destination.exists():
-                shutil.rmtree(temporary)
-            else:
-                temporary.replace(destination)
-        finally:
-            if temporary.exists():
-                shutil.rmtree(temporary)
-        _atomic_json(runtime / "current.json", {"snapshot_id": snapshot_id})
-        _atomic_json(
-            runtime / "last_refresh.json",
-            {
-                "status": "PASS",
-                "observed_at": datetime.now(UTC).isoformat(),
-                "snapshot_id": snapshot_id,
-            },
-        )
-        return snapshots / snapshot_id / "snapshot.json"
+        return publish_read_model(body, runtime)
     except Exception as error:
         _atomic_json(
             runtime / "last_refresh.json",
@@ -113,16 +92,17 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
 
 
 def load_current(runtime: Path) -> JSON:
-    """Load the current immutable snapshot without touching source artifacts."""
+    """Load the current snapshot manifest without touching source artifacts."""
     pointer = _json_object(runtime / "current.json")
     snapshot_id = str(pointer["snapshot_id"])
-    if len(snapshot_id) != 64 or any(ch not in "0123456789abcdef" for ch in snapshot_id):
-        raise SnapshotError("invalid current snapshot identity")
-    return _json_object(runtime / "snapshots" / snapshot_id / "snapshot.json")
+    _validate_digest(snapshot_id)
+    return _json_object(runtime / "snapshots" / snapshot_id / "manifest.json")
 
 
 def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
     manifest = _json_object(manifest_path)
+    manifest_sha = _file_sha256(manifest_path)
+    study_revision = manifest_sha
     matrix_sha = str(manifest["matrix_sha256"])
     matrix_path = _within(artifacts, Path("matrix") / f"{matrix_sha}.json")
     _require_hash(matrix_path, matrix_sha)
@@ -141,7 +121,12 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
             raise SnapshotError(f"{study_id}: run identity mismatch")
         artifact_id = f"{study_id}:{run_identity}"
         summary, detail = _normalize_run(
-            study_id, str(experiment_id), run_identity, result, result_path
+            study_id,
+            study_revision,
+            str(experiment_id),
+            run_identity,
+            result,
+            result_path,
         )
         nav_path = result_path.parent / "nav.parquet"
         if summary["data_evaluability"] == "VALID" and nav_path.exists():
@@ -165,11 +150,25 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
         summary["evidence_id"] = evidence_id
         detail["artifact_id"] = artifact_id
         detail["evidence_id"] = evidence_id
+        for metric_name, metric_value in cast(JSON, summary["metrics"]).items():
+            metric = cast(JSON, metric_value)
+            metric.update(
+                {
+                    "name": metric_name,
+                    "basis": "source_reported_full_period",
+                    "scenario_id": summary["scenario_id"],
+                    "data_use_level": summary["data_use_level"],
+                    "source_evidence_id": evidence_id,
+                }
+            )
+        detail["metrics"] = summary["metrics"]
+        summary.pop("compatibility", None)
         experiments.append(summary)
         details[artifact_id] = detail
         evidence[evidence_id] = {
             "source_kind": "run_result",
             "study_id": study_id,
+            "study_revision": study_revision,
             "run_identity": run_identity,
             "sha256": source_sha,
             "schema_version": result.get("schema_version"),
@@ -212,6 +211,7 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
     return {
         "study": {
             "study_id": study_id,
+            "study_revision": study_revision,
             "schema_version": manifest.get("schema_version"),
             "code_commit": manifest.get("validated_code_commit"),
             "implementation_status": manifest.get("IMPLEMENTATION_STATUS"),
@@ -233,14 +233,19 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
         "health": {
             "source_id": study_id,
             "verification_status": "HASH_VERIFIED",
-            "manifest_sha256": _file_sha256(manifest_path),
+            "manifest_sha256": manifest_sha,
             "matrix_sha256": matrix_sha,
         },
     }
 
 
 def _normalize_run(
-    study_id: str, experiment_id: str, run_identity: str, result: JSON, result_path: Path
+    study_id: str,
+    study_revision: str,
+    experiment_id: str,
+    run_identity: str,
+    result: JSON,
+    result_path: Path,
 ) -> tuple[JSON, JSON]:
     metrics = result.get("metrics")
     valid = isinstance(metrics, dict)
@@ -249,6 +254,7 @@ def _normalize_run(
     strategy = str(result.get("strategy_id", experiment_id.split("__", maxsplit=1)[0]))
     summary: JSON = {
         "study_id": study_id,
+        "study_revision": study_revision,
         "experiment_id": experiment_id,
         "run_identity": run_identity,
         "strategy_id": strategy,
@@ -264,16 +270,28 @@ def _normalize_run(
         "failure_reason": None if valid else _failure_reason(result),
         "period": None,
         "compatibility": {
-            "study_revision": study_id,
+            "study_revision": study_revision,
             "scenario_id": scenario,
             "bars_sha256": cast(JSON, result.get("identities", {})).get("bars_sha256"),
             "protocol_sha256": cast(JSON, result.get("identities", {})).get(
                 "upgrade_protocol_sha256"
             )
             or cast(JSON, result.get("identities", {})).get("protocol_sha256"),
+            "base_protocol_sha256": cast(JSON, result.get("identities", {})).get(
+                "base_protocol_sha256"
+            ),
+            "portfolio_sha256": cast(JSON, result.get("identities", {})).get("portfolio_sha256"),
+            "scores_sha256": cast(JSON, result.get("identities", {})).get("scores_sha256"),
+            "signals_sha256": cast(JSON, result.get("identities", {})).get("signals_sha256"),
             "initial_cash": cast(
                 JSON, cast(JSON, result.get("identities", {})).get("experiment", {})
             ).get("initial_cash"),
+            "cost_mode": cast(
+                JSON, cast(JSON, result.get("identities", {})).get("experiment", {})
+            ).get("cost_mode"),
+            "execution_delay_sessions": cast(
+                JSON, cast(JSON, result.get("identities", {})).get("experiment", {})
+            ).get("execution_delay_sessions"),
         },
     }
     detail = dict(summary)
@@ -284,11 +302,9 @@ def _normalize_run(
             "calendar_year_returns": result.get("calendar_year_returns"),
             "identities": result.get("identities"),
             "limitations": result.get("limitations") or [],
-            "source": {
-                "kind": "structured_json",
-                "sha256": _file_sha256(result_path),
-                "path_exposed": False,
-            },
+            "source_sha256": _file_sha256(result_path),
+            "series": [],
+            "curve_unavailable_reason": None,
         }
     )
     return summary, detail
@@ -494,6 +510,206 @@ def _metric_map(metrics: JSON) -> JSON:
     }
 
 
+def publish_read_model(body: JSON, runtime: Path) -> Path:
+    """Publish a split, content-addressed read model and atomically move current."""
+    runtime.mkdir(parents=True, exist_ok=True)
+    snapshots = runtime / "snapshots"
+    snapshots.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix=".snapshot-", dir=snapshots))
+    published_at = datetime.now(UTC).isoformat()
+    try:
+        experiments = cast(list[JSON], body["experiments"])
+        details = cast(JSON, body["experiment_details"])
+        series_dir = temporary / "series"
+        series_dir.mkdir()
+        for _artifact_id, raw_detail in details.items():
+            detail = cast(JSON, raw_detail)
+            nav = detail.pop("nav_series", None)
+            if isinstance(nav, list) and nav:
+                series = _publish_series(series_dir, cast(list[JSON], nav), detail)
+                detail["series"] = series
+            else:
+                detail["series"] = []
+                detail.setdefault(
+                    "curve_unavailable_reason",
+                    "运行不可评价或不存在经校验的净值序列",
+                )
+        parts: dict[str, object] = {
+            "overview.json": body["overview"],
+            "studies.json": body["studies"],
+            "experiments.json": experiments,
+            "details.json": details,
+            "signals.json": body["signals"],
+            "prospective.json": body["prospective"],
+            "health.json": body["health"],
+            "evidence.json": body["evidence"],
+        }
+        for name, value in parts.items():
+            (temporary / name).write_bytes(_canonical(value))
+        _write_ledger(temporary / "ledger.parquet", experiments)
+        file_hashes = {
+            str(path.relative_to(temporary)): _file_sha256(path)
+            for path in sorted(temporary.rglob("*"))
+            if path.is_file()
+        }
+        identity = {
+            "schema_version": SNAPSHOT_SCHEMA_VERSION,
+            "adapter_version": ADAPTER_VERSION,
+            "mode": body["mode"],
+            "files": file_hashes,
+        }
+        snapshot_id = sha256(_canonical(identity)).hexdigest()
+        manifest: JSON = {
+            **identity,
+            "snapshot_id": snapshot_id,
+            "published_at": published_at,
+        }
+        (temporary / "manifest.json").write_bytes(_canonical(manifest))
+        destination = snapshots / snapshot_id
+        if destination.exists():
+            shutil.rmtree(temporary)
+        else:
+            temporary.replace(destination)
+        _atomic_json(
+            runtime / "current.json",
+            {"snapshot_id": snapshot_id, "published_at": published_at},
+        )
+        _atomic_json(
+            runtime / "last_refresh.json",
+            {
+                "status": "PASS",
+                "observed_at": published_at,
+                "snapshot_id": snapshot_id,
+            },
+        )
+        return destination / "manifest.json"
+    finally:
+        if temporary.exists():
+            shutil.rmtree(temporary)
+
+
+def _publish_series(series_dir: Path, nav: list[JSON], detail: JSON) -> list[JSON]:
+    nav_points = [{"date": str(row["date"]), "value": str(row["nav"])} for row in nav]
+    identities = cast(JSON, detail.get("identities", {}))
+    source_sha = str(
+        identities.get("nav_sha256") or sha256(_canonical_list(nav_points)).hexdigest()
+    )
+    nav_meta = _series_file(
+        series_dir,
+        kind="NAV",
+        unit="CNY",
+        points=nav_points,
+        source_sha=source_sha,
+        derivation="SOURCE_NAV_FULL_PRECISION",
+    )
+    peak: Decimal | None = None
+    drawdown_points: list[JSON] = []
+    for point in nav_points:
+        value = Decimal(str(point["value"]))
+        peak = value if peak is None or value > peak else peak
+        drawdown = Decimal(0) if peak == 0 else value / peak - Decimal(1)
+        drawdown_points.append({"date": point["date"], "value": format(drawdown, "f")})
+    drawdown_meta = _series_file(
+        series_dir,
+        kind="DRAWDOWN",
+        unit="ratio",
+        points=drawdown_points,
+        source_sha=source_sha,
+        derivation="RUNNING_PEAK_DRAWDOWN_V1",
+    )
+    return [nav_meta, drawdown_meta]
+
+
+def _series_file(
+    series_dir: Path,
+    *,
+    kind: str,
+    unit: str,
+    points: list[JSON],
+    source_sha: str,
+    derivation: str,
+) -> JSON:
+    content: JSON = {
+        "kind": kind,
+        "unit": unit,
+        "start": points[0]["date"],
+        "end": points[-1]["date"],
+        "points": points,
+        "source_sha256": source_sha,
+        "derivation": derivation,
+    }
+    series_id = sha256(_canonical(content)).hexdigest()
+    meta: JSON = {
+        "series_id": series_id,
+        "kind": kind,
+        "unit": unit,
+        "start": content["start"],
+        "end": content["end"],
+        "points": len(points),
+        "source_sha256": source_sha,
+        "derivation": derivation,
+    }
+    (series_dir / f"{series_id}.json").write_bytes(_canonical({"meta": meta, "points": points}))
+    return meta
+
+
+def _write_ledger(path: Path, experiments: list[JSON]) -> None:
+    rows: list[JSON] = []
+    metric_names = (
+        "cagr",
+        "total_return",
+        "annualized_volatility",
+        "maximum_drawdown",
+        "sharpe_ratio",
+        "turnover",
+        "total_transaction_costs",
+    )
+    for item in experiments:
+        metrics = cast(JSON, item.get("metrics", {}))
+        period = cast(JSON, item.get("period") or {})
+        row: JSON = {
+            key: item.get(key)
+            for key in (
+                "artifact_id",
+                "evidence_id",
+                "study_id",
+                "study_revision",
+                "experiment_id",
+                "run_identity",
+                "strategy_id",
+                "family",
+                "scenario_id",
+                "data_evaluability",
+                "benchmark_comparability",
+                "economic_outcome",
+                "engineering_status",
+                "research_validity",
+                "data_use_level",
+                "failure_reason",
+                "matched_benchmark_id",
+                "revision_of",
+            )
+        }
+        row.update(
+            {
+                "period_start": period.get("start"),
+                "period_end": period.get("end"),
+                "period_sessions": period.get("sessions"),
+            }
+        )
+        for metric_name in metric_names:
+            metric = cast(JSON, metrics.get(metric_name, {}))
+            row[metric_name] = metric.get("value")
+        rows.append(row)
+    pq.write_table(pa.Table.from_pylist(rows), path, compression="zstd")
+
+
+def _canonical_list(value: list[JSON]) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode()
+
+
 def _failure_reason(result: JSON) -> str:
     for key in ("failure", "reason", "error"):
         if isinstance(result.get(key), str):
@@ -550,7 +766,12 @@ def _require_hash(path: Path, expected: str) -> None:
         raise SnapshotError(f"hash mismatch for approved source: {path.name}")
 
 
-def _canonical(value: JSON) -> bytes:
+def _validate_digest(value: str) -> None:
+    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        raise SnapshotError("invalid snapshot identity")
+
+
+def _canonical(value: object) -> bytes:
     return json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()

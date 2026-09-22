@@ -1,0 +1,2717 @@
+{
+  "components": {
+    "schemas": {
+      "BenchmarkComparability": {
+        "description": "Matched benchmark state, independent from absolute metrics.",
+        "enum": [
+          "COMPARABLE",
+          "SELF_BENCHMARK",
+          "MATCHED_BENCHMARK_NOT_EVALUABLE",
+          "MATCHED_BENCHMARK_MISSING",
+          "NOT_APPLICABLE",
+          "UNKNOWN"
+        ],
+        "title": "BenchmarkComparability",
+        "type": "string"
+      },
+      "CompareRequest": {
+        "additionalProperties": false,
+        "description": "Experiments selected for a compatibility check.",
+        "properties": {
+          "artifact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 2,
+            "title": "Artifact Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "artifact_ids"
+        ],
+        "title": "CompareRequest",
+        "type": "object"
+      },
+      "ComparisonMode": {
+        "description": "Permitted interpretation for a comparison request.",
+        "enum": [
+          "COMPARABLE",
+          "CONTROLLED_SCENARIO_COMPARISON",
+          "DESCRIPTIVE_ONLY",
+          "NOT_EVALUABLE"
+        ],
+        "title": "ComparisonMode",
+        "type": "string"
+      },
+      "CompatibilityIdentity": {
+        "additionalProperties": false,
+        "description": "Fields that constrain valid economic comparisons.",
+        "properties": {
+          "bars_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bars Sha256"
+          },
+          "base_protocol_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Protocol Sha256"
+          },
+          "cost_mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Mode"
+          },
+          "execution_delay_sessions": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Delay Sessions"
+          },
+          "initial_cash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Cash"
+          },
+          "portfolio_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portfolio Sha256"
+          },
+          "protocol_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Sha256"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "scores_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scores Sha256"
+          },
+          "signals_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signals Sha256"
+          },
+          "study_revision": {
+            "title": "Study Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "study_revision",
+          "scenario_id",
+          "bars_sha256",
+          "protocol_sha256",
+          "initial_cash"
+        ],
+        "title": "CompatibilityIdentity",
+        "type": "object"
+      },
+      "CompatibilityResult": {
+        "additionalProperties": false,
+        "description": "Comparison permission and its explicit limitations.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "economic_inference_allowed": {
+            "title": "Economic Inference Allowed",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentDetail"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ComparisonMode"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "mode",
+          "reasons",
+          "changed_fields",
+          "economic_inference_allowed",
+          "items"
+        ],
+        "title": "CompatibilityResult",
+        "type": "object"
+      },
+      "ConsoleMode": {
+        "description": "Published snapshot mode.",
+        "enum": [
+          "real",
+          "demo"
+        ],
+        "title": "ConsoleMode",
+        "type": "string"
+      },
+      "DataEvaluability": {
+        "description": "Whether absolute experiment metrics can be evaluated.",
+        "enum": [
+          "VALID",
+          "NOT_EVALUABLE",
+          "UNKNOWN"
+        ],
+        "title": "DataEvaluability",
+        "type": "string"
+      },
+      "EvidenceSummary": {
+        "additionalProperties": false,
+        "description": "Safe source identity without local paths or restricted payloads.",
+        "properties": {
+          "absolute_paths_exposed": {
+            "default": false,
+            "title": "Absolute Paths Exposed",
+            "type": "boolean"
+          },
+          "calendar_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Sha256"
+          },
+          "data_use_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Use Level"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "receipt_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Sha256"
+          },
+          "rules_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Sha256"
+          },
+          "run_identity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Identity"
+          },
+          "schema_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "source_kind": {
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "study_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Id"
+          },
+          "study_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Revision"
+          },
+          "trading_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trading Date"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "source_kind"
+        ],
+        "title": "EvidenceSummary",
+        "type": "object"
+      },
+      "ExperimentDetail": {
+        "additionalProperties": false,
+        "description": "Structured detail without embedding large time series.",
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "benchmark_comparability": {
+            "$ref": "#/components/schemas/BenchmarkComparability"
+          },
+          "calendar_year_returns": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Year Returns"
+          },
+          "compatibility": {
+            "$ref": "#/components/schemas/CompatibilityIdentity"
+          },
+          "curve_unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Curve Unavailable Reason"
+          },
+          "data_evaluability": {
+            "$ref": "#/components/schemas/DataEvaluability"
+          },
+          "data_use_level": {
+            "title": "Data Use Level",
+            "type": "string"
+          },
+          "economic_outcome": {
+            "title": "Economic Outcome",
+            "type": "string"
+          },
+          "engineering_status": {
+            "title": "Engineering Status",
+            "type": "string"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "execution": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "identities": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Identities",
+            "type": "object"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "matched_benchmark_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Benchmark Id"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Period"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "research_validity": {
+            "title": "Research Validity",
+            "type": "string"
+          },
+          "revision_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Of"
+          },
+          "run_identity": {
+            "title": "Run Identity",
+            "type": "string"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesMeta"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "strategy_id": {
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "study_id": {
+            "title": "Study Id",
+            "type": "string"
+          },
+          "study_revision": {
+            "title": "Study Revision",
+            "type": "string"
+          },
+          "turnover_costs": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turnover Costs"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "evidence_id",
+          "study_id",
+          "study_revision",
+          "experiment_id",
+          "run_identity",
+          "strategy_id",
+          "family",
+          "scenario_id",
+          "data_evaluability",
+          "benchmark_comparability",
+          "economic_outcome",
+          "engineering_status",
+          "research_validity",
+          "data_use_level",
+          "metrics",
+          "failure_reason",
+          "period",
+          "compatibility",
+          "execution",
+          "turnover_costs",
+          "calendar_year_returns",
+          "identities",
+          "limitations",
+          "source_sha256",
+          "series"
+        ],
+        "title": "ExperimentDetail",
+        "type": "object"
+      },
+      "ExperimentFilters": {
+        "additionalProperties": false,
+        "description": "Reusable experiment filters for queries and safe export.",
+        "properties": {
+          "economic_outcome": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Economic Outcome"
+          },
+          "family": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family"
+          },
+          "q": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Q",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataEvaluability"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "study": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study"
+          }
+        },
+        "title": "ExperimentFilters",
+        "type": "object"
+      },
+      "ExperimentPage": {
+        "additionalProperties": false,
+        "description": "Stable paginated experiment result.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExperimentSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "total",
+          "page",
+          "page_size",
+          "items"
+        ],
+        "title": "ExperimentPage",
+        "type": "object"
+      },
+      "ExperimentSummary": {
+        "additionalProperties": false,
+        "description": "Small experiment row suitable for filtering and tables.",
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "benchmark_comparability": {
+            "$ref": "#/components/schemas/BenchmarkComparability"
+          },
+          "data_evaluability": {
+            "$ref": "#/components/schemas/DataEvaluability"
+          },
+          "data_use_level": {
+            "title": "Data Use Level",
+            "type": "string"
+          },
+          "economic_outcome": {
+            "title": "Economic Outcome",
+            "type": "string"
+          },
+          "engineering_status": {
+            "title": "Engineering Status",
+            "type": "string"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "experiment_id": {
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "matched_benchmark_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Benchmark Id"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Period"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "research_validity": {
+            "title": "Research Validity",
+            "type": "string"
+          },
+          "revision_of": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Of"
+          },
+          "run_identity": {
+            "title": "Run Identity",
+            "type": "string"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "strategy_id": {
+            "title": "Strategy Id",
+            "type": "string"
+          },
+          "study_id": {
+            "title": "Study Id",
+            "type": "string"
+          },
+          "study_revision": {
+            "title": "Study Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "evidence_id",
+          "study_id",
+          "study_revision",
+          "experiment_id",
+          "run_identity",
+          "strategy_id",
+          "family",
+          "scenario_id",
+          "data_evaluability",
+          "benchmark_comparability",
+          "economic_outcome",
+          "engineering_status",
+          "research_validity",
+          "data_use_level",
+          "metrics",
+          "failure_reason",
+          "period"
+        ],
+        "title": "ExperimentSummary",
+        "type": "object"
+      },
+      "ExportFormat": {
+        "description": "Supported aggregate export encodings.",
+        "enum": [
+          "csv",
+          "json"
+        ],
+        "title": "ExportFormat",
+        "type": "string"
+      },
+      "ExportRequest": {
+        "additionalProperties": false,
+        "description": "Safe aggregate export bound to one snapshot and explicit scope.",
+        "properties": {
+          "artifact_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Artifact Ids",
+            "type": "array"
+          },
+          "direction": {
+            "$ref": "#/components/schemas/SortDirection",
+            "default": "asc"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ExperimentFilters"
+          },
+          "format": {
+            "$ref": "#/components/schemas/ExportFormat",
+            "default": "csv"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ExportScope"
+          },
+          "sort": {
+            "default": "experiment_id",
+            "maxLength": 64,
+            "title": "Sort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "title": "ExportRequest",
+        "type": "object"
+      },
+      "ExportScope": {
+        "description": "Rows selected for an aggregate export.",
+        "enum": [
+          "selected",
+          "filtered"
+        ],
+        "title": "ExportScope",
+        "type": "string"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthSummary": {
+        "additionalProperties": false,
+        "description": "Snapshot-bound data and system health.",
+        "properties": {
+          "csi500": {
+            "title": "Csi500",
+            "type": "string"
+          },
+          "live_broker": {
+            "title": "Live Broker",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceHealth"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "system_observation": {
+            "$ref": "#/components/schemas/SystemObservation"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "sources",
+          "system_observation",
+          "live_broker",
+          "csi500"
+        ],
+        "title": "HealthSummary",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "Metric": {
+        "additionalProperties": false,
+        "description": "One metric with explicit validity, unit, and provenance.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "data_use_level": {
+            "title": "Data Use Level",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "scenario_id": {
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "source_evidence_id": {
+            "title": "Source Evidence Id",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "validity": {
+            "$ref": "#/components/schemas/MetricValidity"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit",
+          "validity",
+          "basis",
+          "scenario_id",
+          "data_use_level",
+          "source_evidence_id"
+        ],
+        "title": "Metric",
+        "type": "object"
+      },
+      "MetricValidity": {
+        "description": "Availability of one source metric.",
+        "enum": [
+          "VALID",
+          "NOT_AVAILABLE"
+        ],
+        "title": "MetricValidity",
+        "type": "string"
+      },
+      "Overview": {
+        "additionalProperties": false,
+        "description": "Research and prospective summary without recommendation language.",
+        "properties": {
+          "current_stage": {
+            "title": "Current Stage",
+            "type": "string"
+          },
+          "economic_outcome": {
+            "title": "Economic Outcome",
+            "type": "string"
+          },
+          "latest_prospective_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Prospective Date"
+          },
+          "legacy_invalid_engineering_runs": {
+            "title": "Legacy Invalid Engineering Runs",
+            "type": "integer"
+          },
+          "not_evaluable_runs": {
+            "title": "Not Evaluable Runs",
+            "type": "integer"
+          },
+          "prospective_status": {
+            "title": "Prospective Status",
+            "type": "string"
+          },
+          "registered_runs": {
+            "title": "Registered Runs",
+            "type": "integer"
+          },
+          "retained_candidates": {
+            "title": "Retained Candidates",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "valid_runs": {
+            "title": "Valid Runs",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "current_stage",
+          "registered_runs",
+          "valid_runs",
+          "not_evaluable_runs",
+          "retained_candidates",
+          "legacy_invalid_engineering_runs",
+          "economic_outcome",
+          "latest_prospective_date",
+          "prospective_status",
+          "warnings"
+        ],
+        "title": "Overview",
+        "type": "object"
+      },
+      "Period": {
+        "additionalProperties": false,
+        "description": "Exchange-local research period.",
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "sessions": {
+            "minimum": 0.0,
+            "title": "Sessions",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "sessions"
+        ],
+        "title": "Period",
+        "type": "object"
+      },
+      "ProspectiveAccount": {
+        "additionalProperties": false,
+        "description": "One paper phase, kept separate from every other phase.",
+        "properties": {
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProspectiveDay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_days": {
+            "default": 0,
+            "title": "Observed Days",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "latest"
+        ],
+        "title": "ProspectiveAccount",
+        "type": "object"
+      },
+      "ProspectiveAccounts": {
+        "additionalProperties": false,
+        "description": "Engineering and fully prospective accounts.",
+        "properties": {
+          "engineering_warm_start": {
+            "$ref": "#/components/schemas/ProspectiveAccount"
+          },
+          "fully_prospective_v1": {
+            "$ref": "#/components/schemas/ProspectiveAccount"
+          }
+        },
+        "required": [
+          "engineering_warm_start",
+          "fully_prospective_v1"
+        ],
+        "title": "ProspectiveAccounts",
+        "type": "object"
+      },
+      "ProspectiveDay": {
+        "additionalProperties": false,
+        "description": "Sanitized published prospective daily record.",
+        "properties": {
+          "DATA_CAPTURE_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Capture Status"
+          },
+          "ENGINEERING_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engineering Status"
+          },
+          "INPUT_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Status"
+          },
+          "PAPER_ACCOUNT_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper Account Status"
+          },
+          "PROFITABILITY_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profitability Status"
+          },
+          "SHADOW_SIGNAL_STATUS": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shadow Signal Status"
+          },
+          "buy_fills_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy Fills Today"
+          },
+          "calendar_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Sha256"
+          },
+          "cash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cash"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "direction_consistency": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Consistency"
+          },
+          "fills_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fills Today"
+          },
+          "mean_ic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Ic"
+          },
+          "mean_rank_ic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Rank Ic"
+          },
+          "nav": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nav"
+          },
+          "paper_account_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paper Account Phase"
+          },
+          "position_count": {
+            "default": 0,
+            "title": "Position Count",
+            "type": "integer"
+          },
+          "receipt_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Sha256"
+          },
+          "rejection_count": {
+            "default": 0,
+            "title": "Rejection Count",
+            "type": "integer"
+          },
+          "rejections_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejections Today"
+          },
+          "rules_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rules Sha256"
+          },
+          "sell_fills_today": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sell Fills Today"
+          },
+          "top_count": {
+            "default": 0,
+            "title": "Top Count",
+            "type": "integer"
+          },
+          "trading_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trading Date"
+          }
+        },
+        "title": "ProspectiveDay",
+        "type": "object"
+      },
+      "ProspectiveSummary": {
+        "additionalProperties": false,
+        "description": "Published JSON-only prospective state.",
+        "properties": {
+          "accounts": {
+            "$ref": "#/components/schemas/ProspectiveAccounts"
+          },
+          "data_capture_status": {
+            "title": "Data Capture Status",
+            "type": "string"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/ProspectiveDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "diagnostics": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Diagnostics",
+            "type": "object"
+          },
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "input_status": {
+            "title": "Input Status",
+            "type": "string"
+          },
+          "latest_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Date"
+          },
+          "operations_status": {
+            "title": "Operations Status",
+            "type": "string"
+          },
+          "profitability_status": {
+            "title": "Profitability Status",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "latest_date",
+          "operations_status",
+          "input_status",
+          "data_capture_status",
+          "profitability_status",
+          "days",
+          "accounts",
+          "diagnostics",
+          "warnings",
+          "evidence_id"
+        ],
+        "title": "ProspectiveSummary",
+        "type": "object"
+      },
+      "ReloadResult": {
+        "additionalProperties": false,
+        "description": "Result of an explicit fixed-source snapshot reload.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SnapshotMeta"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "snapshot",
+          "changed"
+        ],
+        "title": "ReloadResult",
+        "type": "object"
+      },
+      "RuntimeStatus": {
+        "additionalProperties": false,
+        "description": "Current Console runtime status, separate from research evidence.",
+        "properties": {
+          "app_version": {
+            "title": "App Version",
+            "type": "string"
+          },
+          "current_snapshot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Snapshot Id"
+          },
+          "last_refresh": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refresh"
+          }
+        },
+        "required": [
+          "app_version",
+          "current_snapshot_id",
+          "last_refresh"
+        ],
+        "title": "RuntimeStatus",
+        "type": "object"
+      },
+      "SeriesMeta": {
+        "additionalProperties": false,
+        "description": "Identity and semantics for one immutable display series.",
+        "properties": {
+          "derivation": {
+            "title": "Derivation",
+            "type": "string"
+          },
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "points": {
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "series_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Series Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series_id",
+          "kind",
+          "unit",
+          "start",
+          "end",
+          "points",
+          "source_sha256",
+          "derivation"
+        ],
+        "title": "SeriesMeta",
+        "type": "object"
+      },
+      "SeriesPoint": {
+        "additionalProperties": false,
+        "description": "One exchange-local dated display observation.",
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "value"
+        ],
+        "title": "SeriesPoint",
+        "type": "object"
+      },
+      "SeriesResponse": {
+        "additionalProperties": false,
+        "description": "Full precision series bound to one snapshot.",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/SeriesMeta"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "meta",
+          "points"
+        ],
+        "title": "SeriesResponse",
+        "type": "object"
+      },
+      "SignalsSummary": {
+        "additionalProperties": false,
+        "description": "Existing signal diagnostics grouped by their source contract.",
+        "properties": {
+          "attribution": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Attribution",
+            "type": "object"
+          },
+          "historical": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Historical",
+            "type": "object"
+          },
+          "measurement": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Measurement",
+            "type": "object"
+          },
+          "prospective": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Prospective",
+            "type": "object"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "historical",
+          "attribution",
+          "measurement",
+          "prospective"
+        ],
+        "title": "SignalsSummary",
+        "type": "object"
+      },
+      "SnapshotMeta": {
+        "additionalProperties": false,
+        "description": "Current immutable display snapshot pointer.",
+        "properties": {
+          "adapter_version": {
+            "title": "Adapter Version",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ConsoleMode"
+          },
+          "published_at": {
+            "title": "Published At",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "snapshot_id",
+          "mode",
+          "published_at",
+          "adapter_version"
+        ],
+        "title": "SnapshotMeta",
+        "type": "object"
+      },
+      "SortDirection": {
+        "description": "Stable sort direction.",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "title": "SortDirection",
+        "type": "string"
+      },
+      "SourceHealth": {
+        "additionalProperties": false,
+        "description": "Integrity status for one approved source family.",
+        "properties": {
+          "acceptance_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance Status"
+          },
+          "latest_report_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Report Date"
+          },
+          "manifest_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifest Sha256"
+          },
+          "matrix_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matrix Sha256"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "sqlite_read": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sqlite Read"
+          },
+          "verification_status": {
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "verification_status"
+        ],
+        "title": "SourceHealth",
+        "type": "object"
+      },
+      "StudyList": {
+        "additionalProperties": false,
+        "description": "Studies bound to one snapshot.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StudySummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "items"
+        ],
+        "title": "StudyList",
+        "type": "object"
+      },
+      "StudySummary": {
+        "additionalProperties": false,
+        "description": "One published research study revision.",
+        "properties": {
+          "code_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Commit"
+          },
+          "data_use_level": {
+            "title": "Data Use Level",
+            "type": "string"
+          },
+          "economic_outcome": {
+            "title": "Economic Outcome",
+            "type": "string"
+          },
+          "implementation_status": {
+            "title": "Implementation Status",
+            "type": "string"
+          },
+          "registered_runs": {
+            "title": "Registered Runs",
+            "type": "integer"
+          },
+          "research_validity": {
+            "title": "Research Validity",
+            "type": "string"
+          },
+          "schema_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Schema Version"
+          },
+          "study_id": {
+            "title": "Study Id",
+            "type": "string"
+          },
+          "study_revision": {
+            "title": "Study Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "study_id",
+          "study_revision",
+          "schema_version",
+          "code_commit",
+          "implementation_status",
+          "research_validity",
+          "economic_outcome",
+          "data_use_level",
+          "registered_runs"
+        ],
+        "title": "StudySummary",
+        "type": "object"
+      },
+      "SystemObservation": {
+        "additionalProperties": false,
+        "description": "Sanitized fixed-target system observation.",
+        "properties": {
+          "observed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "timer": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timer"
+          },
+          "unit_hashes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Hashes"
+          }
+        },
+        "required": [
+          "status",
+          "observed_at"
+        ],
+        "title": "SystemObservation",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Quant Console V1.5",
+    "version": "1.5.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/runtime": {
+      "get": {
+        "operationId": "runtime_status_api_v1_runtime_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Runtime Status"
+      }
+    },
+    "/api/v1/snapshot": {
+      "get": {
+        "operationId": "snapshot_meta_api_v1_snapshot_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotMeta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Snapshot Meta"
+      }
+    },
+    "/api/v1/snapshot/reload": {
+      "post": {
+        "operationId": "reload_snapshot_api_v1_snapshot_reload_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReloadResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reload Snapshot"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/comparisons/validate": {
+      "post": {
+        "operationId": "validate_comparison_api_v1_snapshots__snapshot_id__comparisons_validate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompatibilityResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Comparison"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/evidence/{evidence_id}": {
+      "get": {
+        "operationId": "evidence_api_v1_snapshots__snapshot_id__evidence__evidence_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "evidence_id",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "title": "Evidence Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evidence"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/experiments": {
+      "get": {
+        "operationId": "experiments_api_v1_snapshots__snapshot_id__experiments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "study",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study"
+            }
+          },
+          {
+            "in": "query",
+            "name": "family",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Family"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/DataEvaluability"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "economic_outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Economic Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "experiment_id",
+              "maxLength": 64,
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortDirection",
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Experiments"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/experiments/{artifact_id}": {
+      "get": {
+        "operationId": "experiment_detail_api_v1_snapshots__snapshot_id__experiments__artifact_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "pattern": "^[A-Za-z0-9_.:-]+$",
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExperimentDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Experiment Detail"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/exports/experiments": {
+      "post": {
+        "operationId": "export_experiments_api_v1_snapshots__snapshot_id__exports_experiments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Experiments"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/health": {
+      "get": {
+        "operationId": "health_api_v1_snapshots__snapshot_id__health_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/overview": {
+      "get": {
+        "operationId": "overview_api_v1_snapshots__snapshot_id__overview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Overview"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/prospective": {
+      "get": {
+        "operationId": "prospective_api_v1_snapshots__snapshot_id__prospective_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectiveSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prospective"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/series/{series_id}": {
+      "get": {
+        "operationId": "series_api_v1_snapshots__snapshot_id__series__series_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Series"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/signals": {
+      "get": {
+        "operationId": "signals_api_v1_snapshots__snapshot_id__signals_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignalsSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Signals"
+      }
+    },
+    "/api/v1/snapshots/{snapshot_id}/studies": {
+      "get": {
+        "operationId": "studies_api_v1_snapshots__snapshot_id__studies_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudyList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Studies"
+      }
+    }
+  }
+}

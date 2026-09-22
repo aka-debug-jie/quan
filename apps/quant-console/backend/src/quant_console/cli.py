@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import uvicorn
@@ -25,11 +26,13 @@ def main() -> None:
     observation.add_argument("--output", type=Path, required=True)
     demo = sub.add_parser("demo")
     demo.add_argument("--runtime", type=Path, required=True)
+    schema = sub.add_parser("openapi")
+    schema.add_argument("--output", type=Path, required=True)
     serve = sub.add_parser("serve")
     serve.add_argument("--runtime", type=Path, required=True)
     serve.add_argument("--config", type=Path)
     serve.add_argument("--static", type=Path)
-    serve.add_argument("--port", type=int, default=8765)
+    serve.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
     if args.command == "index":
         print(
@@ -41,6 +44,20 @@ def main() -> None:
         print(observe(args.output))
     elif args.command == "demo":
         print(publish_demo(args.runtime))
+    elif args.command == "openapi":
+        output: Path = args.output
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(
+                create_app(Path("/nonexistent-quant-console-runtime")).openapi(),
+                ensure_ascii=False,
+                sort_keys=True,
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(output)
     else:
         app = create_app(args.runtime, args.config, args.static)
         uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="info")

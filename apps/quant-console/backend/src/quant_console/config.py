@@ -61,6 +61,9 @@ def _path(raw: dict[str, Any], section: str, field: str) -> Path:
     if not isinstance(value, dict) or not isinstance(value.get(field), str):
         raise ConsoleConfigError(f"missing [{section}].{field}")
     path = Path(value[field]).expanduser().resolve(strict=True)
+    lowered = {part.casefold() for part in path.parts}
+    if "sealed" in lowered or any("csi500" in part for part in lowered):
+        raise ConsoleConfigError("sealed and CSI500 sources are not allowed")
     return path
 
 
