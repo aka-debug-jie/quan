@@ -223,6 +223,9 @@ def _run_loaded(
     order_intents: list[dict[str, object]] = []
     rebalance_count = 0
     selection_failures: list[str] = []
+    warmup_skips = 0
+    signal_started = False
+    last_signal_ordinal: int | None = None
     for ordinal, session in enumerate(sessions):
         for transfer in transfers.get(session, ()):
             account.transfer_position(
@@ -267,7 +270,10 @@ def _run_loaded(
             blocks,
             rules,
         )
-        if ordinal % policy.rebalance_sessions:
+        if (
+            last_signal_ordinal is not None
+            and ordinal - last_signal_ordinal < policy.rebalance_sessions
+        ):
             continue
         daily = daily_scores.get(session)
         if daily is None:
@@ -282,8 +288,13 @@ def _run_loaded(
                 policy,
             )
         except ValueError as error:
+            if policy.rank_column not in {"score_rank", "liquidity_rank"} and not signal_started:
+                warmup_skips += 1
+                continue
             selection_failures.append(f"{session}:{error}")
             continue
+        signal_started = True
+        last_signal_ordinal = ordinal
         execution_index = ordinal + spec.execution_delay_sessions
         if execution_index >= len(sessions):
             continue
@@ -362,6 +373,7 @@ def _run_loaded(
                 sorted(Counter(item.reason for item in account.rejections).items())
             ),
             "rebalances": rebalance_count,
+            "leading_signal_warmup_skips": warmup_skips,
         },
         "identities": identities
         | {
