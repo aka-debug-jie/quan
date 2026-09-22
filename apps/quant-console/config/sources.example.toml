@@ -1,0 +1,13 @@
+mode = "real"
+
+[historical_v3]
+manifest = "/absolute/path/to/CN_HISTORICAL_RESEARCH_V3_MANIFEST.json"
+artifacts = "/absolute/path/to/cn-historical-v3/artifacts"
+
+[upgrade_v1]
+manifest = "/absolute/path/to/CN_QUANT_RESEARCH_UPGRADE_V1_MANIFEST.json"
+artifacts = "/absolute/path/to/cn-quant-upgrade-v1/artifacts"
+
+[prospective]
+artifacts = "/absolute/path/to/artifacts/v2/prospective/cn_shadow_v1"
+acceptance_manifest = "/absolute/path/to/docs/v2/PROSPECTIVE_ACCEPTANCE_MANIFEST.json"

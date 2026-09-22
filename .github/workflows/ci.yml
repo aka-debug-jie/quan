@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "codex/**", "issue/**", "research/**", "prospective/**"]
+    branches: [main, "codex/**", "issue/**", "research/**", "prospective/**", "console/**"]
   workflow_dispatch:
 
 permissions:
@@ -64,3 +64,62 @@ jobs:
           tests/test_v3_crosscheck.py
           tests/test_v3_fast_engine.py
           tests/test_v3_runner.py
+
+  console-backend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/quant-console/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.11.15"
+          enable-cache: true
+      - run: uv sync --locked --all-groups
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy src tests
+      - run: uv run pytest --cov=quant_console
+
+  console-frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/quant-console/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.5"
+          cache: npm
+          cache-dependency-path: apps/quant-console/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+
+  console-browser:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/quant-console/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.5"
+          cache: npm
+          cache-dependency-path: apps/quant-console/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quant-console-synthetic-browser-report
+          path: |
+            apps/quant-console/frontend/playwright-report
+            apps/quant-console/frontend/test-results
+          retention-days: 7

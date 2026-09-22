@@ -9,6 +9,14 @@ htmlcov/
 __pycache__/
 *.py[cod]
 .env
+node_modules/
+dist/
+playwright-report/
+test-results/
+apps/quant-console/.runtime/
+apps/quant-console/frontend/coverage/
+apps/quant-console/backend/.venv/
+*.tsbuildinfo
 
 data/raw/**
 data/normalized/**
