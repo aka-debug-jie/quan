@@ -17,6 +17,7 @@ from quant_stack_v3.upgrade_artifacts import (
     build_measurement_audit,
     build_upgrade_score_cache,
 )
+from quant_stack_v3.upgrade_parallel import run_upgrade_registry_parallel
 from quant_stack_v3.upgrade_protocol import (
     ExperimentSpec,
     expand_experiment_registry,
@@ -26,7 +27,6 @@ from quant_stack_v3.upgrade_reference import audit_reference_run
 from quant_stack_v3.upgrade_runner import (
     UpgradeInputs,
     UpgradeRunSpec,
-    run_upgrade_registry,
 )
 from quant_stack_v3.upgrade_statistics import (
     build_robustness_report,
@@ -120,11 +120,11 @@ def run(
         action_overrides_path,
     )
     fixed_registry = expand_experiment_registry(upgrade)
-    results = run_upgrade_registry(base, _runtime_specs(fixed_registry), inputs)
+    results = run_upgrade_registry_parallel(base, _runtime_specs(fixed_registry), inputs)
     scale_candidates = select_scale_candidates(results, artifact_root)
     final_registry = expand_experiment_registry(upgrade, scale_candidates)
     if len(final_registry) > len(fixed_registry):
-        results = run_upgrade_registry(base, _runtime_specs(final_registry), inputs)
+        results = run_upgrade_registry_parallel(base, _runtime_specs(final_registry), inputs)
     robustness_path, robustness = build_robustness_report(results, artifact_root, artifact_root)
     references: dict[str, object] = {}
     for strategy_id in ("B00_LIQ20_D20", "A04_AF7_TOP20_D20"):
