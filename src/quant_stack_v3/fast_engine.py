@@ -94,7 +94,8 @@ class HistoricalAccount:
         self.rejections: list[HistoricalRejection] = []
         self.snapshots: list[HistoricalSnapshot] = []
         self.events: list[dict[str, object]] = []
-        self._entitlements: dict[str, tuple[date, Decimal]] = {}
+        self._entitlements: dict[str, tuple[date, date, Decimal]] = {}
+        self._accrued_entitlements: set[str] = set()
         self._paid_entitlements: set[str] = set()
         self._append("initial_cash", None, {"cash": initial_cash})
 
@@ -145,6 +146,7 @@ class HistoricalAccount:
     ) -> HistoricalSnapshot:
         """Apply pre-open actions, fills, close entitlements/payments, and raw-close NAV."""
         self._apply_splits(trading_date, actions)
+        self._accrue_entitlements(trading_date)
         due = sorted(
             (item for item in self.orders if item.execution_date == trading_date),
             key=lambda item: (0 if item.side is Side.SELL else 1, item.order_id),
@@ -152,6 +154,7 @@ class HistoricalAccount:
         for order in due:
             self._fill_or_reject(order, trading_date, raw_opens, costs, blocks, rules)
         self._record_entitlements(trading_date, actions)
+        self._accrue_entitlements(trading_date)
         self._pay_entitlements(trading_date)
         held = {symbol for symbol, quantity in self.positions.items() if quantity > 0}
         missing = held - set(raw_closes)
@@ -333,8 +336,11 @@ class HistoricalAccount:
                     if identity in self._entitlements:
                         continue
                     cash = quantity * action.cash_per_unit
-                    self._entitlements[identity] = (action.payment_date, cash)
-                    self.receivable += cash
+                    self._entitlements[identity] = (
+                        action.effective_date,
+                        action.payment_date,
+                        cash,
+                    )
                     self._append(
                         "entitlement",
                         trading_date,
@@ -343,13 +349,31 @@ class HistoricalAccount:
                             "symbol": symbol,
                             "quantity": quantity,
                             "cash_per_unit": action.cash_per_unit,
+                            "effective_date": action.effective_date,
                             "payment_date": action.payment_date,
                         },
                     )
 
+    def _accrue_entitlements(self, trading_date: date) -> None:
+        """Recognize captured dividends on the ex-date, not in the cum-dividend close."""
+        for identity, (effective_date, _, amount) in sorted(self._entitlements.items()):
+            if identity in self._accrued_entitlements or effective_date > trading_date:
+                continue
+            self.receivable += amount
+            self._accrued_entitlements.add(identity)
+            self._append(
+                "dividend_accrual",
+                trading_date,
+                {"identity": identity, "cash": amount},
+            )
+
     def _pay_entitlements(self, trading_date: date) -> None:
-        for identity, (payment_date, amount) in sorted(self._entitlements.items()):
-            if identity in self._paid_entitlements or payment_date > trading_date:
+        for identity, (_, payment_date, amount) in sorted(self._entitlements.items()):
+            if (
+                identity in self._paid_entitlements
+                or identity not in self._accrued_entitlements
+                or payment_date > trading_date
+            ):
                 continue
             self.cash += amount
             self.receivable -= amount

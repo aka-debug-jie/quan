@@ -20,7 +20,7 @@ from quant_stack.snapshot import write_immutable
 from quant_stack_v3.protocol import Protocol
 
 if TYPE_CHECKING:
-    import h5py  # type: ignore[import-not-found]
+    import h5py  # type: ignore[import-untyped]
 
 
 class MarketDataError(ValueError):

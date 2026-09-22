@@ -7,6 +7,11 @@ from decimal import Decimal
 from pathlib import Path
 
 from quant_stack.costs import CostModel
+from quant_stack.data.models import (
+    CorporateActionEvent,
+    CorporateActionKind,
+    OfficialEvidence,
+)
 from quant_stack.models import Side
 from quant_stack.paper_broker import PaperBroker
 from quant_stack.paper_models import PaperBrokerConfig, PaperExecutionRule, PaperOrder
@@ -96,3 +101,49 @@ def test_overlapping_delayed_sells_cannot_create_short_position() -> None:
     )
     assert snapshot.positions["sh600000"] == 0
     assert account.rejections[0].reason == "insufficient_position"
+
+
+def test_dividend_is_captured_on_record_date_and_accrued_on_ex_date() -> None:
+    costs = CostModel(Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"))
+    account = HistoricalAccount("dividend", Decimal("1000"))
+    account.positions["sh600000"] = Decimal("100")
+    record_date = date(2020, 1, 2)
+    ex_date = date(2020, 1, 3)
+    action = CorporateActionEvent(
+        effective_date=ex_date,
+        kind=CorporateActionKind.CASH_DISTRIBUTION,
+        cash_per_unit=Decimal("0.5"),
+        evidence=OfficialEvidence(
+            url="https://example.invalid/action",
+            sha256="a" * 64,
+            published_on=record_date,
+        ),
+        record_date=record_date,
+        payment_date=ex_date,
+        retrospective_verification=True,
+    )
+    rule = {"sh600000": PaperExecutionRule(Decimal("100"), Decimal("100"))}
+    record = account.run_day(
+        record_date,
+        {"sh600000": Decimal("10")},
+        {"sh600000": Decimal("10")},
+        costs,
+        {"sh600000": (action,)},
+        {},
+        rule,
+    )
+    assert record.receivable_dividends == 0
+    assert record.net_asset_value == Decimal("2000")
+    ex = account.run_day(
+        ex_date,
+        {"sh600000": Decimal("9.5")},
+        {"sh600000": Decimal("9.5")},
+        costs,
+        {"sh600000": (action,)},
+        {},
+        rule,
+    )
+    assert ex.cash == Decimal("1050")
+    assert ex.receivable_dividends == 0
+    assert ex.net_asset_value == Decimal("2000")
+    assert [event["event_type"] for event in account.events].count("dividend_accrual") == 1

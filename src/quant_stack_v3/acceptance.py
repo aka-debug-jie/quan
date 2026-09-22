@@ -26,6 +26,7 @@ def audit_ledger(ledger_path: Path, output_root: Path) -> tuple[Path, dict[str, 
     fill_sides: dict[str, set[str]] = defaultdict(set)
     first_fill: str | None = None
     first_entitlement: str | None = None
+    first_accrual: str | None = None
     first_payment: str | None = None
     first_split: str | None = None
     for row in events.itertuples(index=False):
@@ -76,10 +77,15 @@ def audit_ledger(ledger_path: Path, output_root: Path) -> tuple[Path, dict[str, 
             positions[successor] = positions.get(successor, Decimal("0")) + quantity * Decimal(
                 payload["ratio"]
             )
-        elif event_type == "entitlement":
+        elif event_type == "entitlement" and "effective_date" not in payload:
             amount = Decimal(payload["quantity"]) * Decimal(payload["cash_per_unit"])
             receivable += amount
             first_entitlement = first_entitlement or occurred_on
+        elif event_type == "entitlement":
+            first_entitlement = first_entitlement or occurred_on
+        elif event_type == "dividend_accrual":
+            receivable += Decimal(payload["cash"])
+            first_accrual = first_accrual or occurred_on
         elif event_type == "dividend_payment":
             amount = Decimal(payload["cash"])
             cash += amount
@@ -125,6 +131,7 @@ def audit_ledger(ledger_path: Path, output_root: Path) -> tuple[Path, dict[str, 
         "first_fill_date": first_fill,
         "first_two_sided_rebalance_date": two_sided,
         "first_entitlement_date": first_entitlement,
+        "first_dividend_accrual_date": first_accrual,
         "first_dividend_payment_date": first_payment,
         "first_split_date": first_split,
         "final_cash": cash,

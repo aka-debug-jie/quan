@@ -23,6 +23,7 @@ from quant_stack_v3.matrix import MatrixPaths, run_matrix
 from quant_stack_v3.protocol import load_protocol
 from quant_stack_v3.runner import RunOptions, run_strategy
 from quant_stack_v3.signals import build_signal_cache
+from quant_stack_v3.upgrade_cli import app as upgrade_app
 
 app = typer.Typer(help="CN historical research only; no live brokerage capability.")
 data_app = typer.Typer(help="Capture and inspect an isolated historical data snapshot.")
@@ -31,6 +32,7 @@ run_app = typer.Typer(help="Run only preregistered local historical simulations.
 app.add_typer(data_app, name="data")
 app.add_typer(signal_app, name="signal")
 app.add_typer(run_app, name="run")
+app.add_typer(upgrade_app, name="upgrade")
 
 
 @data_app.command("capture")

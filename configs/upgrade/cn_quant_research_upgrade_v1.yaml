@@ -1,0 +1,57 @@
+schema_version: 1
+protocol_id: CN-QUANT-RESEARCH-UPGRADE-V1
+status: PREREGISTERED_BEFORE_PORTFOLIO_RETURNS
+scope: HISTORICAL_RESEARCH_ONLY
+data:
+  primary: rqalpha_monthly_bundle_202609
+  bundle_sha256: 80e1d3287ec2f9f3c255fe648c5487bc4cf5e4186a1dbdb0659939ba7e931139
+  tree_sha256: 9175506046669b3168003cabd0313fed501d1f9ca4906d7cc083809ae79f2620
+  normalized_bars_sha256: d0b4f72f8bc95539582f129ed1ad1e9c22c4dbb49f98413566bec9c1e5a3cc8f
+references:
+  - id: B00_LIQ20_D20
+    description: Liquidity top 20, rebalance every 20 sessions.
+  - id: A04_AF7_TOP20_D20
+    description: Frozen equal-weight seven-factor AF7 top 20, rebalance every 20 sessions.
+  - id: B50_LIQ50_D20
+    description: Liquidity top 50, rebalance every 20 sessions.
+  - id: B100_LIQ100_D20
+    description: Liquidity top 100, rebalance every 20 sessions.
+candidates:
+  - id: AF7_TOP50_D20_EQ
+    description: AF7 top 50 equal weight, rebalance every 20 sessions.
+  - id: AF7_TOP50_D20_HOLD100_BAND25
+    description: "Every 20 sessions retain actual post-close holdings with AF7 rank <= 100 and fill to 50 by descending AF7 score; target weight 2%; no trade inside the inclusive [1.5%,2.5%] actual close-weight band, otherwise reset to 2%; exited members target zero; symbol-ascending ties."
+  - id: AF7_TOP50_D5_STEP25
+    description: "Every 5 sessions select AF7 top 50 with full target weight 2%; intermediate shares = current + 0.25*(full_target-current); buys round down to board-specific buy units; sells permit corporate-action odd lots, selling the full holding when the remaining quantity is below the standard buy unit; T-close information, symbol-ascending ties."
+  - id: AF7_LOW_AVOID100_D20
+    description: "Every 20 sessions first take mean_amount60 liquidity rank <= 100, then exclude the 20 lowest AF7-scoring names within that set; hold the remaining 80 equal weight; T-close information, descending AF7 score and symbol-ascending ties."
+  - id: MOM605_TOP50_D20_EQ
+    description: "MOM605 = log(P[t-5]/P[t-60]); top 50 equal weight every 20 sessions; T-close information only; descending score, symbol-ascending ties."
+  - id: CONDREV5_TOP50_D20_EQ
+    description: "CONDREV5 = -log(P[t]/P[t-5]); require mean_amount20 >= daily complete-eligible median and annualized vol20 <= daily complete-eligible 75th percentile, otherwise exclude; top 50 equal weight every 20 sessions; T-close information only; descending score, symbol-ascending ties."
+  - id: DOWN60_TOP50_D20_EQ
+    description: "DOWN60 = -sqrt(mean(min(log(P[t]/P[t-1]),0)^2)*252), over 60 sessions; top 50 equal weight every 20 sessions; T-close information only; descending score, symbol-ascending ties."
+  - id: ROBUSTTREND_TOP50_D20_EQ
+    description: "ROBUSTTREND = 0.5*daily_z(MOM605)+0.5*daily_z(DOWN60); z uses complete 300-name cross section, ddof=0, no winsorization; top 50 equal weight every 20 sessions; T-close information only; descending score, symbol-ascending ties."
+audits:
+  - id: A01_AF7_D1
+    description: AF7 daily top 20 audit, real costs only.
+  - id: A02R_AF7_D1_ACTUAL_B40
+    description: AF7 daily actual-holding rank 40 buffer audit, real costs only.
+  - id: A05R_AF7_D20_ACTUAL_B40
+    description: AF7 20-session actual-holding rank 40 buffer audit, real costs only.
+core_scenarios:
+  - {id: REAL_T1_1M, initial_cash: 1000000, execution_delay_sessions: 1, cost_mode: real}
+  - {id: DOUBLE_ASSUMPTION_T1_1M, initial_cash: 1000000, execution_delay_sessions: 1, cost_mode: double_assumption}
+  - {id: ZERO_ALL_COST_T1_1M, initial_cash: 1000000, execution_delay_sessions: 1, cost_mode: zero_all}
+  - {id: REAL_T2_1M, initial_cash: 1000000, execution_delay_sessions: 2, cost_mode: real}
+conditional_scale_scenarios:
+  - {id: REAL_T1_500K, initial_cash: 500000, execution_delay_sessions: 1, cost_mode: real}
+  - {id: REAL_T1_5M, initial_cash: 5000000, execution_delay_sessions: 1, cost_mode: real}
+budget:
+  core_runs: 48
+  audit_runs: 3
+  maximum_scale_candidates: 2
+  maximum_scale_runs: 4
+  maximum_total_runs: 55
+forbidden_uses: [csi500, sealed_test, paid_data, live_order, paper_deployment]
