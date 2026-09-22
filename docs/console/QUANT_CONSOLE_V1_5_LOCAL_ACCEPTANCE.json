@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "base_commit": "886144b74d9a25dbaeb25e38cce21e805ffb7994",
+  "validated_code_commit": "2579b6e520fb6803ea30b5b2eafebfbf4b3dd48f",
+  "branch": "console/quant-console-v1.5",
+  "real_snapshot_id": "646780e4009982deeb0baebfae3d17e376f22887b0ff39dc7ac163b1a7db5bdd",
+  "source_results": {
+    "displayed_runs": 61,
+    "upgrade_registered_runs": 51,
+    "upgrade_valid_runs": 19,
+    "upgrade_not_evaluable_runs": 32,
+    "retained_candidates": 0,
+    "legacy_invalid_engineering_runs_excluded": 19,
+    "historical_v3_runs": 10,
+    "latest_prospective_date": "2026-09-22",
+    "prospective_operations_status": "OPERATIONS_LOOP_RC",
+    "prospective_input_status": "MIXED_PROSPECTIVE_INPUT",
+    "fully_prospective_account_status": "NOT_STARTED"
+  },
+  "dual_status_acceptance": {
+    "experiment_id": "AF7_TOP50_D20_EQ__REAL_T1_1M",
+    "absolute_data_evaluability": "VALID",
+    "cagr": -0.05218754030574968,
+    "matched_benchmark_comparability": "MATCHED_BENCHMARK_NOT_EVALUABLE",
+    "economic_outcome": "NOT_EVALUABLE"
+  },
+  "read_model": {
+    "schema_version": 2,
+    "component_files": 67,
+    "total_bytes": 10468538,
+    "stable_no_change_rebuild": true,
+    "experiment_ledger": "PARQUET_REBUILDABLE",
+    "lazy_series": true
+  },
+  "api_contract": {
+    "pydantic_response_models": "PASS",
+    "openapi_generation_without_real_data": "PASS",
+    "generated_types_drift_check": "PASS",
+    "openapi_sha256": "c4af29c603bb929106b6dcb735a23288366a688015dd95d8840525724410e351",
+    "generated_types_sha256": "6edf702d8c91f2820b28a8b49296bbf959c80046546899544770054488b927d0"
+  },
+  "performance": {
+    "v1_ms": {
+      "snapshot_median": 41.47,
+      "overview_median": 36.97,
+      "experiments_median": 43.85,
+      "prospective_median": 37.43,
+      "health_median": 37.8
+    },
+    "v1_5_ms": {
+      "snapshot_median": 1.55,
+      "overview_median": 3,
+      "experiments_median": 11.26,
+      "prospective_median": 3.25,
+      "health_median": 3.2
+    },
+    "v1_initial_javascript_bytes": 646838,
+    "v1_5_initial_javascript_bytes": 276157,
+    "v1_5_total_dist_bytes": 1693946,
+    "synthetic_10000_rows": {
+      "status": "PASS",
+      "pytest_elapsed_seconds": 0.68,
+      "process_elapsed_seconds": 0.94,
+      "max_rss_kb": 218784
+    }
+  },
+  "local_validation": {
+    "root_ruff": "PASS",
+    "root_format_check": "PASS",
+    "root_strict_mypy_source_files": 143,
+    "root_pytest_passed": 525,
+    "root_pytest_skipped": 3,
+    "root_branch_coverage_percent": 61,
+    "console_backend_pytest_passed": 11,
+    "console_backend_branch_coverage_percent": 82.44,
+    "frontend_lint": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_unit_tests_passed": 3,
+    "frontend_production_build": "PASS",
+    "synthetic_browser_tests_passed": 6,
+    "synthetic_browser_tests_skipped": 2,
+    "real_browser_tests_passed": 2,
+    "real_browser_tests_skipped": 6,
+    "desktop_and_mobile": true,
+    "axe_critical_or_serious_violations": 0,
+    "browser_console_errors": 0,
+    "npm_audit_known_vulnerabilities": 0,
+    "pip_audit_known_vulnerabilities": 0
+  },
+  "dependency_locks": {
+    "backend_uv_lock_sha256": "775b2bff088b55b1a3e1e1dac595339d99194355990c4a9a3a46566b8ab84bb8",
+    "frontend_package_lock_sha256": "429e33ccec983e8f4494bacd79d91c034bdd55bfceafbb7dd6a9f25504e53d51"
+  },
+  "browser_evidence": {
+    "desktop_screenshot_sha256": "7997d7a17394168c97f1850d221c67329043797dc10857e46c33aade2b885986",
+    "mobile_screenshot_sha256": "f0d642125cd5020bd6ca9f1f43692a621e9f74e27a64a430ad583e8cf1a1562d",
+    "screenshots_committed": false,
+    "reason": "real restricted research views remain local"
+  },
+  "read_only_isolation": {
+    "web_reads_published_read_model_only": true,
+    "source_write_syscalls": 0,
+    "prospective_sqlite_accesses": 0,
+    "sealed_or_csi500_accesses": 0,
+    "provider_runner_systemctl_execs": 0,
+    "strace_set_sha256": "a0bf1654966ab34c1006e9d8864d192646da318e775de369d44f9f1cff7f8fff",
+    "live_branch": "prospective/cn-shadow-v1",
+    "live_head": "68011e807d5e7f921384f2b1c6d136b717b68bf8",
+    "service_unit_sha256": "813505ed166ee9f3282322d822010550430a58a3ad46f370c6746ddc6e1c1b39",
+    "timer_unit_sha256": "3b6a5c76f335d8a9697f1a5f68f3058f661e22d8e2dac81ae4cfce5deb7b7754",
+    "timer_active": true,
+    "timer_enabled": true,
+    "service_last_result": "success"
+  },
+  "optional_features": {
+    "column_layout_and_light_observability": "DONE",
+    "duckdb": "NOT_SELECTED",
+    "perspective": "DEFERRED",
+    "lightweight_charts": "NOT_SELECTED",
+    "prometheus_grafana": "DEFERRED",
+    "opentelemetry": "NOT_SELECTED",
+    "mlflow": "NOT_SELECTED"
+  },
+  "remote_ci": {
+    "status": "PASS",
+    "run_id": 35757742999,
+    "head_sha": "2579b6e520fb6803ea30b5b2eafebfbf4b3dd48f",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35757742999",
+    "jobs": [
+      "checks",
+      "v2-environment",
+      "v3-historical-environment",
+      "console-backend",
+      "console-contract",
+      "console-frontend",
+      "console-browser"
+    ],
+    "non_blocking_annotations": [
+      "GitHub Actions internal Node 20 runtime deprecation; hosted runner forced affected actions to Node 24"
+    ]
+  },
+  "CORE_FUNCTIONAL_STATUS": "COMPLETE",
+  "COMPONENT_MIGRATION_STATUS": "COMPLETE_WITH_DOCUMENTED_DEFERRALS",
+  "REAL_DATA_INTEGRATION_STATUS": "PASS",
+  "RESEARCH_SEMANTICS_PARITY": "PASS",
+  "READ_ONLY_ISOLATION_STATUS": "PASS",
+  "API_CONTRACT_STATUS": "PASS",
+  "UI_BROWSER_STATUS": "PASS",
+  "LOCAL_RELEASE_STATUS": "READY_FOR_LOCAL_USE_WITH_DOCUMENTED_DEFERRALS",
+  "STRATEGY_PROMOTION": "NOT_AUTHORIZED",
+  "LIVE_TRADING": "FORBIDDEN",
+  "CSI500": "NOT_READ"
+}
+
