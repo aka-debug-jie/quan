@@ -62,7 +62,18 @@
     "timer_unit_sha256": "3b6a5c76f335d8a9697f1a5f68f3058f661e22d8e2dac81ae4cfce5deb7b7754"
   },
   "remote_ci": {
-    "status": "PENDING_FIRST_PUSH"
+    "status": "PASS",
+    "run_id": 35735165199,
+    "head_sha": "28dfb9cd86ca956cdfd89d2ad9a64455c4a28b78",
+    "url": "https://github.com/aka-debug-jie/quan/actions/runs/35735165199",
+    "jobs": [
+      "checks",
+      "v2-environment",
+      "v3-historical-environment",
+      "console-backend",
+      "console-frontend",
+      "console-browser"
+    ]
   },
   "IMPLEMENTATION_STATUS": "COMPLETE",
   "REAL_DATA_INTEGRATION_STATUS": "PASS",
