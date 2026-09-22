@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from quant_console.api import create_app
 from quant_console.config import ConsoleConfigError, load_config
 from quant_console.demo import publish_demo
-from quant_console.models import ExperimentFilters, SortDirection
+from quant_console.models import CompareRequest, ExperimentFilters, SortDirection
 from quant_console.repository import SnapshotRepository, SnapshotView
 from quant_console.service import ConsoleService
 from quant_console.snapshot import SnapshotError, build_snapshot
@@ -108,6 +108,8 @@ def test_real_adapter_keeps_absolute_and_benchmark_states_separate(tmp_path: Pat
     assert candidate["economic_outcome"] == "NOT_EVALUABLE"
     detail = client.get(f"{prefix}/experiments/{candidate['artifact_id']}").json()
     assert detail["benchmark_comparability"] == "MATCHED_BENCHMARK_NOT_EVALUABLE"
+    assert detail["metrics"]["annualized_volatility"]["value"] == 0.2
+    assert detail["metrics"]["trade_count"]["value"] == 42
     assert len(detail["series"]) == 2
     prospective = client.get(f"{prefix}/prospective").json()
     assert prospective["accounts"]["fully_prospective_v1"]["status"] == "NOT_STARTED"
@@ -139,6 +141,30 @@ def test_comparison_modes_keep_scenario_and_evaluability_boundaries(tmp_path: Pa
         json={"artifact_ids": [real["artifact_id"], invalid["artifact_id"]]},
     ).json()
     assert not_evaluable["mode"] == "NOT_EVALUABLE"
+
+    repository = SnapshotRepository(runtime)
+    view = repository.view(snapshot_id)
+    details = dict(view.details)
+    zero_detail = dict(details[zero["artifact_id"]])
+    compatibility = zero_detail["compatibility"]
+    assert isinstance(compatibility, dict)
+    zero_detail["compatibility"] = {
+        **compatibility,
+        "protocol_sha256": "different-protocol",
+    }
+    details[zero["artifact_id"]] = zero_detail
+
+    class MismatchRepository:
+        def view(self, _snapshot_id: str) -> SnapshotView:
+            return replace(view, details=details)
+
+    service = ConsoleService(cast(SnapshotRepository, MismatchRepository()))
+    mismatch = service.compare(
+        snapshot_id,
+        CompareRequest(artifact_ids=[real["artifact_id"], zero["artifact_id"]]),
+    )
+    assert mismatch.mode == "DESCRIPTIVE_ONLY"
+    assert "protocol_sha256 不一致" in mismatch.reasons
 
 
 def test_filter_sort_and_export_apply_to_full_scope(tmp_path: Path) -> None:
@@ -174,6 +200,26 @@ def test_filter_sort_and_export_apply_to_full_scope(tmp_path: Path) -> None:
     assert payload["snapshot_id"] == snapshot_id
     assert len(payload["items"]) == 2
     assert payload["items"][0]["cagr"] == -0.05
+    assert payload["items"][0]["annualized_volatility"] == 0.2
+    assert payload["items"][0]["trade_count"] == 42
+    assert (
+        client.get(
+            f"{prefix}/experiments",
+            params={"sort": "benchmark_comparability", "page_size": 100},
+        ).status_code
+        == 200
+    )
+    benchmark_sorted_export = client.post(
+        f"{prefix}/exports/experiments",
+        json={
+            "scope": "filtered",
+            "format": "json",
+            "filters": {"q": ""},
+            "sort": "benchmark_comparability",
+            "direction": "asc",
+        },
+    )
+    assert benchmark_sorted_export.status_code == 200
 
 
 def test_snapshot_identity_is_stable_and_atomic_failure_keeps_current(tmp_path: Path) -> None:
@@ -195,7 +241,10 @@ def test_snapshot_identity_is_stable_and_atomic_failure_keeps_current(tmp_path: 
     with pytest.raises(SnapshotError, match="hash mismatch"):
         build_snapshot(config, runtime)
     assert (runtime / "current.json").read_bytes() == previous
-    assert _json(runtime / "last_refresh.json")["status"] == "FAIL"
+    refresh = _json(runtime / "last_refresh.json")
+    assert refresh["status"] == "FAIL"
+    assert refresh["reason_code"] == "SOURCE_VALIDATION_FAILED"
+    assert str(tmp_path) not in json.dumps(refresh)
 
 
 def test_tampered_snapshot_fails_closed_without_leaking_paths(tmp_path: Path) -> None:
@@ -463,6 +512,7 @@ def _write_run(root: Path, identity: str, strategy: str, scenario: str, *, valid
         },
     }
     if valid:
+        result["execution"] = {"fills": 42}
         result["metrics"] = {
             "cagr": -0.05,
             "total_return": -0.4,

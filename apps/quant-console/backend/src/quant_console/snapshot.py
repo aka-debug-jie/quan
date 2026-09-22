@@ -86,7 +86,11 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
     except Exception as error:
         _atomic_json(
             runtime / "last_refresh.json",
-            {"status": "FAIL", "observed_at": datetime.now(UTC).isoformat(), "reason": str(error)},
+            {
+                "status": "FAIL",
+                "observed_at": datetime.now(UTC).isoformat(),
+                "reason_code": _refresh_failure_code(error),
+            },
         )
         raise
 
@@ -266,7 +270,12 @@ def _normalize_run(
         "engineering_status": str(result.get("IMPLEMENTATION_STATUS", "UNKNOWN")),
         "research_validity": str(result.get("RESEARCH_VALIDITY", "UNKNOWN")),
         "data_use_level": str(result.get("DATA_USE_LEVEL", "UNKNOWN")),
-        "metrics": _metric_map(cast(JSON, metrics) if valid else {}),
+        "metrics": _metric_map(
+            cast(JSON, metrics) if valid else {},
+            cast(JSON, result["execution"])
+            if valid and isinstance(result.get("execution"), dict)
+            else {},
+        ),
         "failure_reason": None if valid else _failure_reason(result),
         "period": None,
         "compatibility": {
@@ -489,7 +498,7 @@ def _nav_series(path: Path) -> list[JSON]:
     ]
 
 
-def _metric_map(metrics: JSON) -> JSON:
+def _metric_map(metrics: JSON, execution: JSON) -> JSON:
     units = {
         "cagr": "ratio",
         "total_return": "ratio",
@@ -498,16 +507,30 @@ def _metric_map(metrics: JSON) -> JSON:
         "sharpe_ratio": "ratio",
         "turnover": "two_sided_ratio",
         "total_transaction_costs": "CNY",
+        "trade_count": "count",
     }
+    values = dict(metrics)
+    if "trade_count" not in values and isinstance(execution.get("fills"), int):
+        values["trade_count"] = execution["fills"]
     return {
         key: {
-            "value": metrics.get(key),
+            "value": values.get(key),
             "unit": unit,
-            "validity": "VALID" if key in metrics else "NOT_AVAILABLE",
-            "unavailable_reason": None if key in metrics else "source metric unavailable",
+            "validity": "VALID" if key in values else "NOT_AVAILABLE",
+            "unavailable_reason": None if key in values else "source metric unavailable",
         }
         for key, unit in units.items()
     }
+
+
+def _refresh_failure_code(error: Exception) -> str:
+    if isinstance(error, SnapshotError):
+        return "SOURCE_VALIDATION_FAILED"
+    if isinstance(error, KeyError):
+        return "SOURCE_SCHEMA_FAILED"
+    if isinstance(error, OSError):
+        return "SOURCE_IO_FAILED"
+    return "SNAPSHOT_BUILD_FAILED"
 
 
 def publish_read_model(body: JSON, runtime: Path) -> Path:
@@ -663,6 +686,7 @@ def _write_ledger(path: Path, experiments: list[JSON]) -> None:
         "sharpe_ratio",
         "turnover",
         "total_transaction_costs",
+        "trade_count",
     )
     for item in experiments:
         metrics = cast(JSON, item.get("metrics", {}))

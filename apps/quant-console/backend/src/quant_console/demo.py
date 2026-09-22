@@ -36,6 +36,7 @@ def publish_demo(runtime: Path) -> Path:
         "sharpe_ratio": _metric("sharpe_ratio", -0.1, "ratio", evidence_id),
         "turnover": _metric("turnover", 3.0, "two_sided_ratio", evidence_id),
         "total_transaction_costs": _metric("total_transaction_costs", 1234.5, "CNY", evidence_id),
+        "trade_count": _metric("trade_count", 4, "count", evidence_id),
     }
     experiment: dict[str, Any] = {
         "artifact_id": artifact_id,

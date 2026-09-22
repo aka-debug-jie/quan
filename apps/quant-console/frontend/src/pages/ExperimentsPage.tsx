@@ -53,6 +53,7 @@ export default function ExperimentsPage() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
   const gridApi = useRef<GridApi<ExperimentSummary>>()
+  const [actionError, setActionError] = useState<string>()
   const q = params.get('q') ?? ''
   const [draft, setDraft] = useState(q)
   const study = params.get('study') ?? ''
@@ -107,6 +108,22 @@ export default function ExperimentsPage() {
       sort: sort === 'cagr' ? direction : undefined,
     },
     {
+      headerName: '年化波动率',
+      colId: 'annualized_volatility',
+      valueGetter: ({ data }) => data?.metrics.annualized_volatility?.value,
+      valueFormatter: ({ data }) => formatMetric(data?.metrics.annualized_volatility),
+      minWidth: 140,
+      sort: sort === 'annualized_volatility' ? direction : undefined,
+    },
+    {
+      headerName: 'Sharpe',
+      colId: 'sharpe_ratio',
+      valueGetter: ({ data }) => data?.metrics.sharpe_ratio?.value,
+      valueFormatter: ({ data }) => formatMetric(data?.metrics.sharpe_ratio),
+      minWidth: 115,
+      sort: sort === 'sharpe_ratio' ? direction : undefined,
+    },
+    {
       headerName: '最大回撤',
       colId: 'maximum_drawdown',
       valueGetter: ({ data }) => data?.metrics.maximum_drawdown?.value,
@@ -121,6 +138,14 @@ export default function ExperimentsPage() {
       valueFormatter: ({ data }) => formatMetric(data?.metrics.turnover),
       minWidth: 130,
       sort: sort === 'turnover' ? direction : undefined,
+    },
+    {
+      headerName: '交易次数',
+      colId: 'trade_count',
+      valueGetter: ({ data }) => data?.metrics.trade_count?.value,
+      valueFormatter: ({ data }) => formatMetric(data?.metrics.trade_count),
+      minWidth: 115,
+      sort: sort === 'trade_count' ? direction : undefined,
     },
     {
       headerName: '经济结论',
@@ -175,7 +200,12 @@ export default function ExperimentsPage() {
     const payload: ExportRequest = scope === 'selected'
       ? { scope, artifact_ids: selected, format: 'csv', filters: { q: '' }, sort, direction }
       : { scope, artifact_ids: [], format: 'csv', filters: { q, study: study || null, family: family || null, status: filterStatus }, sort, direction }
-    await exportExperiments(snapshotId, payload)
+    setActionError(undefined)
+    try {
+      await exportExperiments(snapshotId, payload)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '安全导出失败')
+    }
   }
 
   if (query.isPending) return <Loading />
@@ -222,6 +252,7 @@ export default function ExperimentsPage() {
         }}>重置列布局</Button>
       </div>
     </section>
+    {actionError && <div className="alert alert-error" role="alert">安全导出失败：{actionError}</div>}
     <section className="panel grid-panel" aria-label="实验结果表格">
       <AgGridReact<ExperimentSummary>
         theme={gridTheme}

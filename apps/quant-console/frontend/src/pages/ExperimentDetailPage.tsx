@@ -50,9 +50,11 @@ export default function ExperimentDetailPage() {
     <div className="metrics">
       <MetricCard label="净 CAGR" metric={value.metrics.cagr} />
       <MetricCard label="总收益" metric={value.metrics.total_return} />
+      <MetricCard label="年化波动率" metric={value.metrics.annualized_volatility} />
       <MetricCard label="Sharpe" metric={value.metrics.sharpe_ratio} />
       <MetricCard label="最大回撤" metric={value.metrics.maximum_drawdown} />
       <MetricCard label="双边换手" metric={value.metrics.turnover} />
+      <MetricCard label="交易次数" metric={value.metrics.trade_count} />
       <MetricCard label="直接费用" metric={value.metrics.total_transaction_costs} />
     </div>
     <section className="panel">

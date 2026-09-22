@@ -35,14 +35,17 @@ export default function ComparePage() {
     </section>
     <section className="panel table-wrap">
       <table className="data-table compare-table">
-        <thead><tr><th>实验</th><th>绝对数据</th><th>匹配基准</th><th>净 CAGR</th><th>最大回撤</th><th>双边换手</th><th>直接费用</th><th>经济结论</th></tr></thead>
+        <thead><tr><th>实验</th><th>绝对数据</th><th>匹配基准</th><th>净 CAGR</th><th>年化波动率</th><th>Sharpe</th><th>最大回撤</th><th>双边换手</th><th>交易次数</th><th>直接费用</th><th>经济结论</th></tr></thead>
         <tbody>{value.items.map((item) => <tr key={item.artifact_id}>
           <td><Link to={snapshotHref(`/experiments/${encodeURIComponent(item.artifact_id)}`, snapshotId)}>{item.experiment_id}</Link><small>{item.scenario_id}</small></td>
           <td><StatusChip value={item.data_evaluability} /></td>
           <td><StatusChip value={item.benchmark_comparability} /></td>
           <td>{formatMetric(item.metrics.cagr)}</td>
+          <td>{formatMetric(item.metrics.annualized_volatility)}</td>
+          <td>{formatMetric(item.metrics.sharpe_ratio)}</td>
           <td>{formatMetric(item.metrics.maximum_drawdown)}</td>
           <td>{formatMetric(item.metrics.turnover)}</td>
+          <td>{formatMetric(item.metrics.trade_count)}</td>
           <td>{formatMetric(item.metrics.total_transaction_costs)}</td>
           <td><StatusChip value={item.economic_outcome} /></td>
         </tr>)}</tbody>

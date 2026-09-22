@@ -42,6 +42,7 @@ const experiment = {
     maximum_drawdown: metric('maximum_drawdown', -0.15),
     sharpe_ratio: metric('sharpe_ratio', -0.1),
     turnover: metric('turnover', 3, 'two_sided_ratio'),
+    trade_count: metric('trade_count', 4, 'count'),
     total_transaction_costs: metric('total_transaction_costs', 1234, 'CNY'),
   },
   matched_benchmark_id: 'demo:benchmark',
@@ -164,6 +165,7 @@ test('real mode exposes frozen counts, dual status and separate prospective acco
   await page.getByRole('button', { name: 'AF7_TOP50_D20_EQ__REAL_T1_1M' }).click()
   await expect(page.getByText('MATCHED_BENCHMARK_NOT_EVALUABLE')).toBeVisible()
   await expect(page.getByText('-5.22%')).toBeVisible()
+  await expect(page.getByText('交易次数')).toBeVisible()
   await page.getByRole('button', { name: '查看来源证据' }).click()
   await expect(page.getByText('run_result')).toBeVisible()
   await page.keyboard.press('Escape')

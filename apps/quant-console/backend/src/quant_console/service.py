@@ -42,11 +42,15 @@ ALLOWED_SORTS = {
     "family",
     "scenario_id",
     "data_evaluability",
+    "benchmark_comparability",
     "economic_outcome",
     "cagr",
+    "annualized_volatility",
+    "sharpe_ratio",
     "maximum_drawdown",
     "turnover",
     "total_transaction_costs",
+    "trade_count",
 }
 
 
@@ -127,7 +131,11 @@ class ConsoleService:
         hard_fields = (
             "study_revision",
             "bars_sha256",
+            "protocol_sha256",
             "base_protocol_sha256",
+            "portfolio_sha256",
+            "scores_sha256",
+            "signals_sha256",
             "initial_cash",
         )
         for item in items[1:]:
@@ -277,9 +285,12 @@ def _sort(rows: list[JsonObject], field: str, direction: SortDirection) -> list[
         value: JsonValue
         if field in {
             "cagr",
+            "annualized_volatility",
+            "sharpe_ratio",
             "maximum_drawdown",
             "turnover",
             "total_transaction_costs",
+            "trade_count",
         }:
             metrics = row.get("metrics")
             metric = metrics.get(field) if isinstance(metrics, dict) else None
@@ -317,9 +328,12 @@ def _export_row(row: JsonObject) -> dict[str, str | int | float | None]:
         "benchmark_comparability": _csv_text(str(row.get("benchmark_comparability", ""))),
         "economic_outcome": _csv_text(str(row.get("economic_outcome", ""))),
         "cagr": metric("cagr"),
+        "annualized_volatility": metric("annualized_volatility"),
+        "sharpe_ratio": metric("sharpe_ratio"),
         "maximum_drawdown": metric("maximum_drawdown"),
         "turnover": metric("turnover"),
         "total_transaction_costs": metric("total_transaction_costs"),
+        "trade_count": metric("trade_count"),
         "data_use_level": _csv_text(str(row.get("data_use_level", ""))),
         "source_hash": _csv_text(str(row.get("run_identity", ""))),
     }
@@ -337,9 +351,12 @@ def _empty_export_row() -> dict[str, None]:
             "benchmark_comparability",
             "economic_outcome",
             "cagr",
+            "annualized_volatility",
+            "sharpe_ratio",
             "maximum_drawdown",
             "turnover",
             "total_transaction_costs",
+            "trade_count",
             "data_use_level",
             "source_hash",
         )
