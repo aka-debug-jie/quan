@@ -16,8 +16,10 @@ from quant_stack.snapshot import write_immutable
 from quant_stack_v3.protocol import load_protocol
 from quant_stack_v3.upgrade_artifacts import (
     build_measurement_audit,
+    build_signal_attribution,
     build_upgrade_score_cache,
 )
+from quant_stack_v3.upgrade_economics import build_economic_summary
 from quant_stack_v3.upgrade_parallel import run_upgrade_registry_parallel
 from quant_stack_v3.upgrade_protocol import (
     ExperimentSpec,
@@ -90,6 +92,22 @@ def audit(
     """Reproduce and correct the fixed-membership label boundary."""
     path, report = build_measurement_audit(bars_path, scores_path, output_root)
     typer.echo(json.dumps({"report": path.as_posix(), **report}, indent=2))
+
+
+@app.command("attribution")
+def attribution(
+    bars_path: Annotated[Path, typer.Option()],
+    scores_path: Annotated[Path, typer.Option()],
+    output_root: Annotated[Path, typer.Option()],
+) -> None:
+    """Build fixed-group, exposure and rank-persistence signal attribution."""
+    path, report = build_signal_attribution(bars_path, scores_path, output_root)
+    typer.echo(
+        json.dumps(
+            {"report": path.as_posix(), "status": report["status"]},
+            indent=2,
+        )
+    )
 
 
 @app.command("run")
@@ -186,6 +204,25 @@ def run(
 def report(matrix_path: Annotated[Path, typer.Option()]) -> None:
     """Print the immutable aggregate used by the human-facing result report."""
     typer.echo(json.dumps(json.loads(matrix_path.read_text(encoding="utf-8")), indent=2))
+
+
+@app.command("economics")
+def economics(
+    matrix_path: Annotated[Path, typer.Option()],
+    artifact_root: Annotated[Path, typer.Option()],
+    output_root: Annotated[Path, typer.Option()],
+    old_matrix_path: Annotated[Path | None, typer.Option()] = None,
+    old_artifact_root: Annotated[Path | None, typer.Option()] = None,
+) -> None:
+    """Compile real-run economics and optional V3 before/after evidence."""
+    path, report = build_economic_summary(
+        matrix_path,
+        artifact_root,
+        output_root,
+        old_matrix_path=old_matrix_path,
+        old_artifact_root=old_artifact_root,
+    )
+    typer.echo(json.dumps({"report": path.as_posix(), "status": report["status"]}, indent=2))
 
 
 @app.command("verify")

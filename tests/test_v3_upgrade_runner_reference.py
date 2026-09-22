@@ -104,3 +104,18 @@ def test_corrected_runner_matches_independent_reference(tmp_path: Path) -> None:
     )
     assert reference["status"] == "INDEPENDENT_ECONOMIC_REFERENCE_PASS"
     assert reference_path.exists()
+    t2_path, _ = run_upgrade_strategy(
+        protocol,
+        UpgradeRunSpec(
+            "B00_LIQ20_D20__REAL_T2_1M",
+            "B00_LIQ20_D20",
+            "REAL_T2_1M",
+            Decimal("1000000"),
+            2,
+            "real",
+        ),
+        inputs,
+    )
+    t2_ledger = pd.read_parquet(t2_path.parent / "ledger.parquet")
+    first_fill = t2_ledger.loc[t2_ledger.event_type == "fill", "occurred_on"].iloc[0]
+    assert first_fill == sessions[2].isoformat()
