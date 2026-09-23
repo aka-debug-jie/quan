@@ -66,11 +66,15 @@ bash "$CONSOLE_TREE/apps/quant-console/scripts/start-local.sh" \
   "$CONSOLE_ROOT/console-runtime/sources.toml" \
   "$CONSOLE_ROOT/console-runtime" \
   "$CONSOLE_ROOT/console-python-env" \
-  "$CONSOLE_ROOT/console-runtime/static" 8767
+  "$CONSOLE_ROOT/console-runtime/static" 8877
 ```
 
-Open `http://127.0.0.1:8767`. Stop with `Ctrl+C` in the launch terminal. The
-script does not install a service, bind a public interface, run research,
+Open `http://127.0.0.1:8877`. Stop with `Ctrl+C` in the launch terminal, then
+check that the port is closed. On this host the wrapper shell exited while its
+Python server child remained; identify the exact process bound to 8877 with
+`ss -ltnp '( sport = :8877 )'`, verify its command points to this isolated
+`console-python-env` and runtime, and send `TERM` only to that PID if needed.
+The script does not install a service, bind a public interface, run research,
 initialize a paper account or submit an order. Static assets are copied from
 the checked local frontend build to the isolated runtime before launch.
 

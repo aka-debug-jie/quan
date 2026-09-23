@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "study_id": "CN_RESEARCH_CLOSURE_NEXT",
+  "status": "CLOSED_WITHOUT_PROMOTED_CANDIDATE",
+  "implementation_commit": "b3bc38d4981af26010e2178b7a80c3e6e670431d",
+  "data_use_level": "RQALPHA_SINGLE_SOURCE_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY",
+  "research_validity": "FULLY_TOUCHED_RETROSPECTIVE_DEVELOPMENT",
+  "registered_runs": 59,
+  "revised_runs": 51,
+  "new_descriptive_control_runs": 4,
+  "conditional_scale_runs": 4,
+  "valid_runs": 47,
+  "not_evaluable_runs": 12,
+  "restored_prior_runs": 20,
+  "retained_candidates": 0,
+  "unresolved_event": "sh600832/2015-05-20: exact account entitlement and held valuation unresolved",
+  "closure_protocol_sha256": "8f7502cf54f7cc921d04a1e433574a43fae84ec4899e719b3023c0337aa11f3b",
+  "action_evidence_sha256": "de02970201ab049455f371e756eb8ba87a97ad07d71d051cb92620d0b10babd9",
+  "matrix_sha256": "32ff1f1d826120994f00f059cdf9744866a666eae0ac21dd661c2e8b093191b7",
+  "statistics_sha256": "c7b077c668fe3f42f95f25897bb6a1533c7b9740b962b95589b9c79fca28ccd0",
+  "economics_sha256": "e9a1feac869b1b30c38dbc347397b598482cd47d409d5aafe38d287b13a17438",
+  "published_manifest_sha256": "faadc0a8e27931606464d560f3cf84438ce39d3956ff3ba95fda42561c161554",
+  "evidence_index_sha256": "0f12a9592069b931adcc6cbfafcb9482aa343fa56c45049b369c2991381bf252",
+  "old_to_new_revision_sha256": "5cc80ec8fa0b14ec1961eeec6a39073561a38678b45a646e29ce9df55fea4ba5",
+  "new_dependency_sha256": "e7162ab22673098d6c60e9bbb1a4e6fcba7fa51b88e02f6e628919757d447435",
+  "independent_economic_reference": {
+    "status": "PASS",
+    "representative_accounts": 7
+  },
+  "no_cache_rebuild": {
+    "status": "INDEPENDENT_NO_CACHE_REBUILD_PASS",
+    "experiment_id": "B50_LIQ50_D20__REAL_T1_1M",
+    "report_sha256": "3f697b2eba33a45805ad2d762d5c093fde00670bca81fcaa6532bae2c02335e4",
+    "verified_files": [
+      "result.json",
+      "nav.parquet",
+      "ledger.parquet",
+      "order_intents.parquet",
+      "daily_turnover.parquet"
+    ]
+  },
+  "console": {
+    "mode": "real",
+    "snapshot_id": "96be95c1b1ec9d544758ef31df8ea7283ca59a0018b026a9aca0df5907e314d8",
+    "snapshot_manifest_sha256": "08602d315e470df05e223d5505975973d19c9f00895ff2f7f719b09082b00c58",
+    "desktop_browser_test": "PASS",
+    "mobile_browser_test": "PASS",
+    "real_safe_export": "PASS_HASHED_RESULT_AND_REVISION_LINEAGE_NO_LOCAL_PATH",
+    "local_preview_port": 8877,
+    "preview_stopped": true,
+    "account_read": false,
+    "desktop_screenshot_sha256_local_only": "1ab4dbf4e28b674d5c66d766aed6f8eef0231c9ec6a6e21b55893e71300a8c0a",
+    "mobile_screenshot_sha256_local_only": "dc636ec9a7d0d0381ac6d5c671193c67d8c82608439b1a8bcd5eed0793bd357c"
+  },
+  "tests": {
+    "research_pytest_passed": 542,
+    "research_coverage_percent": 65,
+    "console_backend_pytest_passed": 12,
+    "console_backend_coverage_percent": 81,
+    "frontend_unit_passed": 4,
+    "synthetic_browser_passed": 6,
+    "real_browser_passed": 2,
+    "ruff": "PASS",
+    "mypy_strict": "PASS",
+    "frontend_lint_typecheck_build": "PASS",
+    "openapi_generated_contract": "PASS",
+    "github_ci_checkpoint_run": 35840049277,
+    "github_ci_checkpoint_jobs_passed": 7
+  },
+  "prospective_isolation": {
+    "branch_commit": "68011e807d5e7f921384f2b1c6d136b717b68bf8",
+    "timer_status": "active",
+    "paper_sqlite_sha256_before_after_console": "2373793a01dbc7bff06c705a0eeb6d074cbb1d558a576a3fdb7f7b49fc3f7443",
+    "acceptance_manifest_sha256_before_after_console": "2f1a7ae9636971ebcf227914cb7f4a047e91f7145d943ec5f6630689fc4227d4",
+    "sealed_csi500_read": false,
+    "live_broker_added": false,
+    "strategy_deployed": false
+  }
+}
