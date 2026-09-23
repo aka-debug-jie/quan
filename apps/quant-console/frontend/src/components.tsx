@@ -97,13 +97,17 @@ export function EvidenceDialog({
         <Dialog.Close className="dialog-close" aria-label="关闭">×</Dialog.Close>
         <Dialog.Title>来源证据</Dialog.Title>
         <Dialog.Description id="evidence-description">
-          仅展示安全身份、哈希、数据等级和限制，不暴露本机路径。
+          仅展示公开来源和安全身份，不暴露本机路径或原始行情。
         </Dialog.Description>
         {!evidence ? <Loading /> : <dl className="detail-list">
           <dt>来源类型</dt><dd>{evidence.source_kind}</dd>
           <dt>研究</dt><dd>{evidence.study_id ?? '不适用'}</dd>
           <dt>运行身份</dt><dd className="mono">{evidence.run_identity ?? '不适用'}</dd>
           <dt>SHA-256</dt><dd className="mono">{evidence.sha256 ?? evidence.receipt_sha256 ?? '未提供'}</dd>
+          {evidence.source_url && <><dt>原始披露</dt><dd><a href={evidence.source_url} target="_blank" rel="noopener noreferrer">打开来源</a></dd></>}
+          {evidence.pages && <><dt>页码</dt><dd>{evidence.pages.join('、')}</dd></>}
+          {evidence.published_on && <><dt>发布日期</dt><dd>{evidence.published_on}</dd></>}
+          {evidence.retrieved_at_utc && <><dt>归档时间 UTC</dt><dd>{evidence.retrieved_at_utc}</dd></>}
           <dt>数据等级</dt><dd>{evidence.data_use_level ?? '未提供'}</dd>
           <dt>限制</dt><dd>{(evidence.limitations ?? []).length ? evidence.limitations?.join('；') : '无附加说明'}</dd>
         </dl>}
@@ -117,6 +121,7 @@ export function JsonDisclosure({ value, label = '查看原始结构' }: { value:
 }
 
 function statusKind(value: string): 'good' | 'warn' | 'bad' | 'neutral' {
+  if (/RETAINED_FOR_NEXT_VALIDATION_REVIEW|POST_RESULT_MECHANISM_DIAGNOSTIC_ONLY/.test(value)) return 'neutral'
   if (/VALID|PASS|COMPLETE|COMPARABLE|OBSERVED|REFERENCE/.test(value) && !/NOT_|INVALID|INCOMPLETE/.test(value)) return 'good'
   if (/FAIL|INVALID|FORBIDDEN|NO_EDGE|NO_PROMOTABLE/.test(value)) return 'bad'
   if (/NOT_|UNKNOWN|MIXED|DEGRADED|INSUFFICIENT|RC/.test(value)) return 'warn'

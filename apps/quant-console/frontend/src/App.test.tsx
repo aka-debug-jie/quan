@@ -38,6 +38,46 @@ test('renders snapshot-bound real states without turning research gaps into zero
   expect(screen.getByText(/工程测试通过不等于策略通过/)).toBeInTheDocument()
 })
 
+test('shows retained upgrade counts beside the new closure revision', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : String(input)
+    const body = url.endsWith('/api/v1/snapshot')
+      ? { schema_version: 2, mode: 'real', snapshot_id: snapshotId, published_at: '2026-09-23T00:00:00Z', adapter_version: 'test' }
+      : {
+          snapshot_id: snapshotId,
+          current_stage: 'CN_RESEARCH_CLOSURE_NEXT',
+          registered_runs: 55,
+          valid_runs: 35,
+          not_evaluable_runs: 20,
+          retained_candidates: 0,
+          legacy_invalid_engineering_runs: 19,
+          economic_outcome: 'SEE_PAIRED_STATISTICS',
+          latest_prospective_date: null,
+          prospective_status: 'OPERATIONS_LOOP_RC',
+          warnings: [],
+          closure_counts: {
+            old_registered_runs: 51,
+            old_valid_runs: 19,
+            old_not_evaluable_runs: 32,
+            old_retained_candidates: 0,
+            revised_runs: 51,
+            new_control_runs: 4,
+            conditional_scale_runs: 0,
+            cache_reuse_from_old_study: 0,
+            valid_runs: 35,
+            not_evaluable_runs: 20,
+            retained_candidates: 0,
+          },
+        }
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }))
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[`/?snapshot=${snapshotId}`]}><App /></MemoryRouter></QueryClientProvider>)
+  expect(await screen.findByText(/上轮强化研究：登记 51 项，可评价 19 项，不可评价 32 项/)).toBeInTheDocument()
+  expect(screen.getByText(/旧运行修订 51 项，新增机制对照 4 项/)).toBeInTheDocument()
+  expect(screen.getByText('本轮历史重评结果已发布')).toBeInTheDocument()
+})
+
 test('formatting preserves unavailable and negative semantics', () => {
   expect(formatMetric()).toBe('不可用')
   expect(formatMetric({

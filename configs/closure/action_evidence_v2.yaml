@@ -1,0 +1,58 @@
+schema_version: 2
+status: RETROSPECTIVE_ACCOUNTING_VERIFICATION_ONLY
+inherits:
+  path: action_evidence_v1.yaml
+  sha256: ddc3f104df86b95e451f84f364dccf8662135f44f4ec69cdd759dc8dedb6b389
+events:
+  - symbol: sh601162
+    effective_date: 2020-03-19
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2020-03-10
+    listing_date: 2020-03-31
+    offered_ratio: 0.30
+    subscription_price: 3.60
+    record_shares: 5180000000
+    actual_issued_shares: 1485967280
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2020-03-06/1207348215.PDF
+        published_on: 2020-03-06
+        retrieved_at_utc: 2026-09-23T07:35:11Z
+        sha256: 714bc408d1159f37844bc1f80fd65ccfa47baaa2047905db0ae3b3a578792d43
+        pages: [2, 5]
+      - url: https://static.cninfo.com.cn/finalpage/2020-03-19/1207383673.PDF
+        published_on: 2020-03-19
+        retrieved_at_utc: 2026-09-23T07:35:11Z
+        sha256: 1767ce82f80cf6225c67d24e5ad3e840e70ccb2b807f8507d430e673330ec078
+        pages: [2, 3]
+      - url: https://static.cninfo.com.cn/finalpage/2021-04-28/1209842475.PDF
+        published_on: 2021-04-28
+        retrieved_at_utc: 2026-09-23T07:35:12Z
+        sha256: d46018f7a9c52977c47ea915a421abb0c3b8ce744d5b22b4694fa93e976283b3
+        pages: [68, 69]
+  - symbol: sh600030
+    effective_date: 2022-01-27
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2022-01-18
+    listing_date: 2022-02-15
+    offered_ratio: 0.15
+    subscription_price: 14.43
+    record_shares: 10648448329
+    actual_issued_shares: 1552021645
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2022-01-14/1212175294.PDF
+        published_on: 2022-01-14
+        retrieved_at_utc: 2026-09-23T07:35:12Z
+        sha256: ab3b2ebbd50ec6ea5f9a73b78cceeb33541100dd26ff348bc18208e8c3efb689
+        pages: [3, 27]
+      - url: https://static.cninfo.com.cn/finalpage/2022-02-10/1212332253.PDF
+        published_on: 2022-02-10
+        retrieved_at_utc: 2026-09-23T07:35:11Z
+        sha256: 450422d289f25d47b60916f97dc9b2549f50aa18404493d028f66c1c24cd703c
+        pages: [1, 2, 5]
+      - url: https://static.cninfo.com.cn/finalpage/2023-03-31/1216282870.PDF
+        published_on: 2023-03-31
+        retrieved_at_utc: 2026-09-23T07:35:14Z
+        sha256: 41240638952bdf36613b291690b15aee9d50666de787a5a1248abe2d92efa971
+        pages: [64, 200]

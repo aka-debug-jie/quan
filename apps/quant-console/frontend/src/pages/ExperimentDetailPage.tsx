@@ -23,16 +23,23 @@ export default function ExperimentDetailPage() {
   const { id = '' } = useParams()
   const detail = useQuery(experimentQuery(snapshotId, id))
   const [evidenceOpen, setEvidenceOpen] = useState(false)
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState('')
+  const currentEvidenceId = selectedEvidenceId || detail.data?.evidence_id || ''
   const evidence = useQuery({
-    ...evidenceQuery(snapshotId, detail.data?.evidence_id ?? ''),
-    enabled: evidenceOpen && Boolean(detail.data?.evidence_id),
+    ...evidenceQuery(snapshotId, currentEvidenceId),
+    enabled: evidenceOpen && Boolean(currentEvidenceId),
   })
+  const openEvidence = (evidenceId: string) => {
+    setSelectedEvidenceId(evidenceId)
+    setEvidenceOpen(true)
+  }
   const series = useQueries({
     queries: (detail.data?.series ?? []).map((item) => seriesQuery(snapshotId, item.series_id)),
   })
   if (detail.isPending) return <Loading />
   if (detail.isError) return <ErrorState message={detail.error.message} />
   const value = detail.data
+  const appliedEvidenceIds = value.applied_evidence_ids ?? []
   const loadedSeries = series.flatMap((query) => query.data ? [query.data] : [])
   const seriesError = series.find((query) => query.isError)?.error
   return <Page
@@ -86,14 +93,19 @@ export default function ExperimentDetailPage() {
       </section>
     </div>
     <section className="panel">
-      <div className="section-head"><div><span className="eyebrow">身份追溯</span><h2>协议与来源</h2></div><Button variant="secondary" onClick={() => setEvidenceOpen(true)}>查看来源证据</Button></div>
+      <div className="section-head"><div><span className="eyebrow">身份追溯</span><h2>协议与来源</h2></div><Button variant="secondary" onClick={() => openEvidence(value.evidence_id)}>查看来源证据</Button></div>
       <dl className="detail-list identity-list">
         <dt>运行身份</dt><dd className="mono">{value.run_identity}</dd>
         <dt>研究修订</dt><dd className="mono">{value.study_revision}</dd>
+        {value.revision_kind && <><dt>修订类别</dt><dd>{value.revision_kind}</dd></>}
+        {value.revision_of && <><dt>修订前运行</dt><dd><Link className="mono" to={snapshotHref(`/experiments/${encodeURIComponent(value.revision_of)}`, snapshotId)}>{value.revision_of}</Link></dd></>}
         <dt>源结果 SHA-256</dt><dd className="mono">{value.source_sha256}</dd>
         <dt>数据等级</dt><dd>{value.data_use_level}</dd>
         <dt>限制</dt><dd>{value.limitations.length ? value.limitations.join('；') : '无附加说明'}</dd>
       </dl>
+      {appliedEvidenceIds.length > 0 && <div className="status-row">
+        {appliedEvidenceIds.map((evidenceId) => <Button key={evidenceId} variant="secondary" onClick={() => openEvidence(evidenceId)}>{evidenceId}</Button>)}
+      </div>}
     </section>
     <EvidenceDialog open={evidenceOpen} onOpenChange={setEvidenceOpen} evidence={evidence.data} />
   </Page>

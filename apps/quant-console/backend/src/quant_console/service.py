@@ -144,6 +144,12 @@ class ConsoleService:
                     reasons.append(f"{field} 不一致")
             if item.period != baseline.period:
                 reasons.append("数据期间不一致")
+        if any(
+            item.study_id == "cn_research_closure_next"
+            and item.economic_outcome == "POST_RESULT_MECHANISM_DIAGNOSTIC_ONLY"
+            for item in items
+        ):
+            reasons.append("事后登记的机制对照仅供描述")
         if any(item.data_evaluability is not DataEvaluability.VALID for item in items):
             reasons.append("至少一项绝对结果不可评价")
             mode = ComparisonMode.NOT_EVALUABLE
@@ -153,7 +159,17 @@ class ConsoleService:
             scenarios = {item.scenario_id for item in items}
             strategies = {item.strategy_id for item in items}
             if len(scenarios) == 1:
-                mode = ComparisonMode.COMPARABLE
+                if len(strategies) == 1 or (
+                    len(items) == 2
+                    and (
+                        items[0].matched_benchmark_id == items[1].experiment_id
+                        or items[1].matched_benchmark_id == items[0].experiment_id
+                    )
+                ):
+                    mode = ComparisonMode.COMPARABLE
+                else:
+                    reasons.append("不是冻结的候选与匹配基准配对")
+                    mode = ComparisonMode.DESCRIPTIVE_ONLY
             elif len(strategies) == 1:
                 for field in ("cost_mode", "execution_delay_sessions"):
                     values = {getattr(item.compatibility, field) for item in items}
@@ -227,7 +243,7 @@ class ConsoleService:
         else:
             rows = _filter(view.experiments, request.filters)
         rows = _sort(rows, request.sort, request.direction)
-        safe = [_export_row(row) for row in rows]
+        safe = [_export_row(row, view.details.get(str(row["artifact_id"]))) for row in rows]
         if request.format is ExportFormat.JSON:
             body = json.dumps(
                 {"snapshot_id": snapshot_id, "scope": request.scope, "items": safe},
@@ -308,9 +324,11 @@ def _sort(rows: list[JsonObject], field: str, direction: SortDirection) -> list[
     )
 
 
-def _export_row(row: JsonObject) -> dict[str, str | int | float | None]:
+def _export_row(row: JsonObject, detail: JsonObject | None) -> dict[str, str | int | float | None]:
     raw_metrics = row.get("metrics")
     metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
+    raw_evidence = detail.get("applied_evidence_ids") if detail else None
+    evidence_ids = raw_evidence if isinstance(raw_evidence, list) else []
 
     def metric(name: str) -> float | None:
         value = metrics.get(name)
@@ -335,7 +353,17 @@ def _export_row(row: JsonObject) -> dict[str, str | int | float | None]:
         "total_transaction_costs": metric("total_transaction_costs"),
         "trade_count": metric("trade_count"),
         "data_use_level": _csv_text(str(row.get("data_use_level", ""))),
-        "source_hash": _csv_text(str(row.get("run_identity", ""))),
+        "run_identity": _csv_text(str(row.get("run_identity", ""))),
+        "result_sha256": _csv_text(str(detail.get("source_sha256", ""))) if detail else None,
+        "revision_of": _csv_text(str(row.get("revision_of", "")))
+        if row.get("revision_of")
+        else None,
+        "revision_kind": _csv_text(str(row.get("revision_kind", "")))
+        if row.get("revision_kind")
+        else None,
+        "applied_evidence_ids": _csv_text(",".join(str(item) for item in evidence_ids))
+        if detail
+        else None,
     }
 
 
@@ -358,7 +386,11 @@ def _empty_export_row() -> dict[str, None]:
             "total_transaction_costs",
             "trade_count",
             "data_use_level",
-            "source_hash",
+            "run_identity",
+            "result_sha256",
+            "revision_of",
+            "revision_kind",
+            "applied_evidence_ids",
         )
     }
 

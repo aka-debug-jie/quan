@@ -14,6 +14,82 @@
         "title": "BenchmarkComparability",
         "type": "string"
       },
+      "ClosureCounts": {
+        "additionalProperties": false,
+        "description": "Revision counts separate from the retained upgrade study.",
+        "properties": {
+          "cache_reuse_from_old_study": {
+            "minimum": 0.0,
+            "title": "Cache Reuse From Old Study",
+            "type": "integer"
+          },
+          "conditional_scale_runs": {
+            "minimum": 0.0,
+            "title": "Conditional Scale Runs",
+            "type": "integer"
+          },
+          "new_control_runs": {
+            "minimum": 0.0,
+            "title": "New Control Runs",
+            "type": "integer"
+          },
+          "not_evaluable_runs": {
+            "minimum": 0.0,
+            "title": "Not Evaluable Runs",
+            "type": "integer"
+          },
+          "old_not_evaluable_runs": {
+            "minimum": 0.0,
+            "title": "Old Not Evaluable Runs",
+            "type": "integer"
+          },
+          "old_registered_runs": {
+            "minimum": 0.0,
+            "title": "Old Registered Runs",
+            "type": "integer"
+          },
+          "old_retained_candidates": {
+            "minimum": 0.0,
+            "title": "Old Retained Candidates",
+            "type": "integer"
+          },
+          "old_valid_runs": {
+            "minimum": 0.0,
+            "title": "Old Valid Runs",
+            "type": "integer"
+          },
+          "retained_candidates": {
+            "minimum": 0.0,
+            "title": "Retained Candidates",
+            "type": "integer"
+          },
+          "revised_runs": {
+            "minimum": 0.0,
+            "title": "Revised Runs",
+            "type": "integer"
+          },
+          "valid_runs": {
+            "minimum": 0.0,
+            "title": "Valid Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "old_registered_runs",
+          "old_valid_runs",
+          "old_not_evaluable_runs",
+          "old_retained_candidates",
+          "revised_runs",
+          "new_control_runs",
+          "conditional_scale_runs",
+          "cache_reuse_from_old_study",
+          "valid_runs",
+          "not_evaluable_runs",
+          "retained_candidates"
+        ],
+        "title": "ClosureCounts",
+        "type": "object"
+      },
       "CompareRequest": {
         "additionalProperties": false,
         "description": "Experiments selected for a compatibility check.",
@@ -276,6 +352,31 @@
             "title": "Limitations",
             "type": "array"
           },
+          "pages": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
+          },
+          "published_on": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published On"
+          },
           "receipt_sha256": {
             "anyOf": [
               {
@@ -286,6 +387,17 @@
               }
             ],
             "title": "Receipt Sha256"
+          },
+          "retrieved_at_utc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved At Utc"
           },
           "rules_sha256": {
             "anyOf": [
@@ -335,6 +447,17 @@
             "title": "Source Kind",
             "type": "string"
           },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
           "study_id": {
             "anyOf": [
               {
@@ -380,6 +503,13 @@
         "additionalProperties": false,
         "description": "Structured detail without embedding large time series.",
         "properties": {
+          "applied_evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applied Evidence Ids",
+            "type": "array"
+          },
           "artifact_id": {
             "title": "Artifact Id",
             "type": "string"
@@ -512,6 +642,17 @@
           "research_validity": {
             "title": "Research Validity",
             "type": "string"
+          },
+          "revision_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Kind"
           },
           "revision_of": {
             "anyOf": [
@@ -784,6 +925,17 @@
             "title": "Research Validity",
             "type": "string"
           },
+          "revision_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision Kind"
+          },
           "revision_of": {
             "anyOf": [
               {
@@ -1027,6 +1179,16 @@
         "additionalProperties": false,
         "description": "Research and prospective summary without recommendation language.",
         "properties": {
+          "closure_counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClosureCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "current_stage": {
             "title": "Current Stage",
             "type": "string"

@@ -16,6 +16,7 @@ from quant_stack_v3.bundle import (
     extract_and_inspect,
     inspect_bundle,
 )
+from quant_stack_v3.closure_cli import app as closure_app
 from quant_stack_v3.crosscheck import run_crosscheck
 from quant_stack_v3.diagnostics import build_signal_diagnostics
 from quant_stack_v3.market import MarketDataError, normalize_bundle
@@ -33,6 +34,7 @@ app.add_typer(data_app, name="data")
 app.add_typer(signal_app, name="signal")
 app.add_typer(run_app, name="run")
 app.add_typer(upgrade_app, name="upgrade")
+app.add_typer(closure_app, name="closure")
 
 
 @data_app.command("capture")

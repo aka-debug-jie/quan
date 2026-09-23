@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from hashlib import sha256
 from pathlib import Path
 
 import yaml
@@ -144,25 +145,99 @@ def unexplained_factor_events(
     return {session: tuple(sorted(set(symbols))) for session, symbols in sorted(output.items())}
 
 
-def load_no_participation_overrides(path: Path) -> set[tuple[str, date]]:
-    """Load evidence-backed rights issues that credit no synthetic cash or shares."""
+def load_no_participation_overrides(
+    path: Path, *, evidence_root: Path | None = None
+) -> set[tuple[str, date]]:
+    """Load verified rights issues without crediting synthetic cash or shares."""
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+    if not isinstance(payload, dict) or payload.get("schema_version") not in {1, 2}:
         raise ValueError("corporate-action override file is invalid")
+    inherited: set[tuple[str, date]] = set()
+    if payload["schema_version"] == 2:
+        if evidence_root is None:
+            raise ValueError("closure evidence root is required")
+        source = payload.get("inherits")
+        if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+            raise ValueError("closure evidence must identify inherited overrides")
+        inherited_path = (path.parent / source["path"]).resolve()
+        if _file_sha256(inherited_path) != source.get("sha256"):
+            raise ValueError("inherited corporate-action override hash differs")
+        inherited = load_no_participation_overrides(inherited_path, evidence_root=evidence_root)
     events = payload.get("events")
     if not isinstance(events, list):
         raise ValueError("corporate-action overrides require an event list")
-    output: set[tuple[str, date]] = set()
+    output = set(inherited)
     for item in events:
         if (
             not isinstance(item, dict)
             or item.get("kind") != "rights_issue"
             or item.get("policy") != "no_participation_no_synthetic_cash_or_shares"
-            or len(str(item.get("source_sha256", ""))) != 64
         ):
             raise ValueError("unsupported corporate-action override")
-        output.add((str(item["symbol"]), date.fromisoformat(str(item["effective_date"]))))
+        if payload["schema_version"] == 1:
+            if len(str(item.get("source_sha256", ""))) != 64:
+                raise ValueError("legacy rights issue lacks source hash")
+        else:
+            _validate_closure_rights_issue(item, evidence_root)
+        key = (str(item["symbol"]), date.fromisoformat(str(item["effective_date"])))
+        if key in output:
+            raise ValueError("duplicate corporate-action override")
+        output.add(key)
     return output
+
+
+def _validate_closure_rights_issue(item: dict[str, object], evidence_root: Path | None) -> None:
+    if evidence_root is None:
+        raise ValueError("closure evidence root is required")
+    record = date.fromisoformat(str(item["registration_date"]))
+    effective = date.fromisoformat(str(item["effective_date"]))
+    listing = date.fromisoformat(str(item["listing_date"]))
+    offered = Decimal(str(item["offered_ratio"]))
+    price = Decimal(str(item["subscription_price"]))
+    record_shares = int(str(item["record_shares"]))
+    issued = int(str(item["actual_issued_shares"]))
+    if (
+        not record < effective < listing
+        or offered <= 0
+        or price <= 0
+        or record_shares <= 0
+        or issued <= 0
+        or Decimal(issued) > Decimal(record_shares) * offered + 1
+    ):
+        raise ValueError("closure rights issue economics are invalid")
+    documents = item.get("source_documents")
+    if not isinstance(documents, list) or len(documents) < 2:
+        raise ValueError("closure rights issue requires issue and result evidence")
+    for document in documents:
+        if not isinstance(document, dict):
+            raise ValueError("closure evidence document must be a mapping")
+        digest = str(document.get("sha256", ""))
+        url = str(document.get("url", ""))
+        pages = document.get("pages")
+        if (
+            len(digest) != 64
+            or not url.startswith("https://")
+            or not isinstance(pages, list)
+            or not pages
+        ):
+            raise ValueError("closure evidence document metadata is incomplete")
+        if not all(isinstance(page, int) and page > 0 for page in pages):
+            raise ValueError("closure evidence page references are invalid")
+        date.fromisoformat(str(document["published_on"]))
+        source_path = evidence_root / "raw" / f"{digest}.pdf"
+        if not source_path.is_file() or _file_sha256(source_path) != digest:
+            raise ValueError("closure evidence source hash differs")
+        with source_path.open("rb") as handle:
+            if handle.read(4) != b"%PDF":
+                raise ValueError("closure evidence source is not a PDF")
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _load_transfers(path: Path, start: date, end: date) -> dict[date, tuple[PositionTransfer, ...]]:

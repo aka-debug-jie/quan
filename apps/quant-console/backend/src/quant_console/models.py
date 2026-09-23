@@ -165,6 +165,7 @@ class ExperimentSummary(ContractModel):
     period: Period | None
     matched_benchmark_id: str | None = None
     revision_of: str | None = None
+    revision_kind: str | None = None
 
 
 class ExperimentDetail(ExperimentSummary):
@@ -179,6 +180,7 @@ class ExperimentDetail(ExperimentSummary):
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     series: list[SeriesMeta]
     curve_unavailable_reason: str | None = None
+    applied_evidence_ids: list[str] = Field(default_factory=list)
 
 
 class SnapshotMeta(ContractModel):
@@ -205,6 +207,23 @@ class Overview(ContractModel):
     latest_prospective_date: str | None
     prospective_status: str
     warnings: list[str]
+    closure_counts: ClosureCounts | None = None
+
+
+class ClosureCounts(ContractModel):
+    """Revision counts separate from the retained upgrade study."""
+
+    old_registered_runs: int = Field(ge=0)
+    old_valid_runs: int = Field(ge=0)
+    old_not_evaluable_runs: int = Field(ge=0)
+    old_retained_candidates: int = Field(ge=0)
+    revised_runs: int = Field(ge=0)
+    new_control_runs: int = Field(ge=0)
+    conditional_scale_runs: int = Field(ge=0)
+    cache_reuse_from_old_study: int = Field(ge=0)
+    valid_runs: int = Field(ge=0)
+    not_evaluable_runs: int = Field(ge=0)
+    retained_candidates: int = Field(ge=0)
 
 
 class StudySummary(ContractModel):
@@ -399,6 +418,10 @@ class EvidenceSummary(ContractModel):
     rules_sha256: str | None = None
     calendar_sha256: str | None = None
     absolute_paths_exposed: bool = False
+    source_url: str | None = None
+    published_on: str | None = None
+    retrieved_at_utc: str | None = None
+    pages: list[int] | None = None
 
 
 class ExportRequest(ContractModel):

@@ -149,7 +149,12 @@ class HistoricalAccount:
         self._accrue_entitlements(trading_date)
         due = sorted(
             (item for item in self.orders if item.execution_date == trading_date),
-            key=lambda item: (0 if item.side is Side.SELL else 1, item.order_id),
+            key=lambda item: (
+                0 if item.side is Side.SELL else 1,
+                item.symbol,
+                item.signal_date,
+                item.quantity,
+            ),
         )
         for order in due:
             self._fill_or_reject(order, trading_date, raw_opens, costs, blocks, rules)

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import multiprocessing
+import tempfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from hashlib import sha256
+from pathlib import Path
 
 from quant_stack.research_json import canonical_json
 from quant_stack.snapshot import write_immutable
@@ -17,6 +18,7 @@ from quant_stack_v3.upgrade_runner import (
     UpgradeRunSpec,
     _identities,
     _run_loaded,
+    load_cached_upgrade_result,
     prepare_upgrade_data,
 )
 
@@ -41,7 +43,13 @@ def run_upgrade_registry_parallel(
         run_identity = sha256(canonical_json(identities)).hexdigest()
         result_path = inputs.artifact_root / "runs" / run_identity / "result.json"
         if result_path.exists():
-            results[spec.experiment_id] = json.loads(result_path.read_text(encoding="utf-8"))
+            if inputs.closure_protocol_path is not None:
+                raise ValueError(
+                    "closure results require a fresh artifact root; cache reuse is disallowed"
+                )
+            results[spec.experiment_id] = load_cached_upgrade_result(
+                result_path, run_identity, identities
+            )
         else:
             pending.append(spec)
     if not pending:
@@ -69,10 +77,13 @@ def _run_forked(spec: UpgradeRunSpec) -> tuple[str, dict[str, object]]:
     identities = _identities(spec, inputs)
     run_identity = sha256(canonical_json(identities)).hexdigest()
     run_root = inputs.artifact_root / "runs" / run_identity
-    result_path = run_root / "result.json"
-    if run_root.exists() and any(run_root.iterdir()):
-        raise ValueError(f"incomplete upgrade run directory already exists: {run_identity}")
-    run_root.mkdir(parents=True, exist_ok=True)
+    if run_root.exists():
+        raise ValueError(f"upgrade run directory already exists: {run_identity}")
+    run_root.parent.mkdir(parents=True, exist_ok=True)
+    staging_root = inputs.artifact_root / "staging"
+    staging_root.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=f"{run_identity}-", dir=staging_root))
+    result_path = stage / "result.json"
     try:
         _, result = _run_loaded(
             base_protocol,
@@ -81,7 +92,7 @@ def _run_forked(spec: UpgradeRunSpec) -> tuple[str, dict[str, object]]:
             inputs,
             identities,
             run_identity,
-            run_root,
+            stage,
             result_path,
             prepared,
         )
@@ -109,4 +120,5 @@ def _run_forked(spec: UpgradeRunSpec) -> tuple[str, dict[str, object]]:
             "identities": identities,
         }
         write_immutable(result_path, canonical_json(result) + b"\n")
+    stage.rename(run_root)
     return spec.experiment_id, result

@@ -35,36 +35,73 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
         upgrade = _load_study(
             "quant_upgrade_v1", config.upgrade_v1.manifest, config.upgrade_v1.artifacts
         )
+        closure = None
+        if config.closure_next is not None:
+            prior_runs = {
+                str(item["experiment_id"]): str(item["run_identity"])
+                for item in cast(list[JSON], upgrade["experiments"])
+            }
+            closure = _load_study(
+                "cn_research_closure_next",
+                config.closure_next.manifest,
+                config.closure_next.artifacts,
+                prior_runs=prior_runs,
+            )
         prospective = _load_prospective(config.prospective_artifacts, config.prospective_acceptance)
         prospective_public = {
             key: value for key, value in prospective.items() if key not in {"evidence", "health"}
         }
         system = _load_observation(observation)
-        experiments = cast(list[JSON], v3["experiments"]) + cast(list[JSON], upgrade["experiments"])
-        details = cast(JSON, v3["details"]) | cast(JSON, upgrade["details"])
-        evidence = cast(JSON, v3["evidence"]) | cast(JSON, upgrade["evidence"])
-        registered = int(upgrade["registered_runs"])
+        studies = [v3, upgrade] + ([closure] if closure is not None else [])
+        experiments = [item for study in studies for item in cast(list[JSON], study["experiments"])]
+        details = {
+            key: value for study in studies for key, value in cast(JSON, study["details"]).items()
+        }
+        evidence = {
+            key: value for study in studies for key, value in cast(JSON, study["evidence"]).items()
+        }
+        current = closure if closure is not None else upgrade
+        registered = int(current["registered_runs"])
         valid = sum(
+            item["data_evaluability"] == "VALID"
+            for item in cast(list[JSON], current["experiments"])
+        )
+        not_evaluable = registered - valid
+        old_valid = sum(
             item["data_evaluability"] == "VALID"
             for item in cast(list[JSON], upgrade["experiments"])
         )
-        not_evaluable = registered - valid
+        closure_counts = None
+        if closure is not None:
+            counts = cast(JSON, closure["closure_counts"])
+            closure_counts = {
+                "old_registered_runs": int(upgrade["registered_runs"]),
+                "old_valid_runs": old_valid,
+                "old_not_evaluable_runs": int(upgrade["registered_runs"]) - old_valid,
+                "old_retained_candidates": int(upgrade["retained_candidates"]),
+                **counts,
+            }
         body: JSON = {
             "schema_version": SNAPSHOT_SCHEMA_VERSION,
             "mode": "real",
             "overview": {
-                "current_stage": "CN_QUANT_RESEARCH_UPGRADE_V1_COMPLETE",
+                "current_stage": (
+                    "CN_RESEARCH_CLOSURE_NEXT"
+                    if closure is not None
+                    else "CN_QUANT_RESEARCH_UPGRADE_V1_COMPLETE"
+                ),
                 "registered_runs": registered,
                 "valid_runs": valid,
                 "not_evaluable_runs": not_evaluable,
-                "retained_candidates": int(upgrade["retained_candidates"]),
+                "retained_candidates": int(current["retained_candidates"]),
                 "legacy_invalid_engineering_runs": int(upgrade["legacy_count"]),
-                "economic_outcome": upgrade["economic_outcome"],
+                "economic_outcome": current["economic_outcome"],
                 "latest_prospective_date": prospective.get("latest_date"),
                 "prospective_status": prospective.get("operations_status"),
                 "warnings": prospective.get("warnings", []),
+                "closure_counts": closure_counts,
             },
-            "studies": [v3["study"], upgrade["study"]],
+            "studies": [study["study"] for study in studies],
             "experiments": experiments,
             "experiment_details": details,
             "signals": {
@@ -75,7 +112,7 @@ def build_snapshot(config: ConsoleConfig, runtime: Path, observation: Path | Non
             },
             "prospective": prospective_public,
             "health": {
-                "sources": [v3["health"], upgrade["health"], prospective["health"]],
+                "sources": [study["health"] for study in studies] + [prospective["health"]],
                 "system_observation": system,
                 "live_broker": "FORBIDDEN",
                 "csi500": "NOT_READ",
@@ -103,7 +140,13 @@ def load_current(runtime: Path) -> JSON:
     return _json_object(runtime / "snapshots" / snapshot_id / "manifest.json")
 
 
-def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
+def _load_study(
+    study_id: str,
+    manifest_path: Path,
+    artifacts: Path,
+    *,
+    prior_runs: dict[str, str] | None = None,
+) -> JSON:
     manifest = _json_object(manifest_path)
     manifest_sha = _file_sha256(manifest_path)
     study_revision = manifest_sha
@@ -114,12 +157,60 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
     identities = matrix.get("result_identities")
     if not isinstance(identities, dict):
         raise SnapshotError(f"{study_id}: result identities missing")
+    lineage = matrix.get("lineage") if study_id == "cn_research_closure_next" else None
+    if study_id == "cn_research_closure_next" and (
+        not isinstance(lineage, dict) or prior_runs is None
+    ):
+        raise SnapshotError("closure study lacks a verifiable revision lineage")
+    result_hashes: JSON = {}
+    if study_id == "cn_research_closure_next":
+        published_hashes = manifest.get("result_sha256s")
+        if not isinstance(published_hashes, dict) or set(published_hashes) != {
+            str(value) for value in identities.values()
+        }:
+            raise SnapshotError("closure result hash inventory differs from its matrix")
+        result_hashes = published_hashes
+    source_evidence: JSON = {}
+    run_evidence: JSON = {}
+    if study_id == "cn_research_closure_next":
+        evidence_sha = str(manifest["evidence_index_sha256"])
+        evidence_path = _within(artifacts, Path("evidence") / f"{evidence_sha}.json")
+        _require_hash(evidence_path, evidence_sha)
+        evidence_index = _json_object(evidence_path)
+        records = evidence_index.get("records")
+        links = evidence_index.get("run_evidence")
+        if not isinstance(records, dict) or not isinstance(links, dict):
+            raise SnapshotError("closure evidence index is incomplete")
+        safe_fields = {
+            "source_kind",
+            "sha256",
+            "source_url",
+            "pages",
+            "published_on",
+            "retrieved_at_utc",
+            "data_use_level",
+            "limitations",
+        }
+        for record in records.values():
+            if (
+                not isinstance(record, dict)
+                or set(record) - safe_fields
+                or not str(record.get("source_url", "")).startswith("https://")
+            ):
+                raise SnapshotError("closure evidence contains an unsafe field")
+        source_evidence = records
+        run_evidence = links
     experiments: list[JSON] = []
     details: JSON = {}
-    evidence: JSON = {}
+    evidence: JSON = {
+        key: cast(JSON, value) | {"study_id": study_id, "study_revision": study_revision}
+        for key, value in source_evidence.items()
+    }
     for experiment_id, run_identity_value in sorted(identities.items()):
         run_identity = str(run_identity_value)
         result_path = _within(artifacts, Path("runs") / run_identity / "result.json")
+        if study_id == "cn_research_closure_next":
+            _require_hash(result_path, str(result_hashes[run_identity]))
         result = _json_object(result_path)
         if str(result.get("run_identity", run_identity)) != run_identity:
             raise SnapshotError(f"{study_id}: run identity mismatch")
@@ -132,7 +223,32 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
             result,
             result_path,
         )
+        if study_id == "cn_research_closure_next":
+            assert isinstance(lineage, dict)
+            assert prior_runs is not None
+            entry = lineage.get(experiment_id)
+            if not isinstance(entry, dict) or entry.get("new_run_identity") != run_identity:
+                raise SnapshotError("closure run lineage differs")
+            previous = entry.get("revision_of")
+            if previous != prior_runs.get(str(experiment_id)):
+                raise SnapshotError("closure predecessor identity differs from retained study")
+            summary["revision_kind"] = str(entry.get("kind", "UNSPECIFIED_REVISION"))
+            detail["revision_kind"] = summary["revision_kind"]
+            if previous is not None:
+                summary["revision_of"] = f"quant_upgrade_v1:{previous}"
+                detail["revision_of"] = summary["revision_of"]
+            applied = run_evidence.get(run_identity, [])
+            if not isinstance(applied, list) or not all(
+                isinstance(item, str) and item in source_evidence for item in applied
+            ):
+                raise SnapshotError("closure applied evidence links are invalid")
+            detail["applied_evidence_ids"] = applied
         nav_path = result_path.parent / "nav.parquet"
+        if study_id == "cn_research_closure_next" and summary["data_evaluability"] == "VALID":
+            if not nav_path.is_file() or not cast(JSON, result.get("identities", {})).get(
+                "nav_sha256"
+            ):
+                raise SnapshotError("valid closure run lacks hashed NAV evidence")
         if summary["data_evaluability"] == "VALID" and nav_path.exists():
             expected = cast(JSON, result.get("identities", {})).get("nav_sha256")
             if expected:
@@ -204,13 +320,41 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
         diagnostic_path = _within(artifacts, Path("diagnostics") / f"{diagnostic_sha}.json")
         _require_hash(diagnostic_path, diagnostic_sha)
         signals = _json_object(diagnostic_path)
-    else:
+    elif study_id == "quant_upgrade_v1":
         attribution = _manifest_artifact(
             manifest, artifacts, "signal_attribution_sha256", "attribution"
         )
         measurement = _manifest_artifact(
             manifest, artifacts, "measurement_audit_sha256", "measurement"
         )
+    closure_counts: JSON = {}
+    if study_id == "cn_research_closure_next":
+        closure_counts = {
+            key: int(manifest[key])
+            for key in (
+                "revised_runs",
+                "new_control_runs",
+                "conditional_scale_runs",
+                "cache_reuse_from_old_study",
+                "valid_runs",
+                "not_evaluable_runs",
+                "retained_candidates",
+            )
+        }
+        outcomes = cast(JSON, matrix["candidate_outcomes"])
+        if (
+            closure_counts["revised_runs"]
+            + closure_counts["new_control_runs"]
+            + closure_counts["conditional_scale_runs"]
+            != len(identities)
+            or closure_counts["valid_runs"]
+            != sum(item["data_evaluability"] == "VALID" for item in experiments)
+            or closure_counts["not_evaluable_runs"]
+            != sum(item["data_evaluability"] != "VALID" for item in experiments)
+            or closure_counts["retained_candidates"]
+            != sum(str(value).startswith("RETAIN_") for value in outcomes.values())
+        ):
+            raise SnapshotError("closure revision counts conflict with its matrix")
     retained = int(manifest.get("retained_candidates", 0))
     return {
         "study": {
@@ -234,6 +378,7 @@ def _load_study(study_id: str, manifest_path: Path, artifacts: Path) -> JSON:
         "signals": signals,
         "attribution": attribution,
         "measurement": measurement,
+        "closure_counts": closure_counts,
         "health": {
             "source_id": study_id,
             "verification_status": "HASH_VERIFIED",
@@ -328,6 +473,7 @@ def _attach_benchmark_states(study_id: str, experiments: list[JSON], matrix: JSO
                 item["benchmark_comparability"] = "SELF_BENCHMARK"
                 item["economic_outcome"] = "REFERENCE"
             else:
+                item["matched_benchmark_id"] = benchmark_strategy
                 item["benchmark_comparability"] = "COMPARABLE"
                 item["economic_outcome"] = str(matrix.get("ECONOMIC_OUTCOME", "UNKNOWN"))
         return
@@ -342,8 +488,20 @@ def _attach_benchmark_states(study_id: str, experiments: list[JSON], matrix: JSO
         "MOM605_TOP50_D20_EQ": "B50_LIQ50_D20",
         "ROBUSTTREND_TOP50_D20_EQ": "B50_LIQ50_D20",
     }
+    if study_id == "cn_research_closure_next":
+        configured = matrix.get("matched_benchmarks")
+        if not isinstance(configured, dict):
+            raise SnapshotError("closure matched benchmark map is missing")
+        benchmark_for = {str(key): str(value) for key, value in configured.items()}
     for item in experiments:
         strategy = str(item["strategy_id"])
+        if study_id == "cn_research_closure_next" and item["scenario_id"] in {
+            "REAL_T1_500K",
+            "REAL_T1_5M",
+        }:
+            item["benchmark_comparability"] = "NOT_APPLICABLE"
+            item["economic_outcome"] = "ABSOLUTE_SCALE_DIAGNOSTIC_ONLY"
+            continue
         if strategy in benchmark_for:
             benchmark_id = f"{benchmark_for[strategy]}__{item['scenario_id']}"
             benchmark_row = by_name.get(benchmark_id)
@@ -354,7 +512,11 @@ def _attach_benchmark_states(study_id: str, experiments: list[JSON], matrix: JSO
                 item["benchmark_comparability"] = "COMPARABLE"
             else:
                 item["benchmark_comparability"] = "MATCHED_BENCHMARK_NOT_EVALUABLE"
-            item["economic_outcome"] = str(outcomes.get(strategy, "NOT_EVALUABLE"))
+            item["economic_outcome"] = (
+                "POST_RESULT_MECHANISM_DIAGNOSTIC_ONLY"
+                if study_id == "cn_research_closure_next" and strategy == "COND_FILTER_LIQ50_D20_EQ"
+                else str(outcomes.get(strategy, "NOT_EVALUABLE"))
+            )
         elif strategy.startswith("B"):
             item["benchmark_comparability"] = "SELF_BENCHMARK"
             item["economic_outcome"] = "REFERENCE"

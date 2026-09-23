@@ -8,6 +8,11 @@ artifacts = "/absolute/path/to/cn-historical-v3/artifacts"
 manifest = "/absolute/path/to/CN_QUANT_RESEARCH_UPGRADE_V1_MANIFEST.json"
 artifacts = "/absolute/path/to/cn-quant-upgrade-v1/artifacts"
 
+# Optional evidence-repaired historical revision; keep the old study above.
+# [closure_next]
+# manifest = "/absolute/path/to/cn-research-closure-next/manifests/<sha256>.json"
+# artifacts = "/absolute/path/to/cn-research-closure-next/artifacts/<revision>"
+
 [prospective]
 artifacts = "/absolute/path/to/artifacts/v2/prospective/cn_shadow_v1"
 acceptance_manifest = "/absolute/path/to/docs/v2/PROSPECTIVE_ACCEPTANCE_MANIFEST.json"

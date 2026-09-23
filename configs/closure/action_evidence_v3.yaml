@@ -1,0 +1,33 @@
+schema_version: 2
+status: RETROSPECTIVE_ACCOUNTING_VERIFICATION_ONLY
+inherits:
+  path: action_evidence_v2.yaml
+  sha256: dd2935bf5bff2c9e471450bacd61a9dd99f2c7478c0372d0575bebb2105925f8
+events:
+  - symbol: sh600089
+    effective_date: 2017-06-09
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2017-05-31
+    listing_date: 2017-06-22
+    offered_ratio: 0.156269
+    subscription_price: 7.17
+    record_shares: 3237882686
+    actual_issued_shares: 480765103
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2017-06-01/1203577247.PDF
+        published_on: 2017-06-01
+        retrieved_at_utc: 2026-09-23T07:55:25Z
+        sha256: 6b2519b988c130f356fd5ac0d9cedf1d67939fbe18b1706cdf64fa599eded606
+        pages: [2, 3]
+      - url: https://file.finance.sina.com.cn/211.154.219.97%3A9494/MRGG/CNSESH_STOCK/2017/2017-6/2017-06-19/3500818.PDF
+        source_kind: issuer_filing_mirror
+        published_on: 2017-06-19
+        retrieved_at_utc: 2026-09-23T07:54:23Z
+        sha256: e503fc3d6dc5b3f0999e3740a495d1b3252a38071837acd8f0fc018659d10033
+        pages: [1, 2, 6]
+      - url: https://static.cninfo.com.cn/finalpage/2020-04-14/1219211551.PDF
+        published_on: 2020-04-14
+        retrieved_at_utc: 2026-09-23T07:54:23Z
+        sha256: 7d56114adc547deaf360080481e07f9ae6356764c29ab702b081753584d6c8cd
+        pages: [138]

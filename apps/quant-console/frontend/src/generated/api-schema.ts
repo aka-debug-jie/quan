@@ -253,6 +253,34 @@ export interface components {
          */
         BenchmarkComparability: "COMPARABLE" | "SELF_BENCHMARK" | "MATCHED_BENCHMARK_NOT_EVALUABLE" | "MATCHED_BENCHMARK_MISSING" | "NOT_APPLICABLE" | "UNKNOWN";
         /**
+         * ClosureCounts
+         * @description Revision counts separate from the retained upgrade study.
+         */
+        ClosureCounts: {
+            /** Cache Reuse From Old Study */
+            cache_reuse_from_old_study: number;
+            /** Conditional Scale Runs */
+            conditional_scale_runs: number;
+            /** New Control Runs */
+            new_control_runs: number;
+            /** Not Evaluable Runs */
+            not_evaluable_runs: number;
+            /** Old Not Evaluable Runs */
+            old_not_evaluable_runs: number;
+            /** Old Registered Runs */
+            old_registered_runs: number;
+            /** Old Retained Candidates */
+            old_retained_candidates: number;
+            /** Old Valid Runs */
+            old_valid_runs: number;
+            /** Retained Candidates */
+            retained_candidates: number;
+            /** Revised Runs */
+            revised_runs: number;
+            /** Valid Runs */
+            valid_runs: number;
+        };
+        /**
          * CompareRequest
          * @description Experiments selected for a compatibility check.
          */
@@ -341,8 +369,14 @@ export interface components {
             evidence_id: string;
             /** Limitations */
             limitations?: string[];
+            /** Pages */
+            pages?: number[] | null;
+            /** Published On */
+            published_on?: string | null;
             /** Receipt Sha256 */
             receipt_sha256?: string | null;
+            /** Retrieved At Utc */
+            retrieved_at_utc?: string | null;
             /** Rules Sha256 */
             rules_sha256?: string | null;
             /** Run Identity */
@@ -353,6 +387,8 @@ export interface components {
             sha256?: string | null;
             /** Source Kind */
             source_kind: string;
+            /** Source Url */
+            source_url?: string | null;
             /** Study Id */
             study_id?: string | null;
             /** Study Revision */
@@ -365,6 +401,8 @@ export interface components {
          * @description Structured detail without embedding large time series.
          */
         ExperimentDetail: {
+            /** Applied Evidence Ids */
+            applied_evidence_ids?: string[];
             /** Artifact Id */
             artifact_id: string;
             benchmark_comparability: components["schemas"]["BenchmarkComparability"];
@@ -409,6 +447,8 @@ export interface components {
             period: components["schemas"]["Period"] | null;
             /** Research Validity */
             research_validity: string;
+            /** Revision Kind */
+            revision_kind?: string | null;
             /** Revision Of */
             revision_of?: string | null;
             /** Run Identity */
@@ -496,6 +536,8 @@ export interface components {
             period: components["schemas"]["Period"] | null;
             /** Research Validity */
             research_validity: string;
+            /** Revision Kind */
+            revision_kind?: string | null;
             /** Revision Of */
             revision_of?: string | null;
             /** Run Identity */
@@ -595,6 +637,7 @@ export interface components {
          * @description Research and prospective summary without recommendation language.
          */
         Overview: {
+            closure_counts?: components["schemas"]["ClosureCounts"] | null;
             /** Current Stage */
             current_stage: string;
             /** Economic Outcome */

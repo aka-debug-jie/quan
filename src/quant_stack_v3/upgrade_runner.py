@@ -63,6 +63,8 @@ class UpgradeInputs:
     base_protocol_path: Path
     protocol_path: Path
     action_overrides_path: Path
+    action_evidence_root: Path | None = None
+    closure_protocol_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -93,7 +95,7 @@ def run_upgrade_strategy(
     run_root = inputs.artifact_root / "runs" / run_identity
     result_path = run_root / "result.json"
     if result_path.exists():
-        return result_path, json.loads(result_path.read_text(encoding="utf-8"))
+        return result_path, load_cached_upgrade_result(result_path, run_identity, identities)
     if run_root.exists() and any(run_root.iterdir()):
         raise ValueError("incomplete upgrade run directory already exists")
     run_root.mkdir(parents=True, exist_ok=True)
@@ -131,7 +133,7 @@ def run_upgrade_registry(
         run_root = inputs.artifact_root / "runs" / run_identity
         result_path = run_root / "result.json"
         if result_path.exists():
-            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result = load_cached_upgrade_result(result_path, run_identity, identities)
         else:
             if run_root.exists() and any(run_root.iterdir()):
                 raise ValueError("incomplete upgrade run directory already exists")
@@ -152,7 +154,7 @@ def run_upgrade_registry(
 
 
 def _identities(spec: UpgradeRunSpec, inputs: UpgradeInputs) -> dict[str, object]:
-    return {
+    identities: dict[str, object] = {
         "upgrade_protocol_sha256": _file_sha256(inputs.protocol_path),
         "base_protocol_sha256": _file_sha256(inputs.base_protocol_path),
         "bundle_sha256": inputs.bundle_sha256,
@@ -168,6 +170,35 @@ def _identities(spec: UpgradeRunSpec, inputs: UpgradeInputs) -> dict[str, object
         "action_overrides_sha256": _file_sha256(inputs.action_overrides_path),
         "experiment": asdict(spec),
     }
+    if inputs.closure_protocol_path is not None:
+        identities["closure_protocol_sha256"] = _file_sha256(inputs.closure_protocol_path)
+    return identities
+
+
+def load_cached_upgrade_result(
+    result_path: Path, run_identity: str, expected_identities: dict[str, object]
+) -> dict[str, object]:
+    """Fail closed if a cached run differs from its requested calculation or files."""
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    if not isinstance(result, dict) or result.get("run_identity") != run_identity:
+        raise ValueError("cached upgrade run identity differs")
+    embedded = result.get("identities")
+    if not isinstance(embedded, dict):
+        raise ValueError("cached upgrade run lacks identities")
+    expected = json.loads(canonical_json(expected_identities))
+    if any(embedded.get(key) != value for key, value in expected.items()):
+        raise ValueError("cached upgrade input identities differ")
+    if str(result.get("RESEARCH_VALIDITY", "")).startswith("VALID_"):
+        for filename, key in (
+            ("nav.parquet", "nav_sha256"),
+            ("ledger.parquet", "ledger_sha256"),
+            ("order_intents.parquet", "order_intents_sha256"),
+            ("daily_turnover.parquet", "daily_turnover_sha256"),
+        ):
+            path = result_path.parent / filename
+            if not path.is_file() or _file_sha256(path) != embedded.get(key):
+                raise ValueError(f"cached upgrade {filename} hash differs")
+    return result
 
 
 def prepare_upgrade_data(base_protocol: Protocol, inputs: UpgradeInputs) -> PreparedUpgradeData:
@@ -185,10 +216,12 @@ def prepare_upgrade_data(base_protocol: Protocol, inputs: UpgradeInputs) -> Prep
         .sort_index()
     )
     scores = pd.read_parquet(inputs.scores_path)
-    daily_scores = {
-        date.fromisoformat(str(session)[:10]): frame.copy()
-        for session, frame in scores.groupby("session", sort=True)
-    }
+    daily_scores: dict[date, pd.DataFrame] = {}
+    for session, frame in scores.groupby("session", sort=True):
+        daily = frame.copy()
+        if inputs.closure_protocol_path is not None:
+            daily = add_conditional_filter_liquidity_rank(daily)
+        daily_scores[date.fromisoformat(str(session)[:10])] = daily
     actions, transfers_raw = load_actions(
         inputs.bundle_root,
         bundle_sha256=inputs.bundle_sha256,
@@ -198,7 +231,9 @@ def prepare_upgrade_data(base_protocol: Protocol, inputs: UpgradeInputs) -> Prep
     unexplained = unexplained_factor_events(
         inputs.bundle_root, actions, start=sessions[0], end=sessions[-1]
     )
-    no_participation = load_no_participation_overrides(inputs.action_overrides_path)
+    no_participation = load_no_participation_overrides(
+        inputs.action_overrides_path, evidence_root=inputs.action_evidence_root
+    )
     unexplained = {
         session: tuple(symbol for symbol in symbols if (symbol, session) not in no_participation)
         for session, symbols in unexplained.items()
@@ -207,6 +242,19 @@ def prepare_upgrade_data(base_protocol: Protocol, inputs: UpgradeInputs) -> Prep
         session: tuple(values) for session, values in transfers_raw.items()
     }
     return PreparedUpgradeData(sessions, bars, daily_scores, actions, transfers, unexplained)
+
+
+def add_conditional_filter_liquidity_rank(daily: pd.DataFrame) -> pd.DataFrame:
+    """Rank only T-known gated names by trailing amount for the diagnostic control."""
+    output = daily.copy()
+    output["COND_FILTER_LIQ_rank"] = np.nan
+    gated = output.loc[output["COND_REV_5_rank"].notna() & output["mean_amount_60"].notna()]
+    if len(gated) >= 50:
+        ranked = gated.sort_values(
+            ["mean_amount_60", "symbol"], ascending=[False, True], kind="stable"
+        )
+        output.loc[ranked.index, "COND_FILTER_LIQ_rank"] = np.arange(1, len(ranked) + 1)
+    return output
 
 
 def _run_loaded(

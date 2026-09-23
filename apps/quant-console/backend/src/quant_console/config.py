@@ -29,6 +29,7 @@ class ConsoleConfig:
     upgrade_v1: SourcePair
     prospective_artifacts: Path
     prospective_acceptance: Path
+    closure_next: SourcePair | None = None
 
 
 def load_config(path: Path) -> ConsoleConfig:
@@ -46,6 +47,7 @@ def load_config(path: Path) -> ConsoleConfig:
         upgrade_v1=_pair(raw, "upgrade_v1"),
         prospective_artifacts=_path(raw, "prospective", "artifacts"),
         prospective_acceptance=_path(raw, "prospective", "acceptance_manifest"),
+        closure_next=_pair(raw, "closure_next") if "closure_next" in raw else None,
     )
 
 

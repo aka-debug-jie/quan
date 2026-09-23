@@ -202,6 +202,8 @@ def test_filter_sort_and_export_apply_to_full_scope(tmp_path: Path) -> None:
     assert payload["items"][0]["cagr"] == -0.05
     assert payload["items"][0]["annualized_volatility"] == 0.2
     assert payload["items"][0]["trade_count"] == 42
+    assert len(payload["items"][0]["result_sha256"]) == 64
+    assert payload["items"][0]["run_identity"]
     assert (
         client.get(
             f"{prefix}/experiments",
@@ -355,6 +357,165 @@ def test_web_modules_do_not_import_runners_brokers_providers_or_system_commands(
         "subprocess",
     ):
         assert forbidden not in text
+
+
+def test_closure_revision_preserves_old_counts_and_traces_issuer_evidence(tmp_path: Path) -> None:
+    """A third study keeps old states and exposes only approved evidence metadata."""
+    config_path = _fixture_sources(tmp_path)
+    artifacts = tmp_path / "closure-artifacts"
+    for folder in ("matrix", "runs", "evidence"):
+        (artifacts / folder).mkdir(parents=True)
+    old_candidate, old_benchmark = "2" * 64, "3" * 64
+    new_candidate, new_benchmark, control = "5" * 64, "6" * 64, "7" * 64
+    names = {
+        "AF7_TOP50_D20_EQ__REAL_T1_1M": (new_candidate, "AF7_TOP50_D20_EQ"),
+        "B50_LIQ50_D20__REAL_T1_1M": (new_benchmark, "B50_LIQ50_D20"),
+        "COND_FILTER_LIQ50_D20_EQ__REAL_T1_1M": (control, "COND_FILTER_LIQ50_D20_EQ"),
+    }
+    for identity, strategy in names.values():
+        _write_run(artifacts, identity, strategy, "REAL_T1_1M", valid=True)
+    matrix = {
+        "schema_version": 1,
+        "result_identities": {name: identity for name, (identity, _) in names.items()},
+        "lineage": {
+            "AF7_TOP50_D20_EQ__REAL_T1_1M": {
+                "revision_of": old_candidate,
+                "new_run_identity": new_candidate,
+                "kind": "EVIDENCE_AND_EXECUTION_ORDER_REPAIR",
+            },
+            "B50_LIQ50_D20__REAL_T1_1M": {
+                "revision_of": old_benchmark,
+                "new_run_identity": new_benchmark,
+                "kind": "EVIDENCE_AND_EXECUTION_ORDER_REPAIR",
+            },
+            "COND_FILTER_LIQ50_D20_EQ__REAL_T1_1M": {
+                "revision_of": None,
+                "new_run_identity": control,
+                "kind": "POST_RESULT_CONTROL",
+            },
+        },
+        "matched_benchmarks": {
+            "AF7_TOP50_D20_EQ": "B50_LIQ50_D20",
+            "COND_FILTER_LIQ50_D20_EQ": "B50_LIQ50_D20",
+        },
+        "candidate_outcomes": {"AF7_TOP50_D20_EQ": "NO_HISTORICAL_EDGE"},
+    }
+    matrix_sha = _write_content(artifacts / "matrix", matrix)
+    event_id = "evidence:closure:sh601012:2019-04-17"
+    evidence_sha = _write_content(
+        artifacts / "evidence",
+        {
+            "records": {
+                event_id: {
+                    "source_kind": "issuer_filing",
+                    "sha256": "a" * 64,
+                    "source_url": "https://issuer.example/announcement.pdf",
+                    "pages": [2],
+                    "published_on": "2019-04-17",
+                    "retrieved_at_utc": "2026-09-23T06:55:17Z",
+                    "data_use_level": "PRIVATE_RESEARCH_ONLY",
+                    "limitations": ["retrospective accounting evidence"],
+                }
+            },
+            "run_evidence": {new_benchmark: [event_id]},
+        },
+    )
+    manifest = tmp_path / "closure-manifest.json"
+    _dump(
+        manifest,
+        {
+            "schema_version": 1,
+            "matrix_sha256": matrix_sha,
+            "evidence_index_sha256": evidence_sha,
+            "result_sha256s": {
+                identity: _sha(artifacts / "runs" / identity / "result.json")
+                for identity, _ in names.values()
+            },
+            "revised_runs": 2,
+            "new_control_runs": 1,
+            "conditional_scale_runs": 0,
+            "cache_reuse_from_old_study": 0,
+            "valid_runs": 3,
+            "not_evaluable_runs": 0,
+            "retained_candidates": 0,
+            "IMPLEMENTATION_STATUS": "REAL_DATA_REEVALUATION_COMPLETE",
+            "RESEARCH_VALIDITY": "RETROSPECTIVE",
+            "ECONOMIC_OUTCOME": "NO_RETAINED_CANDIDATE",
+            "DATA_USE_LEVEL": "PRIVATE_RESEARCH_ONLY",
+        },
+    )
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write(f'\n[closure_next]\nmanifest = "{manifest}"\nartifacts = "{artifacts}"\n')
+    runtime = tmp_path / "runtime"
+    build_snapshot(load_config(config_path), runtime)
+    client, snapshot_id = _client(runtime, config_path)
+    prefix = f"/api/v1/snapshots/{snapshot_id}"
+    overview = client.get(f"{prefix}/overview").json()
+    assert overview["registered_runs"] == 3
+    assert overview["closure_counts"]["old_registered_runs"] == 3
+    assert overview["closure_counts"]["old_not_evaluable_runs"] == 1
+    assert overview["closure_counts"]["revised_runs"] == 2
+    assert overview["closure_counts"]["new_control_runs"] == 1
+    rows = client.get(f"{prefix}/experiments?page_size=100").json()["items"]
+    assert len(rows) == 7
+    revised = next(item for item in rows if item["run_identity"] == new_benchmark)
+    detail = client.get(f"{prefix}/experiments/{revised['artifact_id']}").json()
+    assert detail["revision_of"] == f"quant_upgrade_v1:{old_benchmark}"
+    assert detail["revision_kind"] == "EVIDENCE_AND_EXECUTION_ORDER_REPAIR"
+    assert detail["applied_evidence_ids"] == [event_id]
+    exported = client.post(
+        f"{prefix}/exports/experiments",
+        json={"scope": "selected", "format": "json", "artifact_ids": [revised["artifact_id"]]},
+    ).json()["items"][0]
+    assert exported["run_identity"] == new_benchmark
+    assert len(exported["result_sha256"]) == 64
+    assert exported["revision_kind"] == "EVIDENCE_AND_EXECUTION_ORDER_REPAIR"
+    assert exported["applied_evidence_ids"] == event_id
+    evidence = client.get(f"{prefix}/evidence/{event_id}").json()
+    assert evidence["source_url"] == "https://issuer.example/announcement.pdf"
+    assert str(tmp_path) not in json.dumps(evidence)
+    selected = [
+        item["artifact_id"] for item in rows if item["run_identity"] in {new_benchmark, control}
+    ]
+    comparison = client.post(
+        f"{prefix}/comparisons/validate", json={"artifact_ids": selected}
+    ).json()
+    assert comparison["mode"] == "DESCRIPTIVE_ONLY"
+    assert comparison["economic_inference_allowed"] is False
+    candidate_id = f"cn_research_closure_next:{new_candidate}"
+    valid_pair = client.post(
+        f"{prefix}/comparisons/validate",
+        json={"artifact_ids": [candidate_id, revised["artifact_id"]]},
+    ).json()
+    assert valid_pair["mode"] == "COMPARABLE"
+    view = SnapshotRepository(runtime).view(snapshot_id)
+    details = dict(view.details)
+    wrong_candidate = dict(details[candidate_id])
+    wrong_candidate["matched_benchmark_id"] = "B100_LIQ100_D20__REAL_T1_1M"
+    details[candidate_id] = wrong_candidate
+
+    class WrongPairRepository:
+        def view(self, _snapshot_id: str) -> SnapshotView:
+            return replace(view, details=details)
+
+    wrong_pair = ConsoleService(cast(SnapshotRepository, WrongPairRepository())).compare(
+        snapshot_id,
+        CompareRequest(artifact_ids=[candidate_id, revised["artifact_id"]]),
+    )
+    assert wrong_pair.mode == "DESCRIPTIVE_ONLY"
+    assert wrong_pair.economic_inference_allowed is False
+    pointer = (runtime / "current.json").read_bytes()
+    evidence_path = artifacts / "evidence" / f"{evidence_sha}.json"
+    original_evidence = evidence_path.read_bytes()
+    evidence_path.write_text("{}", encoding="utf-8")
+    with pytest.raises(SnapshotError, match="hash mismatch"):
+        build_snapshot(load_config(config_path), runtime)
+    assert (runtime / "current.json").read_bytes() == pointer
+    evidence_path.write_bytes(original_evidence)
+    (artifacts / "runs" / new_benchmark / "result.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(SnapshotError, match="hash mismatch"):
+        build_snapshot(load_config(config_path), runtime)
+    assert (runtime / "current.json").read_bytes() == pointer
 
 
 def _fixture_sources(tmp_path: Path) -> Path:

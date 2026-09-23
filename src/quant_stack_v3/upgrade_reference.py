@@ -130,7 +130,12 @@ def audit_reference_run(
         costs = _costs(base_protocol, session, cost_mode)
         due = sorted(
             (item for item in orders if item.execution_date == session),
-            key=lambda item: (0 if item.side == "sell" else 1, item.order_id),
+            key=lambda item: (
+                0 if item.side == "sell" else 1,
+                item.symbol,
+                item.signal_date,
+                item.quantity,
+            ),
         )
         for order in due:
             reason = _block_reason(order, today, session, session_actions)

@@ -150,19 +150,22 @@ test('critical and serious accessibility findings are absent on overview', async
   expect(result.violations.filter((item) => item.impact === 'critical' || item.impact === 'serious')).toEqual([])
 })
 
-test('real mode exposes frozen counts, dual status and separate prospective accounts', async ({ page }) => {
+test('real mode traces old and repaired studies without changing prospective accounts', async ({ page }) => {
   test.skip(!process.env.QUANT_CONSOLE_REAL_URL, 'requires approved local real sources')
   const errors: string[] = []
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto('/')
-  await expect(page.getByText('51', { exact: true })).toBeVisible()
-  await expect(page.getByText('19', { exact: true })).toBeVisible()
-  await expect(page.getByText('32', { exact: true })).toBeVisible()
+  await expect(page.getByText(/上轮强化研究：登记 51 项，可评价 19 项，不可评价 32 项/)).toBeVisible()
+  await expect(page.getByText('本轮历史重评结果已发布')).toBeVisible()
   await expect(page.getByText('演示数据，不是研究结果')).toHaveCount(0)
-  await page.getByRole('link', { name: '实验中心' }).click()
-  await page.getByPlaceholder('实验、策略或家族').fill('AF7_TOP50_D20_EQ__REAL_T1_1M')
-  await page.getByPlaceholder('实验、策略或家族').press('Enter')
-  await page.getByRole('button', { name: 'AF7_TOP50_D20_EQ__REAL_T1_1M' }).click()
+  const meta = await (await page.request.get('/api/v1/snapshot')).json() as { snapshot_id: string }
+  const registry = await (await page.request.get(`/api/v1/snapshots/${meta.snapshot_id}/experiments?page_size=1000`)).json() as {
+    items: { artifact_id: string; study_id: string; experiment_id: string }[]
+  }
+  const old = registry.items.find((item) => item.study_id === 'quant_upgrade_v1' && item.experiment_id === 'AF7_TOP50_D20_EQ__REAL_T1_1M')
+  const repaired = registry.items.find((item) => item.study_id === 'cn_research_closure_next' && item.experiment_id === 'B50_LIQ50_D20__REAL_T1_1M')
+  if (!old || !repaired) throw new Error('real study revisions are missing')
+  await page.goto(`/experiments/${encodeURIComponent(old.artifact_id)}?snapshot=${meta.snapshot_id}`)
   await expect(page.getByText('MATCHED_BENCHMARK_NOT_EVALUABLE')).toBeVisible()
   await expect(page.getByText('-5.22%')).toBeVisible()
   await expect(page.getByText('交易次数')).toBeVisible()
@@ -170,6 +173,13 @@ test('real mode exposes frozen counts, dual status and separate prospective acco
   await expect(page.getByText('run_result')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('heading', { name: '来源证据' })).toHaveCount(0)
+  await page.goto(`/experiments/${encodeURIComponent(repaired.artifact_id)}?snapshot=${meta.snapshot_id}`)
+  await expect(page.getByText('B50_LIQ50_D20__REAL_T1_1M')).toBeVisible()
+  await expect(page.getByText('quant_upgrade_v1:', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: /evidence:closure:sh601012/ }).first().click()
+  await expect(page.getByRole('link', { name: '打开来源' })).toBeVisible()
+  await expect(page.getByText('issuer_filing')).toBeVisible()
+  await page.keyboard.press('Escape')
   await page.getByRole('link', { name: '前瞻模拟' }).click()
   await expect(page.getByText('尚未启动；不以 0 元或 0% 代替。')).toBeVisible()
   await page.getByRole('link', { name: '数据与系统健康' }).click()

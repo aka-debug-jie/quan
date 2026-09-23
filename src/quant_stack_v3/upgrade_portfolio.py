@@ -65,6 +65,7 @@ def policy_for(strategy_id: str) -> PortfolioPolicy:
         ),
         "MOM605_TOP50_D20_EQ": PortfolioPolicy(strategy_id, "MOM_60_5_rank", 50, 20),
         "CONDREV5_TOP50_D20_EQ": PortfolioPolicy(strategy_id, "COND_REV_5_rank", 50, 20),
+        "COND_FILTER_LIQ50_D20_EQ": PortfolioPolicy(strategy_id, "COND_FILTER_LIQ_rank", 50, 20),
         "DOWN60_TOP50_D20_EQ": PortfolioPolicy(strategy_id, "DOWNSIDE_60_rank", 50, 20),
         "ROBUSTTREND_TOP50_D20_EQ": PortfolioPolicy(strategy_id, "ROBUST_TREND_rank", 50, 20),
     }

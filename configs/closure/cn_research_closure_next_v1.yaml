@@ -1,0 +1,57 @@
+schema_version: 1
+protocol_id: CN-RESEARCH-CLOSURE-NEXT-V1
+status: REGISTERED_BEFORE_CLOSURE_RETURNS
+scope: HISTORICAL_RESEARCH_ONLY
+base_upgrade_protocol_sha256: 6d205ada00e6206523ee70d3396b20c825647ca096268bcc749cd8e788a9541b
+base_upgrade_matrix_sha256: e819008abdd0164f2b7fd987b3a41beef3b35cf0745e978c4ebf6f6ae167bf93
+data_use_level: RQALPHA_SINGLE_SOURCE_NONCOMMERCIAL_PRIVATE_RESEARCH_ONLY
+history_status: FULLY_TOUCHED_RETROSPECTIVE_DEVELOPMENT
+frozen_revisions:
+  source: all_51_upgrade_v1_registered_runs
+  source_run_count: 51
+  preserve_old_results: true
+  same_universe_scores_costs_execution_and_benchmark_definitions: true
+engineering_correction:
+  issue: run_identity_hash_changed_same_side_cash_limited_fill_priority
+  policy: sell_then_buy_symbol_signal_date_quantity
+  classification: EXECUTION_ORDER_REPAIR_APPLIED_TO_CANDIDATE_AND_BENCHMARK
+evidence_priority:
+  shared_first:
+    - {symbol: sh601012, session: 2019-04-17, dependency: B50_LIQ50_D20}
+    - {symbol: sz000686, session: 2016-04-15, dependency: B100_LIQ100_D20}
+    - {symbol: sz002673, session: 2017-04-11, dependency: AF7_LOW_AVOID100_D20_AND_CONDREV5_TOP50_D20_EQ}
+  secondary:
+    - {symbol: sh600832, session: 2015-05-20, dependency: MERGER_HELD_VALUATION}
+    - {symbol: sz002017, session: 2019-02-28, dependency: MOM605_TOP50_D20_EQ}
+evidence_policy:
+  rights_issue: no_participation_no_synthetic_cash_or_shares
+  merger: verified_transfer_or_cash_settlement_else_not_evaluable
+  max_retries_per_url: 3
+  max_independent_official_lookup_paths: 2
+diagnostic_control:
+  id: COND_FILTER_LIQ50_D20_EQ
+  question: conditional_filter_versus_reversal_rank
+  registered_after_prior_upgrade_results: true
+  role: POST_RESULT_MECHANISM_CONTROL_ONLY
+  eligible: non_null_COND_REV_5_rank_at_signal_close
+  ranking: mean_amount_60_desc_symbol_ascending
+  selection_count: 50
+  rebalance_sessions: 20
+  weights: equal
+  scenarios: [REAL_T1_1M, DOUBLE_ASSUMPTION_T1_1M, ZERO_ALL_COST_T1_1M, REAL_T2_1M]
+statistics:
+  formal_candidate_family: ORIGINAL_EIGHT_ONLY
+  formal_benchmarks: ORIGINAL_UPGRADE_V1_MATCHES
+  paired_block_sessions: 21
+  bootstrap_replicates: 10000
+  bootstrap_seed: 20260922
+  multiplicity: HOLM_EIGHT_CANDIDATES
+  invalid_measured_p_and_interval: null
+  diagnostic_control_formal_promotion_test: false
+budget:
+  frozen_revision_runs: 51
+  diagnostic_control_runs: 4
+  conditional_scale_runs_maximum: 4
+  total_runs_maximum: 59
+  workers_maximum: 6
+forbidden_uses: [csi500, sealed_test, paid_data, live_order, paper_deployment, factor_search]

@@ -132,8 +132,8 @@ def build_robustness_report(
                 "benchmark": benchmark,
                 "outcome": "NOT_EVALUABLE",
                 "reason": invalid[candidate],
-                "one_sided_bootstrap_p": 1.0,
-                "holm_adjusted_p": adjusted[candidate],
+                "one_sided_bootstrap_p": None,
+                "holm_adjusted_p": None,
                 "paired_block_bootstrap_95_interval": None,
             }
             continue
@@ -195,6 +195,7 @@ def build_robustness_report(
         "block_sessions": block_sessions,
         "seed": seed,
         "multiplicity": "Holm one-sided across eight preregistered candidates",
+        "invalid_family_placeholder": "p=1 internally; never a measured p-value",
         "candidates": rows,
         "limitations": [
             "bootstrap reuses touched historical dates and is not new market evidence",
@@ -246,9 +247,9 @@ def _nav(result: dict[str, object], artifact_root: Path) -> pd.Series:
 def _active_years(result: dict[str, object], benchmark: dict[str, object]) -> dict[str, float]:
     left = _mapping(result["calendar_year_returns"])
     right = _mapping(benchmark["calendar_year_returns"])
-    return {
-        year: _number(left[year]) - _number(right[year]) for year in sorted(set(left) & set(right))
-    }
+    if set(left) != set(right):
+        raise ValueError("candidate and matched benchmark yearly periods differ")
+    return {year: _number(left[year]) - _number(right[year]) for year in sorted(left)}
 
 
 def _metric(result: dict[str, object], name: str) -> float:

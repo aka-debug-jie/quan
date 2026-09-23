@@ -1,0 +1,100 @@
+schema_version: 2
+status: RETROSPECTIVE_ACCOUNTING_VERIFICATION_ONLY
+inherits:
+  path: ../v3/corporate_action_overrides_v1.yaml
+  sha256: 3f4227e0b8ad62b98f6cbb221fc384224bec98f9095aa3b3f908c800a36daa6b
+events:
+  - symbol: sh601012
+    effective_date: 2019-04-17
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2019-04-08
+    listing_date: 2019-04-29
+    offered_ratio: 0.30
+    subscription_price: 4.65
+    record_shares: 2790803535
+    actual_issued_shares: 833419462
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2019-04-03/1205988167.PDF
+        published_on: 2019-04-03
+        retrieved_at_utc: 2026-09-23T06:55:17Z
+        sha256: 8720d162175c43491244c8d18cd76a8e35fdd6309ee3099db5f2aed3ac28707c
+        pages: [25, 26]
+      - url: https://static.cninfo.com.cn/finalpage/2019-08-29/1206660065.PDF
+        published_on: 2019-08-29
+        retrieved_at_utc: 2026-09-23T06:56:33Z
+        sha256: 6cc7db15b5131a54e36e2e5156972f29545af7c69cdc693693f19454c14cc603
+        pages: [47, 159]
+  - symbol: sz000686
+    effective_date: 2016-04-15
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2016-04-06
+    listing_date: 2016-04-22
+    offered_ratio: 0.20
+    subscription_price: 9.08
+    record_shares: 1957166032
+    actual_issued_shares: 383286883
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2016-04-01/1202123520.PDF
+        published_on: 2016-04-01
+        retrieved_at_utc: 2026-09-23T06:55:16Z
+        sha256: 19353a04b7f0b75056b92748856d79f903f2fe45e3fac4bd1116f88cd8384e2f
+        pages: [2, 4]
+      - url: https://static.cninfo.com.cn/finalpage/2016-04-27/1202249502.PDF
+        published_on: 2016-04-27
+        retrieved_at_utc: 2026-09-23T06:55:16Z
+        sha256: 54fa2aa90121e67539d5200d34835252aa54df41dcce3ddbb9cb47b749a2a8f8
+        pages: [3, 5]
+  - symbol: sz002673
+    effective_date: 2017-04-11
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2017-03-29
+    listing_date: 2017-04-20
+    offered_ratio: 0.26
+    subscription_price: 6.87
+    record_shares: 2795569620
+    actual_issued_shares: 706270150
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2017-03-27/1203195217.PDF
+        published_on: 2017-03-27
+        retrieved_at_utc: 2026-09-23T06:55:16Z
+        sha256: 0324d50bb428f191650fe715136fda4695048864933d2cbf6cc7d0e3d3226bde
+        pages: [2, 4, 5]
+      - url: https://static.cninfo.com.cn/finalpage/2017-04-26/1203385225.PDF
+        published_on: 2017-04-26
+        retrieved_at_utc: 2026-09-23T06:55:18Z
+        sha256: e6a0eb25184d614128ce01eddd7620746cd9ad1baf49129ab05fc63af1f37d89
+        pages: [200]
+  - symbol: sz002017
+    effective_date: 2019-02-28
+    kind: rights_issue
+    policy: no_participation_no_synthetic_cash_or_shares
+    registration_date: 2019-02-19
+    listing_date: 2019-03-13
+    offered_ratio: 0.30
+    subscription_price: 4.04
+    record_shares: 346325336
+    actual_issued_shares: 100160748
+    source_documents:
+      - url: https://static.cninfo.com.cn/finalpage/2019-02-28/1205854477.PDF
+        published_on: 2019-02-28
+        retrieved_at_utc: 2026-09-23T06:56:32Z
+        sha256: c7af76f13886b5d324c29f8204d827b83a031dd0c7d8efa7cf8254a638ba814e
+        pages: [1, 3]
+      - url: https://static.cninfo.com.cn/finalpage/2019-03-12/1205892535.PDF
+        published_on: 2019-03-12
+        retrieved_at_utc: 2026-09-23T06:56:32Z
+        sha256: d64b928653f88e845b19decac85988ec9d63b1c1f7c9eacb3231c2b63571c4c9
+        pages: [2]
+unresolved_events:
+  - symbol: sh600832
+    effective_date: 2015-05-20
+    kind: merger_delisting_held_valuation
+    status: NOT_EVALUABLE_PENDING_TRANSFER_AND_VALUATION_CONTRACT
+    known_successor: sh600637
+    known_ratio: 1 / 3.05
+    source_url: https://static.cninfo.com.cn/finalpage/2016-04-27/1202251672.PDF
+    source_sha256: 152dfcfb31044da528c6f080f5e21c1ccb7122013a6f0a33bb9f8296bfae36d0
+    source_pages: [67, 78]
