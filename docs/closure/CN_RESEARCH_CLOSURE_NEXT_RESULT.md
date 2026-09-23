@@ -17,7 +17,7 @@ The fixed evaluation interval is 2015-01-05 to 2025-12-31. The frozen signal lab
 - Economic decomposition: `e9a1feac869b1b30c38dbc347397b598482cd47d409d5aafe38d287b13a17438`.
 - Published Console-safe manifest: `faadc0a8e27931606464d560f3cf84438ce39d3956ff3ba95fda42561c161554`; evidence index: `0f12a9592069b931adcc6cbfafcb9482aa343fa56c45049b369c2991381bf252`.
 
-The last six hashes identify local, ignored artifacts below `external/cn-research-closure-next/artifacts/revision-8f7502-de0297-engine/`. Their raw bars, ledgers and issuer PDFs are **not** published to GitHub.
+The new matrix, statistics, economics, published manifest and evidence index hashes identify local, ignored artifacts below `external/cn-research-closure-next/artifacts/revision-8f7502-de0297-engine/`. Their raw bars, ledgers and issuer PDFs are **not** published to GitHub.
 
 ## Evidence repair and remaining boundary
 
@@ -50,7 +50,7 @@ The daily AF7 audit illustrates execution drag: 1,407.93 lifetime two-sided turn
 
 ## Verification and isolation
 
-Seven representative valid accounts (B00, A04, B50, B100, AF7 avoidance, conditional reversal and filter-only control) passed the independent fill/cash/position/NAV calculator. The local Console indexed Historical V3 and Upgrade V1 alongside the closure revision without rewriting Upgrade V1's historical 51 registered / 19 valid / 32 not evaluable / 0 retained counts. Real desktop and mobile browser checks verified old/new experiment detail, the B50 issuer evidence link, separated prospective state and system health. Synthetic browser checks remain separate. The preview bound only to 127.0.0.1 and was stopped after acceptance.
+Seven representative valid accounts (B00, A04, B50, B100, AF7 avoidance, conditional reversal and filter-only control) passed the independent fill/cash/position/NAV calculator. A separate empty-root rebuild of B50 reproduced the result, NAV, ledger, order-intent and turnover files byte-for-byte. The local Console indexed Historical V3 and Upgrade V1 alongside the closure revision without rewriting Upgrade V1's historical 51 registered / 19 valid / 32 not evaluable / 0 retained counts. Real desktop and mobile browser checks verified old/new experiment detail, the B50 issuer evidence link, separated prospective state and system health. Synthetic browser checks remain separate. The preview bound only to 127.0.0.1 and was stopped after acceptance.
 
 The original prospective branch remained `prospective/cn-shadow-v1@68011e807d5e7f921384f2b1c6d136b717b68bf8`; its timer stayed active. The paper SQLite SHA-256 before and after Console acceptance was `2373793a01dbc7bff06c705a0eeb6d074cbb1d558a576a3fdb7f7b49fc3f7443`, and the published prospective acceptance manifest stayed `2f1a7ae9636971ebcf227914cb7f4a047e91f7145d943ec5f6630689fc4227d4`. No sealed CSI500 data, broker interface, public deployment or strategy timer change occurred.
 
